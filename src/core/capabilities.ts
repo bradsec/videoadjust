@@ -25,10 +25,22 @@ const VIDEO_PROBE = { width: 1280, height: 720, frameRate: 30 };
 // The encoder package embeds FFmpeg's LGPL-2.1+ AAC encoder as WASM. The dynamic
 // import keeps it in its own same-origin chunk, fetched only when the browser has
 // no native AAC encoder.
-export async function registerAacFallback(): Promise<boolean> {
-  const { registerAacEncoder } = await import('@mediabunny/aac-encoder');
-  registerAacEncoder();
-  return true;
+// Registering twice would add a second custom encoder, so the first call's
+// promise is reused. A failed load is not cached, so a later call can retry.
+let aacRegistration: Promise<boolean> | undefined;
+
+export function registerAacFallback(): Promise<boolean> {
+  aacRegistration ??= import('@mediabunny/aac-encoder').then(
+    ({ registerAacEncoder }) => {
+      registerAacEncoder();
+      return true;
+    },
+    (err: unknown) => {
+      aacRegistration = undefined;
+      throw err;
+    },
+  );
+  return aacRegistration;
 }
 
 async function probe(check: () => Promise<boolean>, label: string): Promise<boolean> {

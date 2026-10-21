@@ -39,7 +39,9 @@ This project is MIT (see `LICENSE`). Production dependencies:
 
 Browsers without a native WebCodecs AAC encoder get `@mediabunny/aac-encoder`, registered with
 its documented `registerAacEncoder()` call. The app loads it with a dynamic `import()` only after
-`canEncodeAudio('aac')` returns false, so it ships as a separate same-origin chunk.
+`canEncodeAudio('aac')` returns false, so it ships as a separate same-origin chunk, registered
+once per page. The WASM is embedded in that JavaScript chunk, as the upstream package ships it.
+`THIRD-PARTY-LICENSES.txt` explains how to rebuild with your own FFmpeg build.
 
 Licence audit (version 1.62.0, 2026-10-22):
 
@@ -51,14 +53,17 @@ Licence audit (version 1.62.0, 2026-10-22):
   AAC encoder, which is LGPL-2.1-or-later (header of `libavcodec/aacenc.c`). FFmpeg's
   `LICENSE.md` states that GPL parts are off unless `--enable-gpl` is passed.
 - No fdk-aac and no GPL code, so the package passes the allowlist rule "LGPL-2.1+ only for
-  separately loaded, unmodified WASM chunks with source link".
+  separately loaded, unmodified WASM chunks with source link". The chunk is the unmodified npm
+  release, bundled and re-minified by Vite.
+- The upstream package does not record which FFmpeg version it was built from.
 
 The npm metadata reports MPL-2.0, so the embedded LGPL code is not visible to `pnpm licenses`.
 `scripts/check-licenses.mjs` keeps an explicit per-package exception (`LGPL_WASM_EXCEPTIONS`):
 LGPL-2.1-or-later is accepted for `@mediabunny/aac-encoder` only, and for no other package. The
 dependency is pinned to the audited version; re-run the audit before upgrading it.
 
-Full notices are in `THIRD-PARTY-LICENSES.txt`. `pnpm check:licenses` reads
+Full notices, including the MPL-2.0 and LGPL-2.1 texts, are in `THIRD-PARTY-LICENSES.txt`. The build
+copies it to `dist/THIRD-PARTY-LICENSES.txt` and the page footer links to it. `pnpm check:licenses` reads
 `pnpm licenses list --prod --json`, fails on any licence outside the allowlist (MIT, BSD-2/3-Clause,
 ISC, Apache-2.0, 0BSD, MPL-2.0, plus the per-package LGPL exception above) and fails if a production package has no entry in
 `THIRD-PARTY-LICENSES.txt`. It runs in `pnpm build` and in the Pages workflow.

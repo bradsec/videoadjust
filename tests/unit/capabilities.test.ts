@@ -103,3 +103,15 @@ describe('probeCapabilities', () => {
     expect(falsy.shareFiles).toBe(false);
   });
 });
+
+const { registerAacEncoder } = vi.hoisted(() => ({ registerAacEncoder: vi.fn() }));
+vi.mock('@mediabunny/aac-encoder', () => ({ registerAacEncoder }));
+
+describe('registerAacFallback', () => {
+  test('registers the encoder once per page', async () => {
+    const { registerAacFallback } = await import('../../src/core/capabilities');
+    expect(await registerAacFallback()).toBe(true);
+    expect(await registerAacFallback()).toBe(true);
+    expect(registerAacEncoder).toHaveBeenCalledTimes(1);
+  });
+});
