@@ -7,6 +7,7 @@ import { UnsupportedSourceError } from '../core/source';
 import type { openSink as openSinkFn } from '../core/sink';
 import type { AutoResult, Capabilities, Settings, SourceInfo } from '../core/types';
 import { formatBytes } from './format';
+import { clampTrim } from './trimBar';
 
 /** Above this the app warns before reading the file (decimal, matching formatBytes). */
 export const LARGE_FILE_BYTES = 2e9;
@@ -37,6 +38,7 @@ export type AppAction =
   | { type: 'dismissNotice' }
   | { type: 'reading'; name: string }
   | { type: 'loaded'; file: File; source: SourceInfo; input: Input; auto: AutoResult }
+  | { type: 'setTrim'; value: Settings['trim'] }
   | { type: 'failed'; notice: Notice }
   | { type: 'reset' };
 
@@ -105,6 +107,13 @@ export function createController(
           auto: action.auto,
           settings: action.auto.settings,
         });
+        return;
+      case 'setTrim':
+        if (state.kind === 'prepare') {
+          const moved = action.value.start !== state.settings.trim.start ? 'start' : 'end';
+          const trim = clampTrim(action.value, state.source.durationSec, moved);
+          setState({ ...state, settings: { ...state.settings, trim } });
+        }
         return;
       case 'failed':
         cancelLoad();

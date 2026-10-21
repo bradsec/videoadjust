@@ -307,6 +307,46 @@ footer a {
 }
 .prepare-regions {
   min-height: var(--sp-7);
+  display: grid;
+  gap: var(--sp-4);
+  max-width: var(--content-max);
+  margin: var(--sp-4) 0;
+}
+.preview-video {
+  display: block;
+  width: 100%;
+  max-height: 380px;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: var(--c-stage);
+  border-radius: var(--r-md);
+}
+.trim { display: grid; gap: var(--sp-3); }
+.trim-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-2); color: var(--c-ink-2); }
+.trim-head h2 { font-size: var(--fs-3); color: var(--c-ink); }
+.trim-strip { position: relative; height: 64px; border-radius: var(--r-md); background: var(--c-stage); touch-action: none; }
+.trim-thumbs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: 100%; overflow: hidden; border-radius: var(--r-md); }
+.trim-thumbs canvas { width: 100%; height: 100%; object-fit: cover; min-width: 0; }
+.trim-out { position: absolute; top: 0; bottom: 0; background: rgb(8 12 11 / 68%); pointer-events: none; }
+.trim-out:first-of-type { left: 0; }
+.trim-out:nth-of-type(2) { right: 0; }
+.trim-selection { position: absolute; top: -3px; bottom: -3px; border-block: 3px solid var(--c-signal); pointer-events: none; }
+.trim-handle { position: absolute; top: -3px; bottom: -3px; width: 22px; padding: 0; border: 0; background: var(--c-signal); color: var(--c-signal-ink); cursor: ew-resize; touch-action: none; }
+.trim-handle::before { content: ''; display: block; width: 3px; height: 22px; margin: auto; border-radius: 2px; background: currentColor; opacity: .6; }
+.trim-handle::after { content: ''; position: absolute; inset: -6px -11px; }
+.trim-handle.start { border-radius: 10px 0 0 10px; }
+.trim-handle.end { border-radius: 0 10px 10px 0; transform: translateX(-100%); }
+.trim-handle:focus-visible { outline: 3px solid var(--c-focus); outline-offset: 3px; z-index: 2; }
+.trim-playhead { position: absolute; top: -10px; bottom: -10px; width: 3px; margin-left: -1.5px; background: var(--c-stage-ink); border-radius: 2px; pointer-events: none; box-shadow: 0 0 0 1px var(--c-stage); }
+.trim-playhead::before { content: ''; position: absolute; top: -2px; left: 50%; width: 13px; height: 13px; transform: translateX(-50%); border-radius: 50%; background: var(--c-stage-ink); box-shadow: 0 0 0 1.5px var(--c-stage); }
+.trim-readouts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.trim-readout { display: grid; gap: var(--sp-2); }
+.trim-label { color: var(--c-ink-3); font-size: var(--fs-1); }
+.trim-value { font-size: var(--fs-4); font-weight: var(--fw-bold); }
+.trim-readout .btn { justify-content: flex-start; font-size: var(--fs-2); }
+.trim-estimate { color: var(--c-ink-2); font-size: var(--fs-2); }
+@media (min-width: 720px) {
+  .prepare-regions { gap: var(--sp-5); }
 }
 
 @media (min-width: 1024px) {

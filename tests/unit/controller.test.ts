@@ -119,3 +119,15 @@ describe('capability probe', () => {
     expect(probe).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('trim changes', () => {
+  it('updates prepare settings and clamps a crossing handle', async () => {
+    const { ctl, pending } = setup();
+    ctl.dispatch({ type: 'pick', file: fakeFile('a.mp4') });
+    await flush();
+    pending[0]!.resolve();
+    await flush();
+    ctl.dispatch({ type: 'setTrim', value: { start: 0, end: -1 } });
+    expect(ctl.getState()).toMatchObject({ kind: 'prepare', settings: { trim: { start: 0, end: 0.1 } } });
+  });
+});

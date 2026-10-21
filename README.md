@@ -20,6 +20,10 @@ scripts/make-fixtures.sh   # regenerate tests/fixtures (needs ffmpeg)
 
 First e2e run needs browsers: `pnpm exec playwright install chromium webkit`.
 
+On the prepare screen, drag the trim handles or use arrow keys to adjust by 0.1 seconds.
+Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set
+a boundary at the preview playhead. The kept duration and estimated size update as you trim.
+
 ## Hosting
 
 Static output in `dist/`, with a relative base so it runs under a GitHub Pages repo subpath.

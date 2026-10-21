@@ -1,8 +1,11 @@
+import { CanvasSink } from 'mediabunny';
+import { estimateBytes } from '../core/estimate';
 import type { SourceInfo } from '../core/types';
 import { codecLabel, createController, type AppAction, type AppDeps, type AppState } from './controller';
 import { el, icon } from './dom';
 import { mountDropZone } from './dropZone';
 import { formatBytes, formatDuration } from './format';
+import { mountTrimBar } from './trimBar';
 
 export * from './controller';
 
@@ -33,6 +36,7 @@ export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAc
 
   let mountedKind: AppState['kind'] | null = null;
   let dropZone: { focusPicker(): void } | undefined;
+  let prepareMount: { update(value: Extract<AppState, { kind: 'prepare' }>): void; destroy(): void } | undefined;
 
   // The browser would otherwise navigate to a file dropped outside the zone.
   window.addEventListener('dragover', (e) => e.preventDefault());
@@ -44,6 +48,12 @@ export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAc
     status.textContent = s.kind === 'drop' && s.reading ? `Reading ${s.reading}` : '';
     // The drop screen stays mounted across notice changes so the picker keeps focus.
     if (s.kind === mountedKind && s.kind === 'drop') return;
+    if (s.kind === mountedKind && s.kind === 'prepare') {
+      prepareMount?.update(s);
+      return;
+    }
+    prepareMount?.destroy();
+    prepareMount = undefined;
     mountedKind = s.kind;
     dropZone = undefined;
     switch (s.kind) {
@@ -51,7 +61,7 @@ export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAc
         dropZone = mountDropZone(view, (file) => dispatch({ type: 'pick', file }));
         return;
       case 'prepare':
-        renderPrepare(view, s, () => dispatch({ type: 'reset' }));
+        prepareMount = renderPrepare(view, s, () => dispatch({ type: 'reset' }), (value) => dispatch({ type: 'setTrim', value }));
         return;
       case 'working':
       case 'result':
@@ -101,13 +111,65 @@ function renderPrepare(
   container: HTMLElement,
   state: Extract<AppState, { kind: 'prepare' }>,
   onReset: () => void,
-): void {
+  onTrim: (value: { start: number; end: number }) => void,
+): { update(value: Extract<AppState, { kind: 'prepare' }>): void; destroy(): void } {
   const head = el('div', 'file-line');
   head.append(el('h1', 'file-name', state.file.name), el('p', 'file-summary num', summarySource(state.source)));
   const stage = el('div', 'prepare-regions');
   stage.dataset.region = 'prepare';
+  const video = el('video', 'preview-video');
+  video.controls = true;
+  video.playsInline = true;
+  video.loop = true;
+  video.preload = 'metadata';
+  const url = URL.createObjectURL(state.file);
+  video.src = url;
+  const trimHost = el('div');
+  const estimate = el('p', 'trim-estimate num');
+  const thumbnails = async (count: number): Promise<HTMLCanvasElement[]> => {
+    const track = await state.input.getPrimaryVideoTrack();
+    if (!track) return [];
+    const sink = new CanvasSink(track, { width: 160 });
+    const timestamps = Array.from({ length: count }, (_, i) => state.source.durationSec * (i + 0.5) / count);
+    const canvases: HTMLCanvasElement[] = [];
+    for await (const frame of sink.canvasesAtTimestamps(timestamps)) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 160;
+      canvas.height = 90;
+      if (frame) {
+        canvas.height = frame.canvas.height;
+        canvas.getContext('2d')?.drawImage(frame.canvas, 0, 0);
+      }
+      canvases.push(canvas);
+    }
+    return canvases;
+  };
+  const trim = mountTrimBar(trimHost, {
+    duration: state.source.durationSec,
+    value: state.settings.trim,
+    video,
+    thumbnails,
+    onChange: onTrim,
+  });
+  stage.append(video, trimHost, estimate);
   const another = el('button', 'btn btn-quiet', 'Choose another video');
   another.type = 'button';
   another.addEventListener('click', onReset);
   container.replaceChildren(head, stage, another);
+  function update(value: Extract<AppState, { kind: 'prepare' }>): void {
+    trim.update(value.settings.trim);
+    const { low, high } = estimateBytes(value.settings);
+    estimate.textContent = `Estimated size: ${formatBytes(low)}–${formatBytes(high)}`;
+  }
+  update(state);
+  return {
+    update,
+    destroy() {
+      trim.destroy();
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      URL.revokeObjectURL(url);
+    },
+  };
 }
