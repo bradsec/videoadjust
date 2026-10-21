@@ -294,3 +294,18 @@ export interface AutoResult {
 - [ ] **Step 5:** Full verification: `pnpm build && pnpm test && pnpm test:e2e`; `find dist -size +25M` empty; `grep -rE "https?://" dist --include=*.js --include=*.html` shows no third-party origins in fetch/script/link use.
 - [ ] **Step 6:** Manual check on a real iPhone and iPad (owner): drop a recent phone video, trim, export, share. Record results in README.
 - [ ] **Step 7:** Stage/commit: `feat: offline support and release docs`.
+
+### Task 13: CI tests workflow, lint/format, README badges
+
+Owner request: CI badges, testing and integration similar to github.com/bradsec/rastertrace (`../rastertrace/.github/workflows/tests.yml`, README badge row).
+
+**Files:** Create `.github/workflows/tests.yml`, `eslint.config.js`, `.prettierrc.json`, `.prettierignore`; Modify `package.json`, `.github/workflows/pages.yml`, `README.md`, source files only as needed to pass lint/format.
+
+**Interfaces:** Produces scripts `pnpm typecheck` (`tsc --noEmit`), `pnpm lint` (eslint), `pnpm format:check` (prettier --check), `pnpm check:size` (fails if any `dist` file > 25 MiB).
+
+- [ ] **Step 1:** Add ESLint (flat config, `typescript-eslint`) and Prettier as dev deps, current stable versions; config modelled on `../rastertrace` and `../../pdfprojects/pdfmerge/eslint.config.js`. Run `pnpm format` once and fix lint errors without changing behaviour.
+- [ ] **Step 2:** `tests.yml` named `Tests`, on `push`, `pull_request`, `workflow_dispatch`; pnpm cache; steps: `pnpm install --frozen-lockfile`, `pnpm check:licenses`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm exec playwright install --with-deps chromium webkit`, `pnpm test:e2e`, `pnpm build`, `pnpm check:size`. Upload the Playwright report as an artifact on failure.
+- [ ] **Step 3:** `pages.yml` deploys only from `main` and only after tests pass (`workflow_run` on `Tests` success, or a `needs:` on a reused test job; pick one, no duplicate suites).
+- [ ] **Step 4:** README top badge row in rastertrace's format: `Tests` workflow badge (`https://github.com/bradsec/videoresize/actions/workflows/tests.yml/badge.svg?branch=main`), package.json version, licence, live site (`https://bradsec.github.io/videoresize/` until a custom domain exists).
+- [ ] **Step 5:** Verify locally: `pnpm check:licenses && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm test:e2e && pnpm build && pnpm check:size` all pass; `actionlint` on both workflows if installed, else `node -e` YAML parse.
+- [ ] **Step 6:** Commit: `ci: tests workflow, lint, format and badges`.

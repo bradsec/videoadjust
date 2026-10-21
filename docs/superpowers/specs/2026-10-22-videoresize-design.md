@@ -124,6 +124,10 @@ hosted on GitHub Pages or Cloudflare Pages.
   expected output is large relative to device memory.
 - **Offline:** web manifest plus a service worker that precaches the build,
   following rastertrace. Network-free after first load.
+- **CI (owner's decision):** a `Tests` workflow on every push and pull
+  request (licence check, typecheck, lint, format, unit, e2e, build, asset
+  size), with README badges, matching rastertrace. Deploy runs only after
+  tests pass on `main`.
 - **Hosting:** GitHub Actions Pages workflow (test, build with relative base,
   deploy) like forgeview, plus a Cloudflare `_headers` file with security
   headers like pdfmerge/pdfprotect. CSP allows only self, `blob:`, and
