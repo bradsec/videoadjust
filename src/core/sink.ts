@@ -17,13 +17,21 @@ export function chooseSink(opts: {
   return { kind: 'memory', warn: opts.estimateBytes > MEMORY_WARN_FRACTION * memoryGB * GIB };
 }
 
+export interface OpenSink {
+  target: Target;
+  /** The in-memory output, or null for a file stream (the bytes are already on disk). */
+  finish(): Promise<Blob | null>;
+  /** Discard a file-stream output instead of committing it; a no-op for memory. */
+  abort(): Promise<void>;
+}
+
 const EXTENSIONS: Record<string, string> = { 'video/mp4': '.mp4', 'video/webm': '.webm' };
 
 export async function openSink(
   plan: SinkPlan,
   suggestedName: string,
   mime: string,
-): Promise<{ target: Target; finish(): Promise<Blob | null> }> {
+): Promise<OpenSink> {
   if (plan.kind === 'memory') {
     const target = new BufferTarget();
     return {
@@ -32,6 +40,7 @@ export async function openSink(
         if (!target.buffer) throw new Error('Output was not finalized before reading the buffer.');
         return new Blob([target.buffer], { type: mime });
       },
+      async abort() {},
     };
   }
 
@@ -42,11 +51,32 @@ export async function openSink(
     suggestedName,
     types: extension ? [{ accept: { [mime]: [extension] } }] : undefined,
   });
-  const writable = (await handle.createWritable()) as unknown as WritableStream<StreamTargetChunk>;
+  const file = (await handle.createWritable()) as unknown as WritableStream<StreamTargetChunk>;
+  const fileWriter = file.getWriter();
+  let aborted = false;
+  // Mediabunny closes its writer on cancel as well as on success, and closing a
+  // FileSystemWritableFileStream commits whatever was written. This wrapper turns that
+  // close into a no-op once abort() has run, so a canceled export is discarded instead.
+  const writable = new WritableStream<StreamTargetChunk>({
+    write: (chunk) => fileWriter.write(chunk),
+    close: () => (aborted ? undefined : fileWriter.close()),
+    abort: (reason) => fileWriter.abort(reason),
+  });
   return {
     target: new StreamTarget(writable, { chunked: true }),
     async finish() {
       return null;
+    },
+    async abort() {
+      if (aborted) return;
+      aborted = true;
+      try {
+        await fileWriter.abort();
+      } catch (err) {
+        // Already closed or errored: nothing more can be undone, and the caller tells the
+        // user a partial file may remain.
+        console.warn('discarding the output file failed', err);
+      }
     },
   };
 }

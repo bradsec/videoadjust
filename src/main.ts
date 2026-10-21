@@ -23,4 +23,5 @@ createApp(document.getElementById('app')!, {
   readSource,
   startConversion,
   openSink,
+  deviceMemoryGB: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
 });

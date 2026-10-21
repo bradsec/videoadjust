@@ -1,36 +1,59 @@
-import type { Input } from 'mediabunny';
+import { ConversionCanceledError, type Input } from 'mediabunny';
 import type { probeCapabilities as probeCapabilitiesFn } from '../core/capabilities';
 import { autoSettings, scaleToLongEdge, targetVideoBitrate } from '../core/autoSettings';
-import type { startConversion as startConversionFn } from '../core/convert';
+import { ConversionInvalidError, createOutputFormat, type startConversion as startConversionFn } from '../core/convert';
+import { estimateBytes } from '../core/estimate';
 import type { readSource as readSourceFn } from '../core/source';
 import { UnsupportedSourceError } from '../core/source';
-import type { openSink as openSinkFn } from '../core/sink';
+import { chooseSink, type OpenSink, type openSink as openSinkFn, type SinkPlan } from '../core/sink';
 import type { AutoResult, Capabilities, Container, Settings, SourceInfo, VideoCodecId } from '../core/types';
-import { formatBytes } from './format';
+import { formatBitrate, formatBytes } from './format';
 import { clampTrim } from './trimBar';
 
 /** Above this the app warns before reading the file (decimal, matching formatBytes). */
 export const LARGE_FILE_BYTES = 2e9;
 
 export interface Notice {
-  tone: 'warn' | 'error';
+  tone: 'info' | 'warn' | 'error';
   title: string;
   message: string;
   /** A file waiting on the user's "Continue anyway". */
   pending?: File;
+  /** An export waiting on the user's "Continue" past the in-memory size warning. */
+  confirm?: 'memory';
+}
+
+/** The loaded source and its derived limits, carried from prepare through result. */
+interface Loaded {
+  file: File;
+  source: SourceInfo;
+  input: Input;
+  auto: AutoResult;
+  caps: Capabilities;
+  settings: Settings;
 }
 
 export type AppState =
   | { kind: 'drop'; notice?: Notice; reading?: string }
-  | { kind: 'prepare'; file: File; source: SourceInfo; input: Input; auto: AutoResult; caps: Capabilities; settings: Settings }
-  | { kind: 'working'; file: File; source: SourceInfo; input: Input; settings: Settings; progress: number }
-  | {
+  | (Loaded & { kind: 'prepare'; notice?: Notice })
+  | (Loaded & {
+      kind: 'working';
+      outputName: string;
+      sinkKind: SinkPlan['kind'];
+      estimate: { low: number; high: number };
+      progress: number;
+      bytes: number;
+      startedAt: number;
+    })
+  | (Loaded & {
       kind: 'result';
-      file: File;
-      source: SourceInfo;
-      settings: Settings;
-      output: { blob: Blob | null; sizeBytes: number; url: string | null };
-    };
+      outputName: string;
+      sinkKind: SinkPlan['kind'];
+      elapsedMs: number;
+      /** Review Focus 4: the new file is the same size as the original or bigger. */
+      notSmaller: boolean;
+      output: { blob: Blob | null; sizeBytes: number; url: string | null; info: SourceInfo };
+    });
 
 export type AppAction =
   | { type: 'pick'; file: File }
@@ -40,7 +63,9 @@ export type AppAction =
   | { type: 'loaded'; file: File; source: SourceInfo; input: Input; auto: AutoResult; caps: Capabilities }
   | { type: 'setTrim'; value: Settings['trim'] }
   | { type: 'setSettings'; value: Settings }
-  | { type: 'export' }
+  | { type: 'export'; confirmed?: boolean }
+  | { type: 'cancel' }
+  | { type: 'smaller' }
   | { type: 'failed'; notice: Notice }
   | { type: 'reset' };
 
@@ -49,13 +74,89 @@ export interface AppDeps {
   readSource: typeof readSourceFn;
   startConversion: typeof startConversionFn;
   openSink: typeof openSinkFn;
+  /** navigator.deviceMemory where the browser reports it. */
+  deviceMemoryGB?: number;
 }
 
 const CODEC_LABELS: Record<string, string> = { avc: 'H.264', hevc: 'HEVC', vp9: 'VP9', vp8: 'VP8', av1: 'AV1' };
 export const codecLabel = (c: string | null) => (c ? (CODEC_LABELS[c] ?? c.toUpperCase()) : 'unknown codec');
 
 export function inputOf(state: AppState): Input | undefined {
-  return state.kind === 'prepare' || state.kind === 'working' ? state.input : undefined;
+  return state.kind === 'drop' ? undefined : state.input;
+}
+
+/** "IMG_4821.MOV" -> "IMG_4821-small.mp4" */
+export function outputNameFor(name: string, container: Container): string {
+  const dot = name.lastIndexOf('.');
+  return `${dot > 0 ? name.slice(0, dot) : name}-small.${container}`;
+}
+
+const AUDIO_STEPS = [160_000, 128_000, 96_000, 64_000];
+/** "Make it smaller" lowers quality by this share of the automatic bitrate when no smaller size is left. */
+const QUALITY_STEP_PERCENT = 25;
+const MIN_QUALITY_PERCENT = 25;
+
+/**
+ * Settings one step smaller than `settings`: the next size step below the current long
+ * edge, else video quality one step lower, else (audio only) the next lower audio bitrate.
+ * Null when nothing smaller is left.
+ */
+export function smallerSettings(settings: Settings, auto: AutoResult, source: SourceInfo): { settings: Settings; note: string } | null {
+  const v = settings.video;
+  const sv = source.video;
+  if (v && sv) {
+    const edge = Math.max(v.width, v.height);
+    const next = auto.sizeSteps.find((step) => step < edge);
+    if (next !== undefined) {
+      const { width, height } = scaleToLongEdge(sv.displayWidth, sv.displayHeight, next);
+      const bitrate = Math.round(Math.min(targetVideoBitrate(v.codec, width, height, v.fps), sv.bitrate ?? Infinity));
+      return {
+        settings: { ...settings, passthrough: false, video: { ...v, width, height, bitrate } },
+        note: `The size is now ${width}x${height}. Export again to try it.`,
+      };
+    }
+    const baseline = Math.min(targetVideoBitrate(v.codec, v.width, v.height, v.fps), sv.bitrate ?? Infinity);
+    const percent = Math.round((v.bitrate / baseline) * 100);
+    const lower = Math.max(MIN_QUALITY_PERCENT, percent - QUALITY_STEP_PERCENT);
+    if (lower >= percent) return null;
+    return {
+      settings: { ...settings, passthrough: false, video: { ...v, bitrate: Math.round(baseline * lower / 100) } },
+      note: `This is already the smallest size, so quality is lowered to ${lower}% of auto instead. Export again to try it.`,
+    };
+  }
+  const a = settings.audio;
+  const lower = a ? AUDIO_STEPS.find((b) => b < a.bitrate) : undefined;
+  if (!a || lower === undefined) return null;
+  return {
+    settings: { ...settings, passthrough: false, audio: { ...a, bitrate: lower, copy: false } },
+    note: `The audio bitrate is now ${formatBitrate(lower)}. Export again to try it.`,
+  };
+}
+
+const isAbortError = (err: unknown) => err instanceof DOMException && err.name === 'AbortError';
+const PARTIAL_FILE = 'A partial file may remain at the location you chose. You can delete it.';
+
+/** What the result shows for a file-stream output, where no Blob exists to read back. */
+function describeWritten(name: string, bytes: number, settings: Settings, source: SourceInfo, mime: string): SourceInfo {
+  const v = settings.video;
+  const a = settings.audio;
+  const durationSec = Math.max(0, settings.trim.end - settings.trim.start);
+  return {
+    name,
+    sizeBytes: bytes,
+    durationSec,
+    containerMime: mime,
+    video: v && source.video
+      ? settings.passthrough
+        ? source.video
+        : { codec: v.codec, decodable: true, displayWidth: v.width, displayHeight: v.height, rotation: 0, fps: v.fps, bitrate: v.bitrate }
+      : null,
+    audio: a && source.audio
+      ? settings.passthrough || a.copy
+        ? source.audio
+        : { codec: a.codec, decodable: true, channels: a.channels, sampleRate: source.audio.sampleRate, bitrate: a.bitrate }
+      : null,
+  };
 }
 
 const CONTAINER_VIDEO: Record<Container, VideoCodecId[]> = {
@@ -128,17 +229,31 @@ export function createController(
   let state: AppState = { kind: 'drop' };
   let loadToken = 0;
   let caps: Promise<Capabilities> | undefined;
+  let exportToken = 0;
+  let cancelExport: (() => void) | undefined;
 
   // Any in-flight read is superseded: its late result is dropped and its Input disposed.
+  // Any export in flight is canceled and its late result dropped.
   const cancelLoad = () => {
     loadToken++;
+    exportToken++;
+    cancelExport?.();
+    cancelExport = undefined;
   };
 
   function setState(next: AppState): void {
-    const prevInput = inputOf(state);
+    const prev = state;
+    const prevInput = inputOf(prev);
     state = next;
     if (prevInput && inputOf(next) !== prevInput) prevInput.dispose();
+    const prevUrl = prev.kind === 'result' ? prev.output.url : null;
+    if (prevUrl && !(next.kind === 'result' && next.output.url === prevUrl)) URL.revokeObjectURL(prevUrl);
     onChange(state);
+  }
+
+  function toPrepare(from: Loaded, notice?: Notice): void {
+    const { file, source, input, auto, caps: c, settings } = from;
+    setState({ kind: 'prepare', file, source, input, auto, caps: c, settings, notice });
   }
 
   function dispatch(action: AppAction): void {
@@ -153,6 +268,10 @@ export function createController(
         return;
       }
       case 'dismissNotice':
+        if (state.kind === 'prepare') {
+          setState({ ...state, notice: undefined });
+          return;
+        }
         cancelLoad();
         setState({ kind: 'drop' });
         return;
@@ -183,7 +302,29 @@ export function createController(
         }
         return;
       case 'export':
-        // Task 11 owns conversion and the working state.
+        if (state.kind === 'prepare') void startExport(state, action.confirmed === true);
+        return;
+      case 'cancel':
+        if (state.kind === 'working') {
+          // Return at once: a cancel that lands while Mediabunny is still initialising only
+          // settles when init finishes, seconds later on some engines. The job's late
+          // rejection is dropped by the token bump in cancelLoad.
+          const from = state;
+          cancelLoad();
+          toPrepare(from, from.sinkKind === 'file-stream' ? { tone: 'info', title: 'Export canceled', message: PARTIAL_FILE } : undefined);
+        }
+        return;
+      case 'smaller':
+        if (state.kind === 'result') {
+          const next = smallerSettings(state.settings, state.auto, state.source);
+          toPrepare(
+            next ? { ...state, settings: validateSettings(next.settings, state.auto, state.caps, state.source) } : state,
+            next
+              ? { tone: 'info', title: 'Settings changed to make it smaller', message: next.note }
+              : { tone: 'info', title: 'This is as small as these settings go',
+                  message: 'Size and quality are already at their lowest. Trim the video shorter to make it smaller.' },
+          );
+        }
         return;
       case 'failed':
         cancelLoad();
@@ -238,6 +379,103 @@ export function createController(
     } catch (err) {
       if (token !== loadToken) return;
       dispatch({ type: 'failed', notice: noticeForError(file, err) });
+    }
+  }
+
+  async function startExport(prep: Extract<AppState, { kind: 'prepare' }>, confirmed: boolean): Promise<void> {
+    const { settings, source, caps: c } = prep;
+    const estimate = estimateBytes(settings, source);
+    const plan = chooseSink({ estimateBytes: estimate.mid, fileStreamSave: c.fileStreamSave, deviceMemoryGB: deps.deviceMemoryGB });
+    if (plan.kind === 'memory' && plan.warn && !confirmed) {
+      setState({ ...prep, notice: {
+        tone: 'warn',
+        title: `This export may need about ${formatBytes(estimate.high)} of memory`,
+        message: 'This browser keeps the new file in memory until you save it. Phones and tablets may reload the tab and lose the work. Trim it shorter or choose a smaller size to be safe.',
+        confirm: 'memory',
+      } });
+      return;
+    }
+    const token = ++exportToken;
+    const base: Loaded = prep;
+    if (prep.notice) toPrepare(base);
+    const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
+    const outputName = outputNameFor(prep.file.name, settings.container);
+
+    let sink: OpenSink;
+    try {
+      sink = await deps.openSink(plan, outputName, mime);
+    } catch (err) {
+      if (token !== exportToken) return;
+      if (isAbortError(err)) {
+        toPrepare(base);
+        return;
+      }
+      console.error('opening the output failed', err);
+      toPrepare(base, { tone: 'error', title: 'The new file could not be created', message: 'Choose another place to save it, or try again.' });
+      return;
+    }
+    if (token !== exportToken) {
+      void sink.abort();
+      return;
+    }
+
+    let bytes = 0;
+    const startedAt = Date.now();
+    setState({ ...base, kind: 'working', outputName, sinkKind: plan.kind, estimate, progress: 0, bytes: 0, startedAt });
+    try {
+      const job = deps.startConversion({
+        input: base.input,
+        settings,
+        format: createOutputFormat(settings.container, plan.kind),
+        target: sink.target,
+        onProgress(p, written) {
+          bytes = written;
+          if (token === exportToken && state.kind === 'working') setState({ ...state, progress: p, bytes: written });
+        },
+      });
+      cancelExport = () => {
+        // The abort has to land before Mediabunny closes the stream, or the partial file is committed.
+        void sink.abort();
+        void job.cancel();
+      };
+      await job.done;
+      const blob = await sink.finish();
+      if (token !== exportToken) return;
+      cancelExport = undefined;
+      const info = blob ? await describeBlob(blob, outputName, mime, settings, source) : describeWritten(outputName, bytes, settings, source, mime);
+      if (token !== exportToken) return;
+      const sizeBytes = blob ? blob.size : bytes;
+      setState({
+        ...base, kind: 'result', outputName, sinkKind: plan.kind, elapsedMs: Date.now() - startedAt,
+        notSmaller: sizeBytes >= source.sizeBytes,
+        output: { blob, sizeBytes, url: blob ? URL.createObjectURL(blob) : null, info },
+      });
+    } catch (err) {
+      if (plan.kind === 'file-stream') await sink.abort();
+      if (token !== exportToken) return;
+      cancelExport = undefined;
+      const partial = plan.kind === 'file-stream' ? ` ${PARTIAL_FILE}` : '';
+      if (err instanceof ConversionCanceledError) {
+        toPrepare(base, partial ? { tone: 'info', title: 'Export canceled', message: PARTIAL_FILE } : undefined);
+      } else if (err instanceof ConversionInvalidError) {
+        toPrepare(base, { tone: 'error', title: 'This video cannot be exported with these settings', message: `${err.message}${partial}` });
+      } else {
+        console.error('export failed', err);
+        toPrepare(base, { tone: 'error', title: 'The export failed',
+          message: `Something went wrong while making the new file. Try again, or choose a smaller size.${partial}` });
+      }
+    }
+  }
+
+  /** Read the output back for the result table; settings stand in if this browser cannot read it. */
+  async function describeBlob(blob: Blob, name: string, mime: string, settings: Settings, source: SourceInfo): Promise<SourceInfo> {
+    try {
+      const { info, input } = await deps.readSource(new File([blob], name, { type: mime }));
+      input.dispose();
+      return info;
+    } catch (err) {
+      console.warn('reading the new file back failed; showing the requested settings', err);
+      return describeWritten(name, blob.size, settings, source, mime);
     }
   }
 

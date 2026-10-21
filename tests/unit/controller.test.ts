@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Input } from 'mediabunny';
+import { ConversionCanceledError, type Input } from 'mediabunny';
+import { ConversionInvalidError } from '../../src/core/convert';
 import { autoSettings } from '../../src/core/autoSettings';
 import type { Capabilities, SourceInfo } from '../../src/core/types';
 import { createController, LARGE_FILE_BYTES, type AppDeps } from '../../src/ui/controller';
@@ -33,7 +34,9 @@ function setup(probe: AppDeps['probeCapabilities'] = () => Promise.resolve(caps)
       pending.push({ name: file.name, input, resolve: () => resolve({ info: info(file.name), input }), reject });
     });
   });
-  const deps = { probeCapabilities: probe, readSource, startConversion: vi.fn(), openSink: vi.fn() } as unknown as AppDeps;
+  // openSink never settles here, standing in for a save picker left open.
+  const deps = { probeCapabilities: probe, readSource, startConversion: vi.fn(),
+    openSink: vi.fn(() => new Promise(() => {})) } as unknown as AppDeps;
   const ctl = createController(deps, () => {});
   return { ctl, pending, readSource };
 }
@@ -166,5 +169,217 @@ describe('prepare settings', () => {
     expect(ctl.getState()).toMatchObject({ kind: 'prepare', settings: {
       video: { codec: 'avc', width: 1920, height: 1080, bitrate: 4e6 }, trim: { start: 0, end: 3 },
     } });
+  });
+});
+
+describe('export flow', () => {
+  const source = (over: Partial<SourceInfo> = {}): SourceInfo => ({ ...info('clip.mov'), sizeBytes: 1_000_000, ...over });
+
+  function exportSetup(opts: {
+    fileStreamSave?: boolean;
+    deviceMemoryGB?: number;
+    src?: SourceInfo;
+    outputBytes?: number;
+    openSink?: AppDeps['openSink'];
+  } = {}) {
+    const src = opts.src ?? source();
+    const capabilities = { ...caps, fileStreamSave: opts.fileStreamSave ?? false };
+    let resolveDone!: () => void;
+    let rejectDone!: (e: unknown) => void;
+    let progress!: (p: number, bytes: number) => void;
+    const job = { cancel: vi.fn(async () => {}) };
+    const startConversion = vi.fn((args: { onProgress(p: number, b: number): void }) => {
+      progress = args.onProgress;
+      return {
+        ...job,
+        done: new Promise<void>((res, rej) => {
+          resolveDone = res;
+          rejectDone = rej;
+        }),
+      };
+    });
+    const blob = new Blob([new Uint8Array(opts.outputBytes ?? 1000)], { type: 'video/mp4' });
+    const sink = {
+      target: {},
+      finish: vi.fn(async () => (opts.fileStreamSave ? null : blob)),
+      abort: vi.fn(async () => {}),
+    };
+    const openSink = opts.openSink ?? vi.fn(async () => sink);
+    const outInput = fakeInput();
+    const readSource = vi.fn(async (file: File) => ({
+      info: { ...src, name: file.name, sizeBytes: file.size, containerMime: 'video/mp4' },
+      input: outInput,
+    }));
+    const deps = { probeCapabilities: () => Promise.resolve(capabilities), readSource, startConversion, openSink,
+      deviceMemoryGB: opts.deviceMemoryGB } as unknown as AppDeps;
+    const ctl = createController(deps, () => {});
+    const input = fakeInput();
+    ctl.dispatch({ type: 'loaded', file: fakeFile('clip.mov', src.sizeBytes), source: src, input,
+      auto: autoSettings(src, capabilities), caps: capabilities });
+    return { ctl, sink, job, openSink, startConversion, readSource, outInput, input,
+      resolve: () => resolveDone(), reject: (e: unknown) => rejectDone(e), progress: (p: number, b: number) => progress(p, b) };
+  }
+
+  it('runs export through working to result with a smaller output', async () => {
+    const t = exportSetup();
+    const settings = (t.ctl.getState() as Extract<ReturnType<typeof t.ctl.getState>, { kind: 'prepare' }>).settings;
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    expect(t.openSink).toHaveBeenCalledWith({ kind: 'memory', warn: false }, 'clip-small.mp4', 'video/mp4');
+    expect(t.ctl.getState()).toMatchObject({ kind: 'working', outputName: 'clip-small.mp4', progress: 0 });
+    t.progress(0.5, 400);
+    expect(t.ctl.getState()).toMatchObject({ kind: 'working', progress: 0.5, bytes: 400 });
+    t.resolve();
+    await flush();
+    await flush();
+    const state = t.ctl.getState();
+    expect(state).toMatchObject({ kind: 'result', settings, notSmaller: false,
+      output: { sizeBytes: 1000, info: { sizeBytes: 1000, name: 'clip-small.mp4' } } });
+    if (state.kind !== 'result') throw new Error('Expected result');
+    expect(state.output.url).toMatch(/^blob:/);
+    expect(t.outInput.dispose).toHaveBeenCalledTimes(1);
+    expect(t.input.dispose).not.toHaveBeenCalled();
+  });
+
+  it('flags an output that is not smaller than the source', async () => {
+    const t = exportSetup({ outputBytes: 1_000_000 });
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    t.resolve();
+    await flush();
+    await flush();
+    expect(t.ctl.getState()).toMatchObject({ kind: 'result', notSmaller: true });
+  });
+
+  it('returns to prepare with settings kept and no notice when the picker is cancelled', async () => {
+    const openSink = vi.fn(async () => {
+      throw new DOMException('The user aborted a request.', 'AbortError');
+    }) as unknown as AppDeps['openSink'];
+    const t = exportSetup({ fileStreamSave: true, openSink });
+    const before = t.ctl.getState();
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    const after = t.ctl.getState();
+    expect(after.kind).toBe('prepare');
+    if (after.kind !== 'prepare' || before.kind !== 'prepare') return;
+    expect(after.settings).toEqual(before.settings);
+    expect(after.notice).toBeUndefined();
+    expect(t.startConversion).not.toHaveBeenCalled();
+  });
+
+  it('warns before a large in-memory export and continues on confirm', async () => {
+    const big = source({ durationSec: 4000 });
+    const t = exportSetup({ src: big, deviceMemoryGB: 1 });
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    expect(t.openSink).not.toHaveBeenCalled();
+    expect(t.ctl.getState()).toMatchObject({ kind: 'prepare', notice: { tone: 'warn', confirm: 'memory' } });
+    t.ctl.dispatch({ type: 'export', confirmed: true });
+    await flush();
+    expect(t.openSink).toHaveBeenCalledWith({ kind: 'memory', warn: true }, 'clip-small.mp4', 'video/mp4');
+    expect(t.ctl.getState().kind).toBe('working');
+  });
+
+  it('cancel returns to prepare with settings kept', async () => {
+    const t = exportSetup();
+    const before = t.ctl.getState();
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    t.ctl.dispatch({ type: 'cancel' });
+    expect(t.job.cancel).toHaveBeenCalledTimes(1);
+    // Back to prepare without waiting for the job to settle.
+    expect(t.ctl.getState()).toMatchObject({ kind: 'prepare' });
+    t.reject(new ConversionCanceledError());
+    await flush();
+    const after = t.ctl.getState();
+    expect(after).toMatchObject({ kind: 'prepare' });
+    if (after.kind !== 'prepare' || before.kind !== 'prepare') return;
+    expect(after.settings).toEqual(before.settings);
+    expect(after.notice).toBeUndefined();
+    expect(t.input.dispose).not.toHaveBeenCalled();
+  });
+
+  it('aborts a file-stream sink on cancel and says a partial file may remain', async () => {
+    const t = exportSetup({ fileStreamSave: true });
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    expect(t.openSink).toHaveBeenCalledWith({ kind: 'file-stream' }, 'clip-small.mp4', 'video/mp4');
+    t.ctl.dispatch({ type: 'cancel' });
+    // The abort must reach the file before Mediabunny closes (and so commits) it.
+    expect(t.sink.abort).toHaveBeenCalled();
+    expect(t.sink.abort.mock.invocationCallOrder[0]!).toBeLessThan(t.job.cancel.mock.invocationCallOrder[0]!);
+    t.reject(new ConversionCanceledError());
+    await flush();
+    expect(t.ctl.getState()).toMatchObject({ kind: 'prepare', notice: { message: expect.stringContaining('partial file may remain') } });
+  });
+
+  it('aborts a file-stream sink when the conversion is invalid', async () => {
+    const t = exportSetup({ fileStreamSave: true });
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    t.reject(new ConversionInvalidError([{ track: 'video', reason: 'no_encodable_target_codec' }]));
+    await flush();
+    expect(t.sink.abort).toHaveBeenCalled();
+    expect(t.ctl.getState()).toMatchObject({ kind: 'prepare',
+      notice: { tone: 'error', message: expect.stringContaining('partial file may remain') } });
+  });
+
+  it('describes a file-stream output from the settings and bytes written', async () => {
+    const t = exportSetup({ fileStreamSave: true });
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    t.progress(1, 5000);
+    t.resolve();
+    await flush();
+    await flush();
+    expect(t.readSource).not.toHaveBeenCalled();
+    expect(t.ctl.getState()).toMatchObject({ kind: 'result', output: { blob: null, url: null, sizeBytes: 5000,
+      info: { sizeBytes: 5000, video: { codec: 'avc', displayWidth: 1920, displayHeight: 1080 } } } });
+  });
+
+  async function toResult(t: ReturnType<typeof exportSetup>) {
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    t.resolve();
+    await flush();
+    await flush();
+    const s = t.ctl.getState();
+    if (s.kind !== 'result') throw new Error('Expected result');
+    return s;
+  }
+
+  it('Make it smaller picks the next size step and revokes the output URL', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
+    const t = exportSetup({ outputBytes: 1_000_000 });
+    const result = await toResult(t);
+    t.ctl.dispatch({ type: 'smaller' });
+    expect(t.ctl.getState()).toMatchObject({ kind: 'prepare', settings: { passthrough: false, video: { width: 1280, height: 720 } } });
+    expect(revoke).toHaveBeenCalledWith(result.output.url);
+    expect(t.input.dispose).not.toHaveBeenCalled();
+    revoke.mockRestore();
+  });
+
+  it('Make it smaller lowers quality when no smaller size exists, and says so', async () => {
+    const small = source({ video: { ...info('x').video!, displayWidth: 640, displayHeight: 360, bitrate: 340_000 } });
+    const t = exportSetup({ src: small, outputBytes: 1_000_000 });
+    const result = await toResult(t);
+    const before = result.settings.video!.bitrate;
+    t.ctl.dispatch({ type: 'smaller' });
+    const s = t.ctl.getState();
+    expect(s).toMatchObject({ kind: 'prepare', settings: { video: { width: 640, height: 360 } },
+      notice: { message: expect.stringContaining('quality') } });
+    if (s.kind !== 'prepare') return;
+    expect(s.settings.video!.bitrate).toBe(Math.round(before * 0.75));
+  });
+
+  it('Start over revokes the output URL and disposes the source Input', async () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL');
+    const t = exportSetup();
+    const result = await toResult(t);
+    t.ctl.dispatch({ type: 'reset' });
+    expect(t.ctl.getState()).toEqual({ kind: 'drop' });
+    expect(revoke).toHaveBeenCalledWith(result.output.url);
+    expect(t.input.dispose).toHaveBeenCalledTimes(1);
+    revoke.mockRestore();
   });
 });

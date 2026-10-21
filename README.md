@@ -30,6 +30,15 @@ and audio bitrates stay within the source limits. If the source is already small
 offers Export trimmed copy, which keeps the source video and audio tracks. Select Re-encode anyway
 to use the adjustment controls.
 
+Export saves straight to a file you pick where the browser supports a save picker (Chromium).
+Elsewhere the new file stays in memory until you download or share it; a large in-memory export
+asks before it starts. The progress screen shows percent, elapsed and remaining time, and bytes
+written; Cancel returns to the prepare screen with your settings, and says when a partial file
+may remain at the chosen location. The result screen compares original and new in a table and,
+for in-memory exports, with a wipe view (drag the divider or use the arrow keys on it; Frame mode
+steps one frame at a time). If the new file is not smaller, the result says so and Make it smaller
+moves to the next smaller size, or lowers quality one step when no smaller size is left.
+
 ## Hosting
 
 Static output in `dist/`, with a relative base so it runs under a GitHub Pages repo subpath.

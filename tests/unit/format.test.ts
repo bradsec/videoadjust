@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatBitrate, formatBytes, formatDuration } from '../../src/ui/format';
+import { formatByteRange } from '../../src/ui/progress';
 
 describe('format', () => {
   it('formats bytes in decimal units', () => {
@@ -16,5 +17,12 @@ describe('format', () => {
     expect(formatDuration(75.5)).toBe('1:15.5');
     expect(formatDuration(5)).toBe('0:05');
     expect(formatDuration(3725)).toBe('1:02:05');
+  });
+});
+
+describe('formatByteRange', () => {
+  it('writes a shared unit once', () => {
+    expect(formatByteRange(18e6, 24e6)).toBe('18-24 MB');
+    expect(formatByteRange(900e3, 1.2e6)).toBe('900 kB-1.2 MB');
   });
 });
