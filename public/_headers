@@ -1,0 +1,7 @@
+# Cloudflare Pages response headers. The CSP mirrors the <meta> tag in
+# index.html. frame-ancestors is header-only because browsers ignore it in a meta CSP.
+/*
+  Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; worker-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

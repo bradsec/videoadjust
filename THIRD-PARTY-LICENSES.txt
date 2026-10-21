@@ -1,0 +1,21 @@
+Third-party licences for production dependencies of videoresize.
+Each package is listed as "## name" followed by version, licence and source.
+scripts/check-licenses.mjs fails the build if a production package is missing here.
+
+## mediabunny
+Version: 1.62.0
+Licence: MPL-2.0 (unmodified; bundled as-is)
+Source: https://github.com/Vanilagy/mediabunny
+Licence text: https://www.mozilla.org/MPL/2.0/ (also in node_modules/mediabunny/LICENSE)
+
+## @types/dom-webcodecs
+Version: 0.1.13
+Licence: MIT, Copyright (c) Microsoft Corporation
+Source: https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs
+Note: type declarations only, not shipped in the bundle.
+
+## @types/dom-mediacapture-transform
+Version: 0.1.12
+Licence: MIT, Copyright (c) Microsoft Corporation
+Source: https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform
+Note: type declarations only, not shipped in the bundle.
