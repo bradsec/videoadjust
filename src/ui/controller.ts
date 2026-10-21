@@ -1,11 +1,11 @@
 import type { Input } from 'mediabunny';
 import type { probeCapabilities as probeCapabilitiesFn } from '../core/capabilities';
-import { autoSettings } from '../core/autoSettings';
+import { autoSettings, scaleToLongEdge, targetVideoBitrate } from '../core/autoSettings';
 import type { startConversion as startConversionFn } from '../core/convert';
 import type { readSource as readSourceFn } from '../core/source';
 import { UnsupportedSourceError } from '../core/source';
 import type { openSink as openSinkFn } from '../core/sink';
-import type { AutoResult, Capabilities, Settings, SourceInfo } from '../core/types';
+import type { AutoResult, Capabilities, Container, Settings, SourceInfo, VideoCodecId } from '../core/types';
 import { formatBytes } from './format';
 import { clampTrim } from './trimBar';
 
@@ -22,7 +22,7 @@ export interface Notice {
 
 export type AppState =
   | { kind: 'drop'; notice?: Notice; reading?: string }
-  | { kind: 'prepare'; file: File; source: SourceInfo; input: Input; auto: AutoResult; settings: Settings }
+  | { kind: 'prepare'; file: File; source: SourceInfo; input: Input; auto: AutoResult; caps: Capabilities; settings: Settings }
   | { kind: 'working'; file: File; source: SourceInfo; input: Input; settings: Settings; progress: number }
   | {
       kind: 'result';
@@ -37,8 +37,10 @@ export type AppAction =
   | { type: 'continueLarge' }
   | { type: 'dismissNotice' }
   | { type: 'reading'; name: string }
-  | { type: 'loaded'; file: File; source: SourceInfo; input: Input; auto: AutoResult }
+  | { type: 'loaded'; file: File; source: SourceInfo; input: Input; auto: AutoResult; caps: Capabilities }
   | { type: 'setTrim'; value: Settings['trim'] }
+  | { type: 'setSettings'; value: Settings }
+  | { type: 'export' }
   | { type: 'failed'; notice: Notice }
   | { type: 'reset' };
 
@@ -54,6 +56,64 @@ export const codecLabel = (c: string | null) => (c ? (CODEC_LABELS[c] ?? c.toUpp
 
 export function inputOf(state: AppState): Input | undefined {
   return state.kind === 'prepare' || state.kind === 'working' ? state.input : undefined;
+}
+
+const CONTAINER_VIDEO: Record<Container, VideoCodecId[]> = {
+  mp4: ['avc', 'hevc', 'av1'],
+  webm: ['vp9', 'av1'],
+};
+
+export function availableVideoCodecs(container: Container, caps: Capabilities): VideoCodecId[] {
+  return CONTAINER_VIDEO[container].filter((codec) => caps.video[codec]);
+}
+
+/** Apply every source and encoder limit before settings enter controller state. */
+export function validateSettings(value: Settings, auto: AutoResult, caps: Capabilities, source: SourceInfo): Settings {
+  const fallback = auto.settings;
+  const container = availableVideoCodecs(value.container, caps).length &&
+    (value.container !== 'webm' || !source.audio || caps.audio.opus) ? value.container : fallback.container;
+  const supported = availableVideoCodecs(container, caps);
+  let video: Settings['video'] = null;
+  if (source.video && fallback.video) {
+    const requested = value.video ?? fallback.video;
+    const codec = supported.includes(requested.codec) ? requested.codec :
+      supported.includes(fallback.video.codec) ? fallback.video.codec : supported[0] ?? fallback.video.codec;
+    const sourceEdge = Math.max(source.video.displayWidth, source.video.displayHeight);
+    const allowedEdges = [sourceEdge, ...auto.sizeSteps];
+    const requestedEdge = Math.max(requested.width, requested.height);
+    const edge = allowedEdges.includes(requestedEdge) ? requestedEdge : Math.max(fallback.video.width, fallback.video.height);
+    const { width, height } = scaleToLongEdge(source.video.displayWidth, source.video.displayHeight, edge);
+    const fps = Number.isFinite(requested.fps) && requested.fps > 0
+      ? Math.min(requested.fps, source.video.fps) : fallback.video.fps;
+    const baseline = Math.min(targetVideoBitrate(codec, width, height, fps), source.video.bitrate ?? Infinity);
+    const bitrate = Number.isFinite(requested.bitrate)
+      ? Math.round(Math.min(Math.max(requested.bitrate, baseline * 0.25), baseline * 1.5, source.video.bitrate ?? Infinity))
+      : Math.round(baseline);
+    video = { codec, width, height, fps, bitrate };
+  }
+  let audio: Settings['audio'] = null;
+  if (source.audio && value.audio) {
+    const codec = container === 'webm' ? 'opus' : caps.audio[value.audio.codec] ? value.audio.codec : fallback.audio?.codec ?? 'aac';
+    const max = source.audio.bitrate ?? Infinity;
+    const allowed = [64_000, 96_000, 128_000, 160_000].filter((n) => n <= max);
+    const requested = value.audio.bitrate;
+    const bitrate = allowed.includes(requested) ? requested : Math.min(requested, max);
+    const copy = container === fallback.container && codec === fallback.audio?.codec &&
+      bitrate === fallback.audio.bitrate && fallback.audio.copy;
+    audio = { codec, bitrate: Math.max(1, bitrate), channels: Math.min(source.audio.channels, 2), copy };
+  }
+  return { container, trim: clampTrim(value.trim, source.durationSec, 'end'), video, audio };
+}
+
+/** Compare the effective values shown by the controls, after applying the same limits to both sides. */
+export function settingsChangeCount(value: Settings, auto: AutoResult, caps: Capabilities, source: SourceInfo): number {
+  const current = validateSettings(value, auto, caps, source);
+  const automatic = validateSettings(auto.settings, auto, caps, source);
+  return Number(current.container !== automatic.container) +
+    Number(current.video?.codec !== automatic.video?.codec) +
+    Number(current.video?.width !== automatic.video?.width || current.video?.height !== automatic.video?.height) +
+    Number(current.video?.fps !== automatic.video?.fps) + Number(current.video?.bitrate !== automatic.video?.bitrate) +
+    Number(current.audio?.codec !== automatic.audio?.codec) + Number(current.audio?.bitrate !== automatic.audio?.bitrate);
 }
 
 /**
@@ -105,6 +165,7 @@ export function createController(
           source: action.source,
           input: action.input,
           auto: action.auto,
+          caps: action.caps,
           settings: action.auto.settings,
         });
         return;
@@ -114,6 +175,14 @@ export function createController(
           const trim = clampTrim(action.value, state.source.durationSec, moved);
           setState({ ...state, settings: { ...state.settings, trim } });
         }
+        return;
+      case 'setSettings':
+        if (state.kind === 'prepare') {
+          setState({ ...state, settings: validateSettings(action.value, state.auto, state.caps, state.source) });
+        }
+        return;
+      case 'export':
+        // Task 11 owns conversion and the working state.
         return;
       case 'failed':
         cancelLoad();
@@ -164,7 +233,7 @@ export function createController(
         input.dispose();
         return;
       }
-      dispatch({ type: 'loaded', file, source: info, input, auto: autoSettings(info, capabilities) });
+      dispatch({ type: 'loaded', file, source: info, input, auto: autoSettings(info, capabilities), caps: capabilities });
     } catch (err) {
       if (token !== loadToken) return;
       dispatch({ type: 'failed', notice: noticeForError(file, err) });

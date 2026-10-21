@@ -5,6 +5,7 @@ import { codecLabel, createController, type AppAction, type AppDeps, type AppSta
 import { el, icon } from './dom';
 import { mountDropZone } from './dropZone';
 import { formatBytes, formatDuration } from './format';
+import { mountSettings } from './settingsPanel';
 import { mountTrimBar } from './trimBar';
 
 export * from './controller';
@@ -61,7 +62,9 @@ export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAc
         dropZone = mountDropZone(view, (file) => dispatch({ type: 'pick', file }));
         return;
       case 'prepare':
-        prepareMount = renderPrepare(view, s, () => dispatch({ type: 'reset' }), (value) => dispatch({ type: 'setTrim', value }));
+        prepareMount = renderPrepare(view, s, () => dispatch({ type: 'reset' }),
+          (value) => dispatch({ type: 'setTrim', value }),
+          (value) => dispatch({ type: 'setSettings', value }), () => dispatch({ type: 'export' }));
         return;
       case 'working':
       case 'result':
@@ -106,12 +109,14 @@ export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAc
   return controller;
 }
 
-/** Prepare screen. Trim, settings and the estimate mount into the regions below in later tasks. */
+/** Prepare screen. */
 function renderPrepare(
   container: HTMLElement,
   state: Extract<AppState, { kind: 'prepare' }>,
   onReset: () => void,
   onTrim: (value: { start: number; end: number }) => void,
+  onSettings: (value: Extract<AppState, { kind: 'prepare' }>['settings']) => void,
+  onExport: () => void,
 ): { update(value: Extract<AppState, { kind: 'prepare' }>): void; destroy(): void } {
   const head = el('div', 'file-line');
   head.append(el('h1', 'file-name', state.file.name), el('p', 'file-summary num', summarySource(state.source)));
@@ -126,6 +131,11 @@ function renderPrepare(
   video.src = url;
   const trimHost = el('div');
   const estimate = el('p', 'trim-estimate num');
+  const settingsHost = el('aside', 'settings-host');
+  const settings = mountSettings(settingsHost, {
+    auto: state.auto, caps: state.caps, source: state.source, value: state.settings,
+    onChange: onSettings, onExport,
+  });
   const thumbnails = async (count: number): Promise<HTMLCanvasElement[]> => {
     const track = await state.input.getPrimaryVideoTrack();
     if (!track) return [];
@@ -151,13 +161,14 @@ function renderPrepare(
     thumbnails,
     onChange: onTrim,
   });
-  stage.append(video, trimHost, estimate);
+  stage.append(video, trimHost, estimate, settingsHost);
   const another = el('button', 'btn btn-quiet', 'Choose another video');
   another.type = 'button';
   another.addEventListener('click', onReset);
   container.replaceChildren(head, stage, another);
   function update(value: Extract<AppState, { kind: 'prepare' }>): void {
     trim.update(value.settings.trim);
+    settings.update(value.settings);
     const { low, high } = estimateBytes(value.settings);
     estimate.textContent = `Estimated size: ${formatBytes(low)}–${formatBytes(high)}`;
   }

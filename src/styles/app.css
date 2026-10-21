@@ -289,7 +289,7 @@ footer a {
   color: var(--c-ink);
 }
 
-/* Prepare screen: file line; trim, settings and estimate regions are added by later tasks. */
+/* Prepare screen */
 .file-line {
   display: flex;
   flex-wrap: wrap;
@@ -345,8 +345,49 @@ footer a {
 .trim-value { font-size: var(--fs-4); font-weight: var(--fw-bold); }
 .trim-readout .btn { justify-content: flex-start; font-size: var(--fs-2); }
 .trim-estimate { color: var(--c-ink-2); font-size: var(--fs-2); }
+.settings-host { min-width: 0; }
+.export-summary {
+  display: grid;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+.export-summary .eyebrow { color: var(--c-accent-text); font-size: var(--fs-1); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: var(--track-caps); }
+.export-summary h2 { font-family: var(--font-display); font-size: var(--fs-4); font-weight: var(--fw-heavy); letter-spacing: var(--track-display); }
+.export-sub, .export-from { color: var(--c-ink-2); font-size: var(--fs-2); }
+.export-estimate { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); }
+.export-estimate-big { font-family: var(--font-display); font-size: var(--fs-5); letter-spacing: var(--track-display); }
+.export-bars { display: grid; gap: var(--sp-2); }
+.export-bar-row { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-1); color: var(--c-ink-2); }
+.export-bar-row progress { grid-column: 1 / -1; width: 100%; height: 10px; accent-color: var(--c-signal); }
+.export-bar-row:first-child progress { accent-color: var(--c-line-strong); }
+.export-optimal { padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-warn-bg); color: var(--c-warn-ink); font-size: var(--fs-2); }
+.export-optimal[hidden], .export-warning[hidden] { display: none; }
+.export-warning { padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-warn-bg); color: var(--c-warn-ink); font-size: var(--fs-2); }
+.btn-block { width: 100%; }
+.adjust { margin: 0 calc(var(--sp-5) * -1) calc(var(--sp-5) * -1); border-top: 1px solid var(--c-line); padding: 0 var(--sp-5); }
+.adjust summary { display: flex; align-items: center; gap: var(--sp-3); min-height: 56px; cursor: pointer; font-weight: var(--fw-bold); }
+.adjust-state { margin-left: auto; color: var(--c-ink-2); font-size: var(--fs-2); font-weight: var(--fw-regular); }
+.settings-controls { display: grid; gap: var(--sp-4); padding: var(--sp-2) 0 var(--sp-5); }
+.setting { display: grid; gap: var(--sp-2); }
+.setting-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-2); }
+.setting-auto { margin-left: auto; color: var(--c-ink-3); font-size: var(--fs-1); }
+.setting-reset { min-height: var(--tap); border: 0; background: none; color: var(--c-accent-text); font: inherit; font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
+.setting-label { display: grid; gap: var(--sp-1); color: var(--c-ink-2); font-size: var(--fs-1); }
+.setting-select { width: 100%; min-height: var(--tap); padding: 0 var(--sp-3); border: 1.5px solid var(--c-line-strong); border-radius: var(--r-md); background: var(--c-surface); color: var(--c-ink); font: inherit; font-size: var(--fs-2); }
+.setting-range { width: 100%; min-height: var(--tap); accent-color: var(--c-accent); }
+.setting-reason, .setting-help { color: var(--c-ink-3); font-size: var(--fs-1); }
+.setting-select:focus-visible, .setting-range:focus-visible, .setting-reset:focus-visible, .adjust summary:focus-visible { outline: 3px solid var(--c-focus); outline-offset: 2px; }
 @media (min-width: 720px) {
   .prepare-regions { gap: var(--sp-5); }
+}
+
+@media (min-width: 1024px) {
+  .prepare-regions { max-width: var(--wide-max); grid-template-columns: minmax(0, 1fr) minmax(320px, var(--side-col)); align-items: start; }
+  .prepare-regions > .settings-host { grid-column: 2; grid-row: 1 / span 3; }
 }
 
 @media (min-width: 1024px) {

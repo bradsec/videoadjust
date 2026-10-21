@@ -131,3 +131,23 @@ describe('trim changes', () => {
     expect(ctl.getState()).toMatchObject({ kind: 'prepare', settings: { trim: { start: 0, end: 0.1 } } });
   });
 });
+
+describe('prepare settings', () => {
+  it('validates settings through the controller action', async () => {
+    const { ctl, pending } = setup();
+    ctl.dispatch({ type: 'pick', file: fakeFile('a.mp4') });
+    await flush();
+    pending[0]!.resolve();
+    await flush();
+    const state = ctl.getState();
+    expect(state.kind).toBe('prepare');
+    if (state.kind !== 'prepare') return;
+    ctl.dispatch({ type: 'setSettings', value: {
+      ...state.settings, video: { ...state.settings.video!, codec: 'hevc', width: 3840, height: 2160, bitrate: 99e6 },
+      trim: { start: -5, end: 99 },
+    } });
+    expect(ctl.getState()).toMatchObject({ kind: 'prepare', settings: {
+      video: { codec: 'avc', width: 1920, height: 1080, bitrate: 4e6 }, trim: { start: 0, end: 3 },
+    } });
+  });
+});
