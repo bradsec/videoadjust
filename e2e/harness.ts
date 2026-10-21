@@ -1,20 +1,46 @@
 // Test-only page. vite.config.ts builds it only when VR_E2E=1, so the deployed site has no harness.
-import { chooseSink } from '../src/core/sink';
+import { canEncodeAudio, canEncodeVideo, StreamTarget, type StreamTargetChunk } from 'mediabunny';
+import { registerAacFallback } from '../src/core/capabilities';
+import { createOutputFormat, startConversion } from '../src/core/convert';
+import { chooseSink, openSink } from '../src/core/sink';
 import { readSource, UnsupportedSourceError } from '../src/core/source';
-import type { SourceInfo } from '../src/core/types';
+import type { Settings, SourceInfo, VideoCodecId } from '../src/core/types';
 
 export type ReadResult =
   | { ok: true; info: SourceInfo }
   | { ok: false; error: { name: string; message: string; codec: string | null } };
 
+export type ConvertResult =
+  | { ok: true; output: SourceInfo; outputBytes: number; reportedBytes: number; lastProgress: number }
+  | { ok: false; error: { name: string; message: string } };
+
+export type CancelAt = 'never' | 'immediately' | 'at-start' | 'mid-run';
+
+export type StreamResult = ConvertResult & { closeCalls: number; abortCalls: number };
+
 const fileInput = document.getElementById('file') as HTMLInputElement;
+
+function selectedFile(): File {
+  const file = fileInput.files?.[0];
+  if (!file) throw new Error('No file selected in the harness');
+  return file;
+}
+
+function failure(err: unknown): { ok: false; error: { name: string; message: string } } {
+  const e = err as Error;
+  return { ok: false, error: { name: e.name, message: e.message } };
+}
+
+async function ensureAudioEncoder(settings: Settings): Promise<void> {
+  if (settings.audio?.codec === 'aac' && !settings.audio.copy && !(await canEncodeAudio('aac'))) {
+    await registerAacFallback();
+  }
+}
 
 const harness = {
   async readSource(): Promise<ReadResult> {
-    const file = fileInput.files?.[0];
-    if (!file) throw new Error('No file selected in the harness');
     try {
-      const { info } = await readSource(file);
+      const { info } = await readSource(selectedFile());
       return { ok: true, info };
     } catch (err) {
       const e = err as Error;
@@ -25,6 +51,88 @@ const harness = {
     }
   },
   chooseSink,
+  canEncodeVideo(codec: VideoCodecId, width: number, height: number): Promise<boolean> {
+    return canEncodeVideo(codec, { width, height });
+  },
+
+  // Converts the selected file into memory, then reads the output back to describe it.
+  // cancelAt: 'never' runs to completion, 'immediately' cancels before init resolves,
+  // 'at-start' cancels from the progress-0 callback that fires before the output starts,
+  // 'mid-run' cancels from the first callback with progress above 0.
+  async convertToMemory(settings: Settings, cancelAt: CancelAt = 'never'): Promise<ConvertResult> {
+    try {
+      await ensureAudioEncoder(settings);
+      const { input } = await readSource(selectedFile());
+      const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
+      const sink = await openSink({ kind: 'memory', warn: false }, 'out', mime);
+      let reportedBytes = 0;
+      let lastProgress = 0;
+      const job = startConversion({
+        input,
+        settings,
+        format: createOutputFormat(settings.container, 'memory'),
+        target: sink.target,
+        onProgress(p, bytes) {
+          lastProgress = p;
+          reportedBytes = bytes;
+          if ((cancelAt === 'at-start' && p === 0) || (cancelAt === 'mid-run' && p > 0 && p < 1)) void job.cancel();
+        },
+      });
+      if (cancelAt === 'immediately') void job.cancel();
+      await job.done;
+      const blob = await sink.finish();
+      if (!blob) throw new Error('Memory sink returned no blob');
+      const { info } = await readSource(new File([blob], 'out', { type: mime }));
+      return { ok: true, output: info, outputBytes: blob.size, reportedBytes, lastProgress };
+    } catch (err) {
+      return failure(err);
+    }
+  },
+
+  // Converts into a StreamTarget over a counting WritableStream, standing in for the
+  // file picker's FileSystemWritableFileStream, which Playwright cannot drive.
+  async convertToCountingStream(settings: Settings): Promise<StreamResult> {
+    let closeCalls = 0;
+    let abortCalls = 0;
+    const chunks: StreamTargetChunk[] = [];
+    const writable = new WritableStream<StreamTargetChunk>({
+      write(chunk) {
+        chunks.push(chunk);
+      },
+      close() {
+        closeCalls++;
+      },
+      abort() {
+        abortCalls++;
+      },
+    });
+    try {
+      await ensureAudioEncoder(settings);
+      const { input } = await readSource(selectedFile());
+      let reportedBytes = 0;
+      let lastProgress = 0;
+      const job = startConversion({
+        input,
+        settings,
+        format: createOutputFormat(settings.container, 'file-stream'),
+        target: new StreamTarget(writable, { chunked: true }),
+        onProgress(p, bytes) {
+          lastProgress = p;
+          reportedBytes = bytes;
+        },
+      });
+      await job.done;
+      // Replay the positioned writes the way a file would apply them.
+      const size = Math.max(0, ...chunks.map((c) => c.position + c.data.byteLength));
+      const bytes = new Uint8Array(size);
+      for (const c of chunks) bytes.set(c.data, c.position);
+      const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
+      const { info } = await readSource(new File([bytes], 'out', { type: mime }));
+      return { ok: true, output: info, outputBytes: size, reportedBytes, lastProgress, closeCalls, abortCalls };
+    } catch (err) {
+      return { ...failure(err), closeCalls, abortCalls };
+    }
+  },
 };
 
 declare global {
