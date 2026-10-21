@@ -33,8 +33,32 @@ This project is MIT (see `LICENSE`). Production dependencies:
 | Package | Licence | Source |
 | --- | --- | --- |
 | mediabunny | MPL-2.0 (unmodified) | https://github.com/Vanilagy/mediabunny |
+| @mediabunny/aac-encoder | MPL-2.0 (unmodified), embeds FFmpeg AAC encoder under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder |
+
+### AAC fallback encoder
+
+Browsers without a native WebCodecs AAC encoder get `@mediabunny/aac-encoder`, registered with
+its documented `registerAacEncoder()` call. The app loads it with a dynamic `import()` only after
+`canEncodeAudio('aac')` returns false, so it ships as a separate same-origin chunk.
+
+Licence audit (version 1.62.0, 2026-10-22):
+
+- The npm package declares MPL-2.0 and its `LICENSE` is the MPL-2.0 text. Its WASM is FFmpeg
+  (libavcodec and libavutil) linked with an MPL-2.0 bridge (`src/bridge.c`).
+- The FFmpeg build flags in the package README, identical in the upstream repository, are
+  `--disable-everything --disable-autodetect --enable-avcodec --enable-encoder=aac`. No
+  `--enable-gpl`, `--enable-nonfree` or `--enable-libfdk-aac`. That selects only FFmpeg's native
+  AAC encoder, which is LGPL-2.1-or-later (header of `libavcodec/aacenc.c`). FFmpeg's
+  `LICENSE.md` states that GPL parts are off unless `--enable-gpl` is passed.
+- No fdk-aac and no GPL code, so the package passes the allowlist rule "LGPL-2.1+ only for
+  separately loaded, unmodified WASM chunks with source link".
+
+The npm metadata reports MPL-2.0, so the embedded LGPL code is not visible to `pnpm licenses`.
+`scripts/check-licenses.mjs` keeps an explicit per-package exception (`LGPL_WASM_EXCEPTIONS`):
+LGPL-2.1-or-later is accepted for `@mediabunny/aac-encoder` only, and for no other package. The
+dependency is pinned to the audited version; re-run the audit before upgrading it.
 
 Full notices are in `THIRD-PARTY-LICENSES.txt`. `pnpm check:licenses` reads
 `pnpm licenses list --prod --json`, fails on any licence outside the allowlist (MIT, BSD-2/3-Clause,
-ISC, Apache-2.0, 0BSD, MPL-2.0) and fails if a production package has no entry in
+ISC, Apache-2.0, 0BSD, MPL-2.0, plus the per-package LGPL exception above) and fails if a production package has no entry in
 `THIRD-PARTY-LICENSES.txt`. It runs in `pnpm build` and in the Pages workflow.

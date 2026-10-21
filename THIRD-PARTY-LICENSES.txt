@@ -8,6 +8,22 @@ Licence: MPL-2.0 (unmodified; bundled as-is)
 Source: https://github.com/Vanilagy/mediabunny
 Licence text: https://www.mozilla.org/MPL/2.0/ (also in node_modules/mediabunny/LICENSE)
 
+## @mediabunny/aac-encoder
+Version: 1.62.0
+Licence: MPL-2.0 (package JavaScript and src/bridge.c, unmodified; bundled as-is)
+Source: https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder
+Licence text: https://www.mozilla.org/MPL/2.0/ (also in node_modules/@mediabunny/aac-encoder/LICENSE)
+Embedded: FFmpeg libavcodec + libavutil, native AAC encoder only, compiled to WASM
+  without modification. Licence: LGPL-2.1-or-later.
+  FFmpeg source: https://github.com/FFmpeg/FFmpeg (licence: https://github.com/FFmpeg/FFmpeg/blob/master/LICENSE.md)
+  LGPL-2.1 text: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+  Build configuration (the exact configure flags used): packages/aac-encoder/README.md in the
+  Mediabunny repository, "Building and development". It passes --disable-everything,
+  --disable-autodetect and --enable-encoder=aac, and does not pass --enable-gpl,
+  --enable-nonfree or --enable-libfdk-aac.
+  The app loads this package only through a dynamic import(), so it is served as a
+  separate same-origin chunk that a user can replace with their own build.
+
 ## @types/dom-webcodecs
 Version: 0.1.13
 Licence: MIT, Copyright (c) Microsoft Corporation

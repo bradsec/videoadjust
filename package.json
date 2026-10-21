@@ -13,6 +13,7 @@
     "check:licenses": "node scripts/check-licenses.mjs"
   },
   "dependencies": {
+    "@mediabunny/aac-encoder": "1.62.0",
     "mediabunny": "^1.62.0"
   },
   "devDependencies": {

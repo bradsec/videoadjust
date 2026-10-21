@@ -25,6 +25,15 @@ describe('checkLicenses', () => {
     expect(problems).toEqual(['beta: missing from THIRD-PARTY-LICENSES.txt']);
   });
 
+  test('accepts LGPL-2.1-or-later only for the listed WASM exception package', () => {
+    const text = '## @mediabunny/aac-encoder\n\n## beta\n';
+    expect(checkLicenses({ 'LGPL-2.1-or-later': [{ name: '@mediabunny/aac-encoder' }] }, text)).toEqual([]);
+    expect(checkLicenses({ 'LGPL-2.1-or-later': [{ name: 'beta' }] }, text)).toEqual([
+      'beta: licence "LGPL-2.1-or-later" is not in the allowlist',
+    ]);
+    expect(checkLicenses({ 'GPL-2.0-or-later': [{ name: '@mediabunny/aac-encoder' }] }, text)).toHaveLength(1);
+  });
+
   test('handles SPDX expressions', () => {
     expect(isAllowed('(MIT OR GPL-3.0)')).toBe(true);
     expect(isAllowed('MIT AND GPL-3.0')).toBe(false);

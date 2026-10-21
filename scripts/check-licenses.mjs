@@ -16,12 +16,21 @@ export const ALLOWED = new Set([
   'MPL-2.0',
 ]);
 
+// Per-package exceptions. LGPL-2.1+ is accepted only for packages that ship an
+// unmodified LGPL build as a separately loaded WASM chunk, with a source link in
+// THIRD-PARTY-LICENSES.txt. @mediabunny/aac-encoder declares MPL-2.0 but embeds
+// FFmpeg's native AAC encoder (libavcodec + libavutil, LGPL-2.1-or-later); the app
+// loads it only through a dynamic import(). See README "Licences".
+export const LGPL_WASM_EXCEPTIONS = new Set(['@mediabunny/aac-encoder']);
+const LGPL_IDS = new Set(['LGPL-2.1-or-later', 'LGPL-2.1+']);
+
 // An SPDX expression passes when every AND term has at least one allowed OR choice.
-export function isAllowed(expression) {
+export function isAllowed(expression, pkgName) {
+  const ok = (id) => ALLOWED.has(id) || (LGPL_WASM_EXCEPTIONS.has(pkgName) && LGPL_IDS.has(id));
   return expression
     .replace(/[()]/g, '')
     .split(/\s+AND\s+/)
-    .every((term) => term.split(/\s+OR\s+/).some((id) => ALLOWED.has(id.trim())));
+    .every((term) => term.split(/\s+OR\s+/).some((id) => ok(id.trim())));
 }
 
 /**
@@ -40,7 +49,7 @@ export function checkLicenses(licenses, thirdPartyText) {
   const problems = [];
   for (const [license, packages] of Object.entries(licenses)) {
     for (const pkg of packages) {
-      if (!isAllowed(license)) {
+      if (!isAllowed(license, pkg.name)) {
         problems.push(`${pkg.name}: licence "${license}" is not in the allowlist`);
       }
       if (!listed.has(pkg.name)) {
