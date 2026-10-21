@@ -75,8 +75,8 @@ export function autoSettings(src: SourceInfo, caps: Capabilities): AutoResult {
   const sizeSteps = SIZE_STEPS.filter((s) => s <= longEdge);
 
   return {
-    settings: { container, trim: { start: 0, end: src.durationSec }, video, audio },
-    alreadyOptimal: videoOptimal && audioOptimal && src.containerMime === 'video/mp4' && container === 'mp4',
+    settings: { container, passthrough: false, trim: { start: 0, end: src.durationSec }, video, audio },
+    alreadyOptimal: videoOptimal && audioOptimal && src.containerMime.split(';', 1)[0]?.trim().toLowerCase() === 'video/mp4' && container === 'mp4',
     sizeSteps,
     notes,
   };

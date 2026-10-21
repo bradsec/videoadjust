@@ -22,12 +22,13 @@ First e2e run needs browsers: `pnpm exec playwright install chromium webkit`.
 
 On the prepare screen, drag the trim handles or use arrow keys to adjust by 0.1 seconds.
 Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set
-a boundary at the preview playhead. The kept duration and estimated size update as you trim.
+a boundary at the preview playhead. The kept duration and summary estimate update as you trim.
 The summary card shows the estimated output range against the original size. Open Adjust to
 change format, codec, resolution, frame rate, quality, or audio. Each setting has a reset button.
 Unavailable codecs show why they cannot be selected. WebM uses Opus audio. The quality control
 and audio bitrates stay within the source limits. If the source is already small, the summary
-offers a trim-only export.
+offers Export trimmed copy, which keeps the source video and audio tracks. Select Re-encode anyway
+to use the adjustment controls.
 
 ## Hosting
 

@@ -17,6 +17,7 @@ export interface SettingsPanelOptions {
 const videoCodecs: VideoCodecId[] = ['avc', 'hevc', 'av1', 'vp9'];
 const audioCodecs: AudioCodecId[] = ['aac', 'opus'];
 const audioRates = [64_000, 96_000, 128_000, 160_000];
+const audioLabels: Record<AudioCodecId, string> = { aac: 'AAC', opus: 'Opus' };
 
 function resolution(s: Settings): string {
   if (!s.video) return 'Audio only';
@@ -26,7 +27,7 @@ function resolution(s: Settings): string {
 
 function audioSummary(s: Settings): string {
   if (!s.audio) return 'no audio';
-  return `${s.audio.codec.toUpperCase()} ${formatBitrate(s.audio.bitrate)} ${s.audio.channels === 1 ? 'mono' : 'stereo'}`;
+  return `${audioLabels[s.audio.codec]} ${formatBitrate(s.audio.bitrate)} ${s.audio.channels === 1 ? 'mono' : 'stereo'}`;
 }
 
 export function mountSettings(host: HTMLElement, opts: SettingsPanelOptions): { update(s: Settings): void } {
@@ -59,17 +60,28 @@ export function mountSettings(host: HTMLElement, opts: SettingsPanelOptions): { 
   const optimal = el('div', 'export-optimal');
   optimal.append(el('strong', undefined, 'This video is already small'),
     el('p', undefined, 'The automatic export may not be smaller. You can trim this video and export only the part you need.'));
+  const reencodeLabel = el('label', 'reencode-toggle');
+  const reencode = el('input') as HTMLInputElement;
+  reencode.type = 'checkbox';
+  reencode.setAttribute('aria-label', 'Re-encode anyway');
+  reencodeLabel.append(reencode, document.createTextNode('Re-encode anyway'));
+  reencode.addEventListener('change', () => change({ ...value, passthrough: !reencode.checked }));
+  optimal.append(reencodeLabel);
   const warning = el('p', 'export-warning');
   const exportButton = el('button', 'btn btn-primary btn-block', 'Export');
   exportButton.type = 'button';
-  exportButton.addEventListener('click', () => opts.onExport?.());
+  exportButton.addEventListener('click', () => {
+    if (opts.auto.alreadyOptimal && !reencode.checked) change({ ...value, passthrough: true });
+    opts.onExport?.();
+  });
   const details = el('details', 'adjust');
   const disclosure = el('summary');
   const changeCount = el('span', 'adjust-state');
   disclosure.append(document.createTextNode('Adjust'), changeCount);
   const controls = el('div', 'settings-controls');
+  const passthroughReason = el('p', 'setting-reason', 'Not needed for a trimmed copy');
   details.append(disclosure, controls);
-  card.append(eyebrow, title, estimate, bars, optimal, warning, exportButton, details);
+  card.append(eyebrow, title, estimate, bars, optimal, warning, exportButton, passthroughReason, details);
   host.replaceChildren(card);
 
   function change(next: Settings): void { opts.onChange(next); }
@@ -104,6 +116,7 @@ export function mountSettings(host: HTMLElement, opts: SettingsPanelOptions): { 
     if (unavailable.length) section.append(el('p', 'setting-reason',
       `${unavailable.map((item) => item.label).join(', ')} ${unavailable.length === 1 ? 'is' : 'are'} unavailable in this browser or format.`));
   }
+  let structure = '';
   function renderControls(): void {
     const groups: HTMLElement[] = [];
     const format = group('Format', opts.auto.settings.container.toUpperCase(), () => change({ ...value, container: opts.auto.settings.container }));
@@ -117,13 +130,13 @@ export function mountSettings(host: HTMLElement, opts: SettingsPanelOptions): { 
     if (value.video && opts.auto.settings.video && opts.source.video) {
       const video = value.video;
       const autoVideo = opts.auto.settings.video;
-      const codec = group('Video codec', codecLabel(autoVideo.codec), () => change({ ...value, video: { ...video, codec: autoVideo.codec } }));
+      const codec = group('Video codec', codecLabel(autoVideo.codec), () => change({ ...value, video: { ...value.video!, codec: autoVideo.codec } }));
       select(codec, 'Video codec', videoCodecs.map((id) => ({ value: id, label: codecLabel(id),
         disabled: !availableVideoCodecs(value.container, opts.caps).includes(id) })), video.codec,
-      (id) => change({ ...value, video: { ...video, codec: id as VideoCodecId } }));
+      (id) => change({ ...value, video: { ...value.video!, codec: id as VideoCodecId } }));
       groups.push(codec);
 
-      const size = group('Resolution', resolution(opts.auto.settings), () => change({ ...value, video: { ...video, width: autoVideo.width, height: autoVideo.height } }));
+      const size = group('Resolution', resolution(opts.auto.settings), () => change({ ...value, video: { ...value.video!, width: autoVideo.width, height: autoVideo.height } }));
       const sourceEdge = Math.max(opts.source.video.displayWidth, opts.source.video.displayHeight);
       const edges = [...new Set([sourceEdge, ...opts.auto.sizeSteps])].filter((edge) => edge <= sourceEdge).sort((a, b) => b - a);
       select(size, 'Resolution', edges.map((edge) => {
@@ -134,22 +147,23 @@ export function mountSettings(host: HTMLElement, opts: SettingsPanelOptions): { 
         return dims.width === video.width && dims.height === video.height;
       }) ?? sourceEdge), (edge) => {
         const dims = scaleToLongEdge(opts.source.video!.displayWidth, opts.source.video!.displayHeight, Number(edge));
-        change({ ...value, video: { ...video, ...dims } });
+        change({ ...value, video: { ...value.video!, ...dims } });
       });
       groups.push(size);
 
-      const frame = group('Frame rate', `${autoVideo.fps} fps`, () => change({ ...value, video: { ...video, fps: autoVideo.fps } }));
+      const frame = group('Frame rate', `${autoVideo.fps} fps`, () => change({ ...value, video: { ...value.video!, fps: autoVideo.fps } }));
       const rates = [...new Set([15, 24, 30, autoVideo.fps, opts.source.video.fps])]
         .filter((fps) => fps > 0 && fps <= opts.source.video!.fps).sort((a, b) => a - b);
       select(frame, 'Frame rate', rates.map((fps) => ({ value: String(fps), label: `${fps} fps` })), String(video.fps),
-        (fps) => change({ ...value, video: { ...video, fps: Number(fps) } }));
+        (fps) => change({ ...value, video: { ...value.video!, fps: Number(fps) } }));
       groups.push(frame);
 
-      const quality = group('Quality', '100%', () => change({ ...value, video: { ...video, bitrate: autoVideo.bitrate } }));
+      const quality = group('Quality', '100%', () => change({ ...value, video: { ...value.video!, bitrate: autoVideo.bitrate } }));
       const baseline = Math.min(targetVideoBitrate(video.codec, video.width, video.height, video.fps), opts.source.video.bitrate ?? Infinity);
       const maxPercent = Math.min(150, Math.floor((opts.source.video.bitrate ?? Infinity) / baseline * 100));
       const percent = baseline > 0 ? Math.round(video.bitrate / baseline * 100) : 100;
-      const sliderLabel = el('label', 'setting-label', `Quality: ${percent}% of auto`);
+      const sliderLabel = el('label', 'setting-label');
+      const sliderText = el('span', 'quality-value', `Quality: ${percent}% of auto`);
       const slider = el('input', 'setting-range') as HTMLInputElement;
       slider.type = 'range';
       slider.min = '25';
@@ -157,16 +171,23 @@ export function mountSettings(host: HTMLElement, opts: SettingsPanelOptions): { 
       slider.step = '1';
       slider.value = String(percent);
       slider.setAttribute('aria-label', 'Quality');
-      slider.addEventListener('change', () => change({ ...value, video: { ...video, bitrate: Math.round(baseline * Number(slider.value) / 100) } }));
-      sliderLabel.append(slider);
+      slider.addEventListener('input', () => { sliderText.textContent = `Quality: ${slider.value}% of auto`; });
+      slider.addEventListener('change', () => {
+        const current = value.video!;
+        const currentBaseline = Math.min(targetVideoBitrate(current.codec, current.width, current.height, current.fps),
+          opts.source.video!.bitrate ?? Infinity);
+        change({ ...value, video: { ...current, bitrate: Math.round(currentBaseline * Number(slider.value) / 100) } });
+      });
+      sliderLabel.append(sliderText, slider);
       quality.append(sliderLabel, el('p', 'setting-help', `25% to ${Math.max(25, maxPercent)}% of auto · ${formatBitrate(video.bitrate)}`));
       groups.push(quality);
     }
 
     if (opts.source.audio && opts.auto.settings.audio) {
       const automatic = opts.auto.settings.audio;
-      const audio = group('Audio codec', automatic.codec.toUpperCase(), () => change({ ...value, audio: automatic }));
-      const audioOptions: { value: string; label: string; disabled: boolean }[] = audioCodecs.map((id) => ({ value: id, label: id.toUpperCase(),
+      const audio = group('Audio codec', audioLabels[automatic.codec], () => change({ ...value,
+        audio: { ...(value.audio ?? automatic), codec: automatic.codec, copy: automatic.copy } }));
+      const audioOptions: { value: string; label: string; disabled: boolean }[] = audioCodecs.map((id) => ({ value: id, label: audioLabels[id],
         disabled: !opts.caps.audio[id] || (value.container === 'webm' && id !== 'opus') }));
       audioOptions.push({ value: 'none', label: 'Remove audio', disabled: false });
       select(audio, 'Audio codec', audioOptions, value.audio?.codec ?? 'none', (id) => change({ ...value,
@@ -174,7 +195,8 @@ export function mountSettings(host: HTMLElement, opts: SettingsPanelOptions): { 
       }));
       groups.push(audio);
       if (value.audio) {
-        const bitrate = group('Audio bitrate', formatBitrate(automatic.bitrate), () => change({ ...value, audio: automatic }));
+        const bitrate = group('Audio bitrate', formatBitrate(automatic.bitrate), () => change({ ...value,
+          audio: { ...value.audio!, bitrate: automatic.bitrate, copy: automatic.copy } }));
         const max = opts.source.audio.bitrate ?? Infinity;
         const rates = [...new Set([...audioRates.filter((rate) => rate <= max), value.audio.bitrate])].sort((a, b) => a - b);
         select(bitrate, 'Audio bitrate', rates.map((rate) => ({ value: String(rate), label: formatBitrate(rate) })),
@@ -185,25 +207,88 @@ export function mountSettings(host: HTMLElement, opts: SettingsPanelOptions): { 
     }
     controls.replaceChildren(...groups);
   }
+  function patchControls(next: Settings): void {
+    const selected = (name: string, selectedValue: string) => {
+      const input = controls.querySelector<HTMLSelectElement>(`select[aria-label="${name}"]`);
+      if (input && input.value !== selectedValue) input.value = selectedValue;
+    };
+    selected('Format', next.container);
+    if (next.video && opts.source.video) {
+      const video = next.video;
+      selected('Video codec', video.codec);
+      const edges = [Math.max(opts.source.video.displayWidth, opts.source.video.displayHeight), ...opts.auto.sizeSteps];
+      const edge = edges.find((candidate) => {
+        const dims = scaleToLongEdge(opts.source.video!.displayWidth, opts.source.video!.displayHeight, candidate);
+        return dims.width === video.width && dims.height === video.height;
+      });
+      if (edge) selected('Resolution', String(edge));
+      selected('Frame rate', String(video.fps));
+      const baseline = Math.min(targetVideoBitrate(video.codec, video.width, video.height, video.fps),
+        opts.source.video.bitrate ?? Infinity);
+      const maxPercent = Math.max(25, Math.min(150, Math.floor((opts.source.video.bitrate ?? Infinity) / baseline * 100)));
+      const percent = baseline > 0 ? Math.round(video.bitrate / baseline * 100) : 100;
+      const slider = controls.querySelector<HTMLInputElement>('input[aria-label="Quality"]');
+      if (slider) {
+        slider.max = String(maxPercent);
+        slider.value = String(percent);
+      }
+      const qualityValue = controls.querySelector('.quality-value');
+      if (qualityValue) qualityValue.textContent = `Quality: ${percent}% of auto`;
+      const help = controls.querySelector('.setting-help');
+      if (help) help.textContent = `25% to ${maxPercent}% of auto · ${formatBitrate(video.bitrate)}`;
+    }
+    selected('Audio codec', next.audio?.codec ?? 'none');
+    if (next.audio) {
+      const bitrate = controls.querySelector<HTMLSelectElement>('select[aria-label="Audio bitrate"]');
+      if (bitrate) {
+        const current = String(next.audio.bitrate);
+        if (![...bitrate.options].some((option) => option.value === current)) {
+          const option = el('option', undefined, formatBitrate(next.audio.bitrate));
+          option.value = current;
+          bitrate.append(option);
+        }
+        bitrate.value = current;
+      }
+    }
+    controls.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input, select, button')
+      .forEach((input) => { input.disabled = next.passthrough; });
+  }
   function update(next: Settings): void {
+    const wasPassthrough = value.passthrough;
     value = next;
     const videoName = next.video ? codecLabel(next.video.codec) : 'No video';
-    const audioName = next.audio ? `/${next.audio.codec.toUpperCase()}` : '';
+    const audioName = next.audio ? `/${audioLabels[next.audio.codec]}` : '';
     heading.textContent = `${resolution(next)}, ${videoName}${audioName} ${next.container.toUpperCase()}`;
     sub.textContent = `${next.video?.fps ?? 0} fps · ${audioSummary(next)}`;
-    const { low, high } = estimateBytes(next);
+    const { low, high } = estimateBytes(next, opts.source);
     const range = `${formatBytes(low)}–${formatBytes(high)}`;
     big.textContent = `est. ${range}`;
     from.textContent = `from ${formatBytes(opts.source.sizeBytes)}`;
     newSize.textContent = range;
     newBar.value = Math.min(high, newBar.max);
     optimal.hidden = !opts.auto.alreadyOptimal;
+    reencode.checked = !next.passthrough;
+    exportButton.textContent = next.passthrough ? 'Export trimmed copy' : 'Export';
+    passthroughReason.hidden = !next.passthrough;
+    if (next.passthrough && !wasPassthrough) details.open = false;
     warning.textContent = next.video?.codec !== 'avc'
       ? `${videoName} may not play on every device. H.264 MP4 is the most compatible choice.` : '';
     warning.hidden = !warning.textContent;
     const changes = settingsChangeCount(next, opts.auto, opts.caps, opts.source);
     changeCount.textContent = changes ? `${changes} ${changes === 1 ? 'change' : 'changes'}` : 'All automatic';
-    renderControls();
+    const nextStructure = `${next.container}:${!!next.video}:${!!next.audio}:${next.passthrough}`;
+    if (nextStructure !== structure) {
+      const active = controls.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
+      const activeLabel = active?.getAttribute('aria-label');
+      renderControls();
+      structure = nextStructure;
+      if (activeLabel) {
+        const replacement = [...controls.querySelectorAll<HTMLElement>('[aria-label]')]
+          .find((control) => control.getAttribute('aria-label') === activeLabel);
+        (replacement ?? controls.querySelector<HTMLElement>('select[aria-label="Audio codec"]'))?.focus();
+      }
+    }
+    patchControls(next);
   }
   update(value);
   return { update };

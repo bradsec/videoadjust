@@ -106,6 +106,9 @@ describe('autoSettings', () => {
     const r = autoSettings(fakeSource({ w: 640, h: 360, fps: 30, vBitrate: 400_000, aBitrate: 64_000 }), allCaps());
     expect(r.alreadyOptimal).toBe(true);
     expect(r.settings.video).toMatchObject({ codec: 'avc', width: 640, height: 360 });
+    const withCodecs = autoSettings(fakeSource({ w: 640, h: 360, fps: 30, vBitrate: 400_000,
+      aBitrate: 64_000, mime: 'video/mp4; codecs="avc1.64001e, mp4a.40.2"' }), allCaps());
+    expect(withCodecs.alreadyOptimal).toBe(true);
   });
 
   it('falls back to hevc with a note when avc is missing', () => {

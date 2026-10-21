@@ -1,5 +1,4 @@
 import { CanvasSink } from 'mediabunny';
-import { estimateBytes } from '../core/estimate';
 import type { SourceInfo } from '../core/types';
 import { codecLabel, createController, type AppAction, type AppDeps, type AppState } from './controller';
 import { el, icon } from './dom';
@@ -130,7 +129,6 @@ function renderPrepare(
   const url = URL.createObjectURL(state.file);
   video.src = url;
   const trimHost = el('div');
-  const estimate = el('p', 'trim-estimate num');
   const settingsHost = el('aside', 'settings-host');
   const settings = mountSettings(settingsHost, {
     auto: state.auto, caps: state.caps, source: state.source, value: state.settings,
@@ -161,7 +159,7 @@ function renderPrepare(
     thumbnails,
     onChange: onTrim,
   });
-  stage.append(video, trimHost, estimate, settingsHost);
+  stage.append(video, trimHost, settingsHost);
   const another = el('button', 'btn btn-quiet', 'Choose another video');
   another.type = 'button';
   another.addEventListener('click', onReset);
@@ -169,8 +167,6 @@ function renderPrepare(
   function update(value: Extract<AppState, { kind: 'prepare' }>): void {
     trim.update(value.settings.trim);
     settings.update(value.settings);
-    const { low, high } = estimateBytes(value.settings);
-    estimate.textContent = `Estimated size: ${formatBytes(low)}–${formatBytes(high)}`;
   }
   update(state);
   return {

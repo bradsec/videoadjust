@@ -4,12 +4,20 @@ import type { Settings } from '../../src/core/types';
 
 const base: Settings = {
   container: 'mp4',
+  passthrough: false,
   trim: { start: 0, end: 10 },
   video: { codec: 'avc', width: 1280, height: 720, fps: 30, bitrate: 4_000_000 },
   audio: { codec: 'aac', bitrate: 128_000, channels: 2, copy: false },
 };
 
 describe('estimateBytes', () => {
+  it('uses source track bitrates for a trimmed copy', () => {
+    const source = {
+      video: { bitrate: 700_000 }, audio: { bitrate: 96_000 },
+    };
+    expect(estimateBytes({ ...base, passthrough: true }, source).mid)
+      .toBeCloseTo((796_000 * 10) / 8 * 1.01);
+  });
   it('computes mid with 1% overhead and a 15% band', () => {
     const mid = ((4_000_000 + 128_000) * 10) / 8 * 1.01;
     const e = estimateBytes(base);

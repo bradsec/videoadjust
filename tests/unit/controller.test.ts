@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Input } from 'mediabunny';
+import { autoSettings } from '../../src/core/autoSettings';
 import type { Capabilities, SourceInfo } from '../../src/core/types';
 import { createController, LARGE_FILE_BYTES, type AppDeps } from '../../src/ui/controller';
 
@@ -133,6 +134,22 @@ describe('trim changes', () => {
 });
 
 describe('prepare settings', () => {
+  it('carries trimmed-copy mode through the export action', () => {
+    const { ctl } = setup();
+    const source = { ...info('small.mp4'), video: { ...info('small.mp4').video!, bitrate: 300_000 } };
+    const auto = autoSettings(source, caps);
+    expect(auto.alreadyOptimal).toBe(true);
+    expect(auto.settings.passthrough).toBe(false);
+    ctl.dispatch({ type: 'loaded', file: fakeFile('small.mp4'), source, input: fakeInput(), auto, caps });
+    expect(ctl.getState()).toMatchObject({ kind: 'prepare', settings: { passthrough: true } });
+    const state = ctl.getState();
+    if (state.kind !== 'prepare') throw new Error('Expected prepare state');
+    ctl.dispatch({ type: 'setSettings', value: { ...state.settings, passthrough: false } });
+    expect(ctl.getState()).toMatchObject({ kind: 'prepare', settings: { passthrough: false } });
+    ctl.dispatch({ type: 'setSettings', value: { ...state.settings, passthrough: true } });
+    ctl.dispatch({ type: 'export' });
+    expect(ctl.getState()).toMatchObject({ kind: 'prepare', settings: { passthrough: true } });
+  });
   it('validates settings through the controller action', async () => {
     const { ctl, pending } = setup();
     ctl.dispatch({ type: 'pick', file: fakeFile('a.mp4') });

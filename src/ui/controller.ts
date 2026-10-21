@@ -102,7 +102,8 @@ export function validateSettings(value: Settings, auto: AutoResult, caps: Capabi
       bitrate === fallback.audio.bitrate && fallback.audio.copy;
     audio = { codec, bitrate: Math.max(1, bitrate), channels: Math.min(source.audio.channels, 2), copy };
   }
-  return { container, trim: clampTrim(value.trim, source.durationSec, 'end'), video, audio };
+  return { container, passthrough: auto.alreadyOptimal && value.passthrough,
+    trim: clampTrim(value.trim, source.durationSec, 'end'), video, audio };
 }
 
 /** Compare the effective values shown by the controls, after applying the same limits to both sides. */
@@ -166,7 +167,7 @@ export function createController(
           input: action.input,
           auto: action.auto,
           caps: action.caps,
-          settings: action.auto.settings,
+          settings: { ...action.auto.settings, passthrough: action.auto.alreadyOptimal },
         });
         return;
       case 'setTrim':

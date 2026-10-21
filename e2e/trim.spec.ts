@@ -11,13 +11,13 @@ test.beforeEach(async ({ page }) => {
 
 test('keyboard changes trim and estimate', async ({ page }) => {
   const start = page.getByRole('slider', { name: 'Start' });
-  const initialEstimate = await page.locator('.trim-estimate').textContent();
+  const initialEstimate = await page.locator('.export-estimate-big').textContent();
   await start.focus();
   await page.keyboard.press('ArrowRight');
   await expect(start).toHaveAttribute('aria-valuenow', '0.1');
   await expect(page.locator('.trim-readout').first().locator('output')).toHaveText('0:00.1');
   await expect(page.locator('.trim-head')).toContainText('kept');
-  await expect(page.locator('.trim-estimate')).not.toHaveText(initialEstimate!);
+  await expect(page.locator('.export-estimate-big')).not.toHaveText(initialEstimate!);
 });
 
 test('pointer drag changes the start readout', async ({ page, isMobile }) => {

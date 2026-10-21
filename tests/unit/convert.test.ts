@@ -5,12 +5,20 @@ import type { Settings } from '../../src/core/types';
 
 const base: Settings = {
   container: 'mp4',
+  passthrough: false,
   trim: { start: 0.5, end: 2 },
   video: { codec: 'avc', width: 1920, height: 1080, fps: 30, bitrate: 4_000_000 },
   audio: { codec: 'aac', bitrate: 128_000, channels: 2, copy: false },
 };
 
 describe('toConversionOptions', () => {
+  it('keeps trim and copies present tracks in passthrough mode', () => {
+    expect(toConversionOptions({ ...base, passthrough: true })).toEqual({
+      trim: { start: 0.5, end: 2 }, video: {}, audio: {},
+    });
+    expect(toConversionOptions({ ...base, passthrough: true, audio: null }).audio).toEqual({ discard: true });
+    expect(toConversionOptions({ ...base, passthrough: true, video: null }).video).toEqual({ discard: true });
+  });
   it('maps trim, video size, frame rate, codec and bitrate', () => {
     const o = toConversionOptions(base);
     expect(o.trim).toEqual({ start: 0.5, end: 2 });

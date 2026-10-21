@@ -32,10 +32,11 @@ export function toConversionOptions(s: Settings): Pick<ConversionOptions, 'video
   return {
     trim: { start: s.trim.start, end: s.trim.end },
     video: v
-      ? { width: v.width, height: v.height, fit: 'contain', frameRate: v.fps, codec: v.codec, quality: quality(v.bitrate) }
+      ? s.passthrough ? {} : { width: v.width, height: v.height, fit: 'contain', frameRate: v.fps, codec: v.codec, quality: quality(v.bitrate) }
       : { discard: true },
     audio: !a
       ? { discard: true }
+      : s.passthrough ? {}
       : a.copy
         ? // Any bitrate or channel option would force a transcode, so copy names only the codec.
           { codec: a.codec, forceTranscode: false }

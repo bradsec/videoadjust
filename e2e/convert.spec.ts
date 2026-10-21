@@ -6,6 +6,7 @@ const fixture = (name: string) => new URL(`../tests/fixtures/${name}`, import.me
 
 const hd: Settings = {
   container: 'mp4',
+  passthrough: false,
   trim: { start: 0, end: 3 },
   video: { codec: 'avc', width: 1920, height: 1080, fps: 30, bitrate: 2_000_000 },
   audio: { codec: 'aac', bitrate: 128_000, channels: 2, copy: false },

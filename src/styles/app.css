@@ -344,7 +344,6 @@ footer a {
 .trim-label { color: var(--c-ink-3); font-size: var(--fs-1); }
 .trim-value { font-size: var(--fs-4); font-weight: var(--fw-bold); }
 .trim-readout .btn { justify-content: flex-start; font-size: var(--fs-2); }
-.trim-estimate { color: var(--c-ink-2); font-size: var(--fs-2); }
 .settings-host { min-width: 0; }
 .export-summary {
   display: grid;
@@ -365,6 +364,7 @@ footer a {
 .export-bar-row progress { grid-column: 1 / -1; width: 100%; height: 10px; accent-color: var(--c-signal); }
 .export-bar-row:first-child progress { accent-color: var(--c-line-strong); }
 .export-optimal { padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-warn-bg); color: var(--c-warn-ink); font-size: var(--fs-2); }
+.reencode-toggle { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); cursor: pointer; }
 .export-optimal[hidden], .export-warning[hidden] { display: none; }
 .export-warning { padding: var(--sp-3); border-radius: var(--r-md); background: var(--c-warn-bg); color: var(--c-warn-ink); font-size: var(--fs-2); }
 .btn-block { width: 100%; }
@@ -387,7 +387,7 @@ footer a {
 
 @media (min-width: 1024px) {
   .prepare-regions { max-width: var(--wide-max); grid-template-columns: minmax(0, 1fr) minmax(320px, var(--side-col)); align-items: start; }
-  .prepare-regions > .settings-host { grid-column: 2; grid-row: 1 / span 3; }
+  .prepare-regions > .settings-host { grid-column: 2; grid-row: 1 / span 2; }
 }
 
 @media (min-width: 1024px) {

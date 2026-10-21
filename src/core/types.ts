@@ -35,6 +35,7 @@ export interface Capabilities {
 
 export interface Settings {
   container: Container;
+  passthrough: boolean;
   trim: { start: number; end: number };
   video: null | { codec: VideoCodecId; width: number; height: number; fps: number; bitrate: number };
   audio: null | { codec: AudioCodecId; bitrate: number; channels: number; copy: boolean };
