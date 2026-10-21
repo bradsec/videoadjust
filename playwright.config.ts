@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  use: { baseURL: 'http://127.0.0.1:4173' },
+  use: { baseURL: 'http://127.0.0.1:4317' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
@@ -10,9 +10,9 @@ export default defineConfig({
     { name: 'ipad', use: { ...devices['iPad Pro 11'] } },
   ],
   webServer: {
-    command: 'pnpm build && pnpm preview',
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: true,
+    command: 'pnpm build && pnpm preview --port 4317 --strictPort',
+    url: 'http://127.0.0.1:4317',
+    reuseExistingServer: false,
     env: { VR_E2E: '1' },
   },
 });

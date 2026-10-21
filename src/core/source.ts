@@ -2,8 +2,8 @@ import { ALL_FORMATS, BlobSource, Input } from 'mediabunny';
 import type { SourceInfo } from './types';
 
 export class UnsupportedSourceError extends Error {
-  constructor(public readonly codec: string | null, message: string) {
-    super(message);
+  constructor(public readonly codec: string | null, message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'UnsupportedSourceError';
   }
 }
@@ -26,9 +26,9 @@ async function describe(file: File, input: Input): Promise<SourceInfo> {
   let videoTrack, audioTrack;
   try {
     [videoTrack, audioTrack] = await Promise.all([input.getPrimaryVideoTrack(), input.getPrimaryAudioTrack()]);
-  } catch {
+  } catch (err) {
     // Mediabunny throws when no known container matches the bytes.
-    throw new UnsupportedSourceError(null, 'This file is not a video this browser can read.');
+    throw new UnsupportedSourceError(null, 'This file is not a video this browser can read.', { cause: err });
   }
 
   const video = videoTrack
