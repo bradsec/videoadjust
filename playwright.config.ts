@@ -13,5 +13,6 @@ export default defineConfig({
     command: 'pnpm build && pnpm preview',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: true,
+    env: { VR_E2E: '1' },
   },
 });
