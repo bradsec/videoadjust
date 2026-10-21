@@ -1,10 +1,26 @@
+import './styles/tokens.css';
+import './styles/app.css';
 import { probeCapabilities } from './core/capabilities';
+import { startConversion } from './core/convert';
+import { openSink } from './core/sink';
+import { readSource } from './core/source';
+import { createApp } from './ui/app';
+
+const caps = probeCapabilities();
 
 // Probe results go on a data attribute rather than a global so the production
 // build that e2e runs against can be inspected without a debug-only code path.
-probeCapabilities().then(
-  (caps) => {
-    document.documentElement.dataset.caps = JSON.stringify(caps);
+caps.then(
+  (c) => {
+    document.documentElement.dataset.caps = JSON.stringify(c);
   },
   (err: unknown) => console.error('capability probe failed', err),
 );
+
+// The app reuses this probe: the same promise is handed back instead of probing twice.
+createApp(document.getElementById('app')!, {
+  probeCapabilities: () => caps,
+  readSource,
+  startConversion,
+  openSink,
+});

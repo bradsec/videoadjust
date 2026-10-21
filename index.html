@@ -7,11 +7,27 @@
     <title>videoresize</title>
   </head>
   <body>
-    <main>
-      <h1>videoresize</h1>
-      <p>Shrink and trim videos in your browser. Nothing is uploaded.</p>
-    </main>
+    <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs>
+        <symbol id="i-logo" viewBox="0 0 26 26">
+          <rect x="1.5" y="3.5" width="23" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.8" />
+          <rect class="logo-signal" x="11" y="10" width="10" height="7" rx="2" />
+          <path d="M5.5 12 L10 12 L10 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M5 7.5 L10 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></symbol>
+        <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10 9.5v5l4-2.5z" /><path d="M3 9h3M3 15h3M18 9h3M18 15h3" /></symbol>
+        <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17h.01" /></symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></symbol>
+      </defs>
+    </svg>
+    <header class="bar">
+      <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
+      <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+    </header>
+    <main id="app"></main>
     <footer>
+      <span>Free. Works offline after your first visit.</span>
       <a href="./THIRD-PARTY-LICENSES.txt">Licences</a>
     </footer>
     <script type="module" src="/src/main.ts"></script>
