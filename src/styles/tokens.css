@@ -1,0 +1,130 @@
+/* videoresize design tokens.
+   Sea-glass neutrals, one deep teal action colour, one marigold signal used
+   only for "the new, smaller file" (size bar, wipe handle). System fonts only.
+   Contrast notes are WCAG ratios measured against --c-bg and --c-surface. */
+:root {
+  color-scheme: light dark;
+
+  /* Colour: light */
+  --c-bg: #eef2f0;
+  --c-surface: #ffffff;
+  --c-surface-2: #e2e9e6;
+  --c-raised: #ffffff; /* selected segment on --c-surface-2 */
+  --c-ink: #13201d; /* 15:1 */
+  --c-ink-2: #3f4e4a; /* 7.7:1 */
+  --c-ink-3: #56655f; /* 5.0:1 on surface-2, 5.4:1 on bg */
+  --c-line: #cfd8d4; /* decorative dividers only */
+  --c-line-strong: #7a8a85; /* 3.2:1 on bg, control borders (WCAG 1.4.11) */
+  --c-accent: #0b6e66; /* 6.1:1 with white text */
+  --c-accent-hover: #085a53;
+  --c-accent-ink: #ffffff;
+  --c-accent-soft: #d4ebe7;
+  --c-accent-text: #0a625b; /* accent used as text on bg */
+  --c-signal: #f0b23e;
+  --c-signal-ink: #2a1c00;
+  --c-warn-bg: #fbefd4;
+  --c-warn-ink: #5c3d00;
+  --c-error-bg: #f9e0dc;
+  --c-error-ink: #7a1f12;
+  /* The video stage stays dark in both themes so footage reads true. */
+  --c-stage: #0b1211;
+  --c-stage-ink: #f1f5f3;
+  --c-scrim: rgb(11 18 17 / 62%);
+  --c-focus: #0b6e66;
+
+  /* Type: rounded system face for display (SF Pro Rounded on Apple,
+     falls back to the platform UI face), UI face for body, mono for numbers. */
+  --font-display: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Roboto Mono", monospace;
+  --fs-1: 0.8125rem; /* 13 captions, labels */
+  --fs-2: 0.9375rem; /* 15 secondary */
+  --fs-3: 1.0625rem; /* 17 body (iOS body size) */
+  --fs-4: 1.3125rem; /* 21 card titles */
+  --fs-5: 1.75rem; /* 28 screen headings */
+  --fs-6: 2.5rem; /* 40 hero figure */
+  --fw-regular: 400;
+  --fw-medium: 560;
+  --fw-bold: 700;
+  --fw-heavy: 800;
+  --lh-tight: 1.15;
+  --lh-body: 1.45;
+  --track-display: -0.02em;
+  --track-caps: 0.06em;
+
+  /* Space: 4px base */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* Shape */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-pill: 999px;
+  --shadow-card: 0 1px 2px rgb(19 32 29 / 6%), 0 8px 24px rgb(19 32 29 / 7%);
+  --shadow-lift: 0 2px 6px rgb(19 32 29 / 14%);
+
+  /* Interaction */
+  --tap: 44px; /* minimum touch target */
+  --tap-lg: 56px; /* primary action */
+  --ring: 0 0 0 3px var(--c-bg), 0 0 0 5px var(--c-focus);
+  --dur-fast: 120ms;
+  --dur: 220ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Layout */
+  --content-max: 680px;
+  --wide-max: 1240px;
+  --side-col: 380px;
+  --gutter: 16px;
+}
+
+@media (min-width: 720px) {
+  :root {
+    --gutter: 32px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #0e1513;
+    --c-surface: #161f1c;
+    --c-surface-2: #1f2a27;
+    --c-raised: #33433e;
+    --c-ink: #e7eeeb;
+    --c-ink-2: #bccac5;
+    --c-ink-3: #93a49e;
+    --c-line: #2a3632;
+    --c-line-strong: #62756f;
+    --c-accent: #5fd3c3;
+    --c-accent-hover: #86e0d3;
+    --c-accent-ink: #04211d;
+    --c-accent-soft: #173a35;
+    --c-accent-text: #6fd9ca;
+    --c-signal: #f5c15a;
+    --c-signal-ink: #2a1c00;
+    --c-warn-bg: #3a2d10;
+    --c-warn-ink: #f6d999;
+    --c-error-bg: #3d1d18;
+    --c-error-ink: #f6b8ad;
+    --c-stage: #050908;
+    --c-scrim: rgb(0 0 0 / 60%);
+    --c-focus: #5fd3c3;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
+    --shadow-lift: 0 2px 6px rgb(0 0 0 / 50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+  }
+}

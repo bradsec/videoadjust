@@ -1,0 +1,1475 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>videoresize mockups</title>
+    <link rel="stylesheet" href="../../src/styles/tokens.css" />
+    <style>
+      /* Mockup layout. Real UI tasks reuse tokens.css; these rules are a
+         reference for component shape, not production CSS. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--c-bg);
+        color: var(--c-ink);
+        font-family: var(--font-ui);
+        font-size: var(--fs-3);
+        line-height: var(--lh-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      /* Figures use the UI face with tabular digits; mono reads too
+         technical for this audience. --font-mono stays for codes if needed. */
+      .num {
+        font-variant-numeric: tabular-nums;
+      }
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      svg.i {
+        width: 20px;
+        height: 20px;
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      /* Screen switching: the render script sets data-screen. With no
+         attribute, every screen is shown in sequence for browsing. */
+      .screen {
+        display: none;
+      }
+      html:not([data-screen]) .screen {
+        display: block;
+        border-bottom: 6px solid var(--c-line);
+      }
+      html[data-screen="drop"] #drop,
+      html[data-screen="prepare"] #prepare,
+      html[data-screen="progress"] #progress,
+      html[data-screen="result"] #result,
+      html[data-screen="notices"] #notices {
+        display: block;
+      }
+
+      /* App bar */
+      .bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-3);
+        max-width: var(--wide-max);
+        margin: 0 auto;
+        padding: var(--sp-3) var(--gutter);
+        min-height: 60px;
+      }
+      .mark {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        font-family: var(--font-display);
+        font-weight: var(--fw-heavy);
+        font-size: var(--fs-3);
+        letter-spacing: var(--track-display);
+      }
+      .mark svg {
+        width: 26px;
+        height: 26px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: var(--r-pill);
+        background: var(--c-accent-soft);
+        color: var(--c-accent-text);
+        font-size: var(--fs-1);
+        font-weight: var(--fw-medium);
+      }
+      .chip svg.i {
+        width: 16px;
+        height: 16px;
+      }
+
+      main {
+        max-width: var(--wide-max);
+        margin: 0 auto;
+        padding: 0 var(--gutter) var(--sp-6);
+      }
+      .col {
+        max-width: var(--content-max);
+        margin: 0 auto;
+        display: grid;
+        gap: var(--sp-5);
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--sp-2);
+        min-height: var(--tap);
+        min-width: var(--tap);
+        padding: 0 var(--sp-4);
+        border-radius: var(--r-md);
+        border: 1.5px solid var(--c-line-strong);
+        background: var(--c-surface);
+        color: var(--c-ink);
+        font: inherit;
+        font-size: var(--fs-2);
+        font-weight: var(--fw-medium);
+        cursor: pointer;
+        text-decoration: none;
+      }
+      .btn-primary {
+        min-height: var(--tap-lg);
+        border-color: transparent;
+        background: var(--c-accent);
+        color: var(--c-accent-ink);
+        font-size: var(--fs-3);
+        font-weight: var(--fw-bold);
+        box-shadow: var(--shadow-lift);
+      }
+      .btn-quiet {
+        white-space: nowrap;
+        border-color: transparent;
+        background: transparent;
+        color: var(--c-accent-text);
+      }
+      .btn-block {
+        width: 100%;
+      }
+      .btn:focus-visible,
+      .focus-demo {
+        outline: none;
+        box-shadow: var(--ring);
+      }
+
+      /* Card */
+      .card {
+        background: var(--c-surface);
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-card);
+        padding: var(--sp-5);
+      }
+      .eyebrow {
+        font-size: var(--fs-1);
+        font-weight: var(--fw-bold);
+        letter-spacing: var(--track-caps);
+        text-transform: uppercase;
+        color: var(--c-ink-3);
+      }
+
+      /* Video stage and placeholder footage */
+      .stage {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        border-radius: var(--r-lg);
+        overflow: hidden;
+        background: var(--c-stage);
+        color: var(--c-stage-ink);
+      }
+      .stage > svg.scene,
+      .thumb svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .overlay-time {
+        position: absolute;
+        left: var(--sp-3);
+        bottom: var(--sp-3);
+        padding: 4px 10px;
+        border-radius: var(--r-pill);
+        background: var(--c-scrim);
+        font-size: var(--fs-1);
+      }
+      .play {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        border: 0;
+        display: grid;
+        place-items: center;
+        background: var(--c-scrim);
+        color: var(--c-stage-ink);
+      }
+      .play svg {
+        width: 28px;
+        height: 28px;
+        fill: currentColor;
+        stroke: none;
+        margin-left: 4px;
+      }
+      .file-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 2px var(--sp-3);
+        font-size: var(--fs-2);
+        color: var(--c-ink-2);
+      }
+      .file-line strong {
+        color: var(--c-ink);
+        font-size: var(--fs-3);
+      }
+
+      /* Drop */
+      .hero {
+        padding: var(--sp-6) 0 var(--sp-4);
+        display: grid;
+        gap: var(--sp-3);
+      }
+      .hero h1 {
+        font-family: var(--font-display);
+        font-weight: var(--fw-heavy);
+        font-size: clamp(2rem, 7vw, 3.5rem);
+        line-height: 1.02;
+        letter-spacing: -0.035em;
+        max-width: 14ch;
+      }
+      .hero h1 .shrink {
+        font-size: 0.56em;
+        letter-spacing: -0.02em;
+        color: var(--c-accent-text);
+        vertical-align: 0.12em;
+        white-space: nowrap;
+      }
+      .hero p {
+        color: var(--c-ink-2);
+        max-width: 46ch;
+      }
+      .dropzone {
+        display: grid;
+        justify-items: center;
+        text-align: center;
+        gap: var(--sp-3);
+        padding: var(--sp-7) var(--sp-5);
+        border: 2px dashed var(--c-line-strong);
+        border-radius: var(--r-lg);
+        background: var(--c-surface);
+      }
+      .dropzone .glyph {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--c-accent-soft);
+        color: var(--c-accent-text);
+      }
+      .dropzone .glyph svg.i {
+        width: 34px;
+        height: 34px;
+      }
+      .dropzone .btn-primary {
+        min-width: 220px;
+      }
+      .dropzone .hint {
+        color: var(--c-ink-2);
+      }
+      .dropzone .formats {
+        font-size: var(--fs-1);
+        color: var(--c-ink-3);
+      }
+      .steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--sp-3);
+      }
+      .steps li {
+        display: grid;
+        align-content: start;
+        gap: 2px;
+        padding-top: var(--sp-3);
+        border-top: 2px solid var(--c-line);
+        font-size: var(--fs-2);
+        color: var(--c-ink-2);
+      }
+      .steps li b {
+        color: var(--c-ink);
+        font-weight: var(--fw-bold);
+      }
+      .steps li:first-child {
+        border-top-color: var(--c-accent);
+      }
+      .privacy {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: flex-start;
+        font-size: var(--fs-2);
+        color: var(--c-ink-2);
+      }
+      .privacy svg.i {
+        color: var(--c-accent-text);
+        margin-top: 2px;
+      }
+
+      /* Size scale: the signature. Bars are drawn to scale against the
+         original file, so the reduction is seen, not just read. */
+      .scale {
+        display: grid;
+        gap: var(--sp-2);
+      }
+      .scale-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+      .scale-label {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--sp-2);
+        font-size: var(--fs-1);
+        color: var(--c-ink-2);
+      }
+      .scale-label b {
+        color: var(--c-ink);
+        font-weight: var(--fw-bold);
+      }
+      .track {
+        position: relative;
+        height: 14px;
+        border-radius: var(--r-pill);
+        background: var(--c-surface-2);
+        overflow: hidden;
+      }
+      .track .orig {
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(
+          -45deg,
+          var(--c-line-strong) 0 2px,
+          transparent 2px 7px
+        );
+        opacity: 0.55;
+      }
+      .track .new {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        border-radius: var(--r-pill);
+        background: var(--c-signal);
+        box-shadow: inset 0 0 0 1px rgb(0 0 0 / 18%);
+      }
+      .track .range {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: color-mix(in srgb, var(--c-signal) 45%, transparent);
+      }
+
+      /* Prepare */
+      .split {
+        display: grid;
+        gap: var(--sp-5);
+        padding-top: var(--sp-2);
+      }
+      .main-col,
+      .side-col {
+        display: grid;
+        gap: var(--sp-4);
+        align-content: start;
+        min-width: 0;
+      }
+      .trim {
+        display: grid;
+        gap: var(--sp-3);
+      }
+      .trim-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: var(--fs-2);
+        color: var(--c-ink-2);
+      }
+      .trim-head h2 {
+        font-size: var(--fs-3);
+        color: var(--c-ink);
+        font-weight: var(--fw-bold);
+      }
+      .strip {
+        position: relative;
+        height: 64px;
+        border-radius: var(--r-md);
+        background: var(--c-stage);
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 2px;
+        padding: 0;
+        overflow: visible;
+      }
+      .thumb {
+        position: relative;
+        overflow: hidden;
+      }
+      .thumb:first-child {
+        border-radius: var(--r-md) 0 0 var(--r-md);
+      }
+      .thumb:last-child {
+        border-radius: 0 var(--r-md) var(--r-md) 0;
+      }
+      .strip .out {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: rgb(8 12 11 / 68%);
+      }
+      .strip .sel {
+        position: absolute;
+        top: -3px;
+        bottom: -3px;
+        border: 3px solid var(--c-signal);
+        border-left-width: 0;
+        border-right-width: 0;
+      }
+      .handle {
+        position: absolute;
+        top: -3px;
+        bottom: -3px;
+        width: 22px;
+        background: var(--c-signal);
+        display: grid;
+        place-items: center;
+        color: var(--c-signal-ink);
+      }
+      .handle::before {
+        content: "";
+        width: 3px;
+        height: 22px;
+        border-radius: 2px;
+        background: currentColor;
+        opacity: 0.6;
+      }
+      /* Invisible hit area keeps the handle >= 44px wide for touch. */
+      .handle::after {
+        content: "";
+        position: absolute;
+        inset: -6px -11px;
+      }
+      /* Handles sit inside the kept range so they never overhang the strip. */
+      .handle.start {
+        border-radius: 10px 0 0 10px;
+      }
+      .handle.end {
+        border-radius: 0 10px 10px 0;
+        transform: translateX(-100%);
+      }
+      .playhead {
+        position: absolute;
+        top: -10px;
+        bottom: -10px;
+        width: 3px;
+        margin-left: -1.5px;
+        background: var(--c-stage-ink);
+        border-radius: 2px;
+        box-shadow: 0 0 0 1px var(--c-stage);
+      }
+      .playhead::before {
+        content: "";
+        position: absolute;
+        top: -2px;
+        left: 50%;
+        width: 13px;
+        height: 13px;
+        transform: translateX(-50%);
+        border-radius: 50%;
+        background: var(--c-stage-ink);
+        box-shadow: 0 0 0 1.5px var(--c-stage);
+      }
+      .trim-readouts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--sp-3);
+      }
+      .readout {
+        display: grid;
+        gap: var(--sp-2);
+      }
+      .readout .lbl {
+        font-size: var(--fs-1);
+        color: var(--c-ink-3);
+      }
+      .readout .val {
+        font-size: var(--fs-4);
+        font-weight: var(--fw-bold);
+      }
+      .readout .btn {
+        justify-content: flex-start;
+        font-size: var(--fs-2);
+      }
+      .summary {
+        display: grid;
+        gap: var(--sp-4);
+      }
+      .summary h2 {
+        font-family: var(--font-display);
+        font-size: var(--fs-4);
+        font-weight: var(--fw-heavy);
+        letter-spacing: var(--track-display);
+        line-height: var(--lh-tight);
+      }
+      .summary .sub {
+        font-size: var(--fs-2);
+        color: var(--c-ink-2);
+      }
+      .estimate {
+        display: flex;
+        align-items: baseline;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+      }
+      .estimate .big {
+        font-family: var(--font-display);
+        font-size: var(--fs-5);
+        font-weight: var(--fw-heavy);
+        letter-spacing: var(--track-display);
+      }
+      .estimate .from {
+        color: var(--c-ink-2);
+        font-size: var(--fs-2);
+      }
+      details.adjust {
+        border-top: 1px solid var(--c-line);
+        margin: 0 calc(var(--sp-5) * -1) calc(var(--sp-5) * -1);
+        padding: 0 var(--sp-5);
+      }
+      details.adjust summary {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 56px;
+        cursor: pointer;
+        font-weight: var(--fw-bold);
+      }
+      details.adjust summary::-webkit-details-marker {
+        display: none;
+      }
+      details.adjust summary .state {
+        margin-left: auto;
+        margin-right: var(--sp-2);
+        font-weight: var(--fw-regular);
+        font-size: var(--fs-2);
+        color: var(--c-ink-2);
+      }
+      details.adjust[open] summary svg.chev {
+        transform: rotate(180deg);
+      }
+      .opts {
+        display: grid;
+        gap: var(--sp-4);
+        padding: var(--sp-2) 0 var(--sp-5);
+      }
+      .opt {
+        display: grid;
+        gap: var(--sp-2);
+      }
+      .opt-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-2);
+        min-height: 28px;
+      }
+      .opt-head .name {
+        font-size: var(--fs-2);
+        font-weight: var(--fw-bold);
+      }
+      .tag {
+        font-size: var(--fs-1);
+        color: var(--c-ink-3);
+      }
+      .reset {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: var(--tap);
+        margin: -8px -8px -8px 0;
+        padding: 0 8px;
+        border: 0;
+        background: none;
+        color: var(--c-accent-text);
+        font: inherit;
+        font-size: var(--fs-1);
+        font-weight: var(--fw-bold);
+      }
+      .reset svg.i {
+        width: 16px;
+        height: 16px;
+      }
+      .seg {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        padding: 3px;
+        gap: 3px;
+        border-radius: var(--r-md);
+        background: var(--c-surface-2);
+      }
+      .seg button {
+        min-height: 40px;
+        border: 0;
+        border-radius: 11px;
+        background: transparent;
+        color: var(--c-ink-2);
+        font: inherit;
+        font-size: var(--fs-2);
+        font-weight: var(--fw-medium);
+      }
+      /* The 3px track padding brings each segment's hit area to 44px+. */
+      .seg button[aria-pressed="true"] {
+        background: var(--c-raised);
+        color: var(--c-ink);
+        font-weight: var(--fw-bold);
+        box-shadow: var(--shadow-lift);
+      }
+      .seg button:disabled {
+        color: var(--c-ink-3);
+        text-decoration: line-through;
+        text-decoration-thickness: 1px;
+      }
+      .select {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: var(--tap);
+        padding: 0 var(--sp-3);
+        border: 1.5px solid var(--c-line-strong);
+        border-radius: var(--r-md);
+        background: var(--c-surface);
+        font-size: var(--fs-2);
+      }
+      .why {
+        font-size: var(--fs-1);
+        color: var(--c-ink-3);
+      }
+      /* Variant switch for the mockup: data-variant="adjusted" shows the
+         Prepare screen with one override (Quality: Smaller). */
+      html:not([data-variant="adjusted"]) .v-adj,
+      html[data-variant="adjusted"] .v-auto {
+        display: none;
+      }
+      html[data-variant="adjusted"] .quality .q-small {
+        background: var(--c-raised);
+        color: var(--c-ink);
+        font-weight: var(--fw-bold);
+        box-shadow: var(--shadow-lift);
+      }
+      html[data-variant="adjusted"] .quality .q-bal {
+        background: transparent;
+        color: var(--c-ink-2);
+        font-weight: var(--fw-medium);
+        box-shadow: none;
+      }
+      html[data-variant="adjusted"] .opt.quality .opt-head .name::after {
+        content: "";
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-left: 8px;
+        border-radius: 50%;
+        background: var(--c-signal);
+        vertical-align: 1px;
+        box-shadow: 0 0 0 1px rgb(0 0 0 / 25%);
+      }
+
+      /* Progress */
+      .progress-card {
+        display: grid;
+        gap: var(--sp-4);
+      }
+      .pct {
+        font-family: var(--font-display);
+        font-size: 4.5rem;
+        font-weight: var(--fw-heavy);
+        letter-spacing: -0.04em;
+        line-height: 1;
+      }
+      .pct small {
+        font-size: 0.45em;
+        color: var(--c-ink-3);
+        letter-spacing: 0;
+        margin-left: 2px;
+      }
+      .bar-track {
+        height: 12px;
+        border-radius: var(--r-pill);
+        background: var(--c-surface-2);
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: var(--r-pill);
+        background: var(--c-accent);
+      }
+      .facts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--sp-4) var(--sp-3);
+        margin: 0;
+      }
+      .facts dt {
+        font-size: var(--fs-1);
+        color: var(--c-ink-3);
+      }
+      .facts dd {
+        margin: 2px 0 0;
+        font-size: var(--fs-4);
+        font-weight: var(--fw-bold);
+      }
+      .facts dd span {
+        font-size: var(--fs-2);
+        font-weight: var(--fw-regular);
+        color: var(--c-ink-2);
+      }
+      .note {
+        font-size: var(--fs-2);
+        color: var(--c-ink-2);
+      }
+
+      /* Result */
+      .verdict {
+        display: grid;
+        gap: var(--sp-2);
+        padding-top: var(--sp-3);
+      }
+      .verdict .figure {
+        font-family: var(--font-display);
+        font-size: clamp(2rem, 8vw, var(--fs-6));
+        color: var(--c-ink);
+        font-weight: var(--fw-heavy);
+        letter-spacing: -0.035em;
+        line-height: 1;
+      }
+      .verdict .figure em {
+        font-style: normal;
+        color: var(--c-accent-text);
+      }
+      .verdict p {
+        color: var(--c-ink-2);
+      }
+      .wipe-new {
+        position: absolute;
+        inset: 0;
+        clip-path: inset(0 0 0 50%);
+      }
+      .wipe-new svg {
+        width: 100%;
+        height: 100%;
+      }
+      .side-tag {
+        position: absolute;
+        top: var(--sp-3);
+        padding: 4px 10px;
+        border-radius: var(--r-pill);
+        background: var(--c-scrim);
+        font-size: var(--fs-1);
+        font-weight: var(--fw-bold);
+      }
+      .side-tag.l {
+        left: var(--sp-3);
+      }
+      .side-tag.r {
+        right: var(--sp-3);
+      }
+      .wipe-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 3px;
+        margin-left: -1.5px;
+        background: var(--c-signal);
+      }
+      .wipe-knob {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 48px;
+        height: 48px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: var(--c-signal);
+        color: var(--c-signal-ink);
+        display: grid;
+        place-items: center;
+        box-shadow: 0 2px 10px rgb(0 0 0 / 40%);
+      }
+      .wipe-knob svg.i {
+        width: 26px;
+        height: 26px;
+        stroke-width: 2.2;
+      }
+      .compare-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+      }
+      .compare-bar .seg {
+        flex: 0 0 auto;
+        min-width: 200px;
+      }
+      .scrub {
+        flex: 1 1 160px;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        font-size: var(--fs-1);
+        color: var(--c-ink-2);
+      }
+      .scrub .bar-track {
+        flex: 1;
+        height: 6px;
+        position: relative;
+        overflow: visible;
+      }
+      .scrub .bar-fill {
+        width: 32%;
+        background: var(--c-ink-2);
+      }
+      .scrub .dot {
+        position: absolute;
+        top: 50%;
+        left: 32%;
+        width: 18px;
+        height: 18px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: var(--c-surface);
+        border: 2px solid var(--c-ink-2);
+      }
+      table.stats {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--fs-2);
+      }
+      .stats caption {
+        text-align: left;
+        padding-bottom: var(--sp-2);
+      }
+      .stats th,
+      .stats td {
+        padding: 10px 0;
+        border-bottom: 1px solid var(--c-line);
+        text-align: left;
+        vertical-align: baseline;
+      }
+      .stats thead th {
+        font-size: var(--fs-1);
+        font-weight: var(--fw-bold);
+        color: var(--c-ink-3);
+        letter-spacing: var(--track-caps);
+        text-transform: uppercase;
+        padding-top: 0;
+      }
+      .stats tbody th {
+        font-weight: var(--fw-regular);
+        color: var(--c-ink-2);
+        padding-right: var(--sp-3);
+        white-space: nowrap;
+      }
+      .stats td {
+        padding-left: var(--sp-3);
+        white-space: nowrap;
+      }
+      .stats-card {
+        padding: var(--sp-4) var(--sp-4) var(--sp-2);
+      }
+      .stats td.new {
+        font-weight: var(--fw-bold);
+      }
+      .stats tr.total th,
+      .stats tr.total td {
+        border-bottom: 0;
+        padding-top: var(--sp-3);
+      }
+      .stats tr.total td {
+        font-family: var(--font-display);
+        font-size: var(--fs-4);
+        font-weight: var(--fw-heavy);
+        color: var(--c-accent-text);
+      }
+      .stats .delta {
+        display: block;
+        font-family: var(--font-ui);
+        font-size: var(--fs-1);
+        font-weight: var(--fw-regular);
+        color: var(--c-ink-3);
+      }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--sp-3);
+      }
+      .actions .btn-primary {
+        grid-column: 1 / -1;
+      }
+      .actions .file {
+        font-weight: var(--fw-regular);
+        opacity: 0.85;
+        font-size: var(--fs-2);
+      }
+      .actions .btn-share {
+        grid-column: 1 / -1;
+        min-height: var(--tap-lg);
+        font-size: var(--fs-3);
+        font-weight: var(--fw-bold);
+      }
+
+      /* Notices */
+      .notice {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--sp-2) var(--sp-3);
+        padding: var(--sp-4);
+        border-radius: var(--r-md);
+        font-size: var(--fs-2);
+      }
+      .notice svg.i {
+        width: 22px;
+        height: 22px;
+      }
+      .notice h3 {
+        font-size: var(--fs-3);
+        font-weight: var(--fw-bold);
+        line-height: 1.3;
+      }
+      .notice .body {
+        display: grid;
+        gap: var(--sp-2);
+      }
+      .notice .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+        margin-top: var(--sp-1);
+      }
+      .notice.warn {
+        background: var(--c-warn-bg);
+        color: var(--c-warn-ink);
+      }
+      .notice.error {
+        background: var(--c-error-bg);
+        color: var(--c-error-ink);
+      }
+      .notice.info {
+        background: var(--c-surface);
+        box-shadow: var(--shadow-card);
+      }
+      .notice.info svg.i {
+        color: var(--c-accent-text);
+      }
+      .notice .btn {
+        color: var(--c-ink);
+      }
+      .label-mock {
+        font-size: var(--fs-1);
+        color: var(--c-ink-3);
+        letter-spacing: var(--track-caps);
+        text-transform: uppercase;
+        font-weight: var(--fw-bold);
+        margin-top: var(--sp-2);
+      }
+
+      footer {
+        max-width: var(--wide-max);
+        margin: 0 auto;
+        padding: var(--sp-4) var(--gutter) var(--sp-6);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: var(--sp-2);
+        font-size: var(--fs-1);
+        color: var(--c-ink-3);
+      }
+      footer a {
+        color: var(--c-accent-text);
+        display: inline-flex;
+        align-items: center;
+        min-height: var(--tap);
+        margin: -12px 0;
+      }
+
+      /* Wide screens: two columns, controls on the right. */
+      @media (min-width: 1024px) {
+        .split {
+          grid-template-columns: minmax(0, 1fr) var(--side-col);
+          gap: var(--sp-6);
+          align-items: start;
+        }
+        .side-col {
+          position: sticky;
+          top: var(--sp-4);
+        }
+        .hero {
+          padding-top: var(--sp-7);
+        }
+        .drop-grid {
+          display: grid;
+          grid-template-columns: 1fr 1.15fr;
+          gap: var(--sp-7);
+          align-items: center;
+          min-height: calc(100vh - 160px);
+          max-width: 1120px;
+          margin: 0 auto;
+          padding-top: var(--sp-6);
+        }
+        .drop-grid .dropzone {
+          padding: var(--sp-8) var(--sp-6);
+          min-height: 420px;
+          align-content: center;
+        }
+        .actions {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#27466a" />
+          <stop offset="0.55" stop-color="#d98c6e" />
+          <stop offset="1" stop-color="#f4cf98" />
+        </linearGradient>
+        <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#3f6f86" />
+          <stop offset="1" stop-color="#16303d" />
+        </linearGradient>
+        <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#fff6dc" />
+          <stop offset="0.5" stop-color="#ffe2a6" />
+          <stop offset="1" stop-color="#ffe2a6" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+      <!-- Placeholder footage: an abstract coastline at dusk. -->
+      <symbol id="scene" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice">
+        <rect width="160" height="90" fill="url(#sky)" />
+        <circle cx="104" cy="50" r="22" fill="url(#sun)" />
+        <circle cx="104" cy="50" r="7" fill="#fff4d6" />
+        <path d="M0 52 L22 40 L40 47 L62 34 L84 49 L160 44 L160 60 L0 60Z" fill="#4e5f7c" opacity="0.85" />
+        <rect y="56" width="160" height="34" fill="url(#sea)" />
+        <path d="M70 62 h68 M84 67 h40 M92 72 h22" stroke="#ffe2a6" stroke-width="1.2" opacity="0.6" />
+        <path d="M0 74 C30 66 52 70 70 90 L0 90Z" fill="#14222b" />
+        <path d="M18 73 l2 -14 l2 14Z" fill="#14222b" />
+      </symbol>
+      <symbol id="i-logo" viewBox="0 0 26 26">
+        <rect x="1.5" y="3.5" width="23" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.8" />
+        <rect x="11" y="10" width="10" height="7" rx="2" fill="var(--c-signal)" />
+        <path d="M5 7.5 L10 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        <path d="M5.5 12 L10 12 L10 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></symbol>
+      <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10 9.5v5l4-2.5z" /><path d="M3 9h3M3 15h3M18 9h3M18 15h3" /></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" /></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
+      <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8" /><path d="M4 4v4h4" /></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></symbol>
+      <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4" /><path d="M7 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1" /></symbol>
+      <symbol id="i-smaller" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M14 10h-4V6M10 10L5 5M10 14v4M14 14l5 5M14 14h4" /></symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8" /><path d="M20 4v4h-4" /></symbol>
+      <symbol id="i-wipe" viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5" /></symbol>
+      <symbol id="i-start" viewBox="0 0 24 24"><path d="M6 4v16M10 12h10M15 8l-5 4 5 4" /></symbol>
+      <symbol id="i-end" viewBox="0 0 24 24"><path d="M18 4v16M4 12h10M9 8l5 4-5 4" /></symbol>
+      <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17h.01" /></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></symbol>
+      <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M4 4l16 16M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 4-2.4M14.5 10a10 10 0 0 1 4.5 2.5M12 20h.01" /></symbol>
+    </svg>
+
+    <!-- ===== Drop ===== -->
+    <section class="screen" id="drop" aria-label="Drop state">
+      <header class="bar">
+        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
+        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+      </header>
+      <main>
+        <div class="drop-grid">
+          <div class="hero">
+            <h1>Make a video <span class="shrink">small enough</span> to send.</h1>
+            <p>Shrink and trim phone videos for messages and email. It all happens in this browser, so your video is never uploaded.</p>
+            <ol class="steps" aria-label="How it works">
+              <li><b>Choose</b>Pick a video</li>
+              <li><b>Export</b>Settings are automatic</li>
+              <li><b>Send</b>Save or share it</li>
+            </ol>
+          </div>
+          <div class="dropzone">
+            <span class="glyph"><svg class="i" aria-hidden="true"><use href="#i-film" /></svg></span>
+            <button class="btn btn-primary" type="button">Choose video</button>
+            <p class="hint">or drop a video file here</p>
+            <p class="formats">MP4, MOV, WebM, MKV. Works best up to 2&nbsp;GB.</p>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <span>Free. Works offline after your first visit.</span>
+        <a href="#">Licences</a>
+      </footer>
+    </section>
+
+    <!-- ===== Prepare ===== -->
+    <section class="screen" id="prepare" aria-label="Prepare state">
+      <header class="bar">
+        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
+        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+      </header>
+      <main>
+        <div class="split">
+          <div class="main-col">
+            <p class="file-line"><strong>IMG_4821.MOV</strong><span class="num">212 MB · 3840x2160 · 60 fps · HEVC · 1:24.6</span></p>
+            <div class="stage">
+              <svg class="scene" aria-hidden="true"><use href="#scene" /></svg>
+              <button class="play" type="button" aria-label="Play"><svg class="i" aria-hidden="true"><use href="#i-play" /></svg></button>
+              <span class="overlay-time num">0:12.4 / 1:24.6</span>
+            </div>
+            <div class="trim">
+              <div class="trim-head">
+                <h2>Trim</h2>
+                <span class="num">0:38.6 of 1:24.6 kept</span>
+              </div>
+              <div class="strip" aria-label="Trim range">
+                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(-12deg) brightness(0.9)"><use href="#scene" /></svg></div>
+                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(-6deg)"><use href="#scene" /></svg></div>
+                <div class="thumb"><svg aria-hidden="true"><use href="#scene" /></svg></div>
+                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(6deg) brightness(1.05)"><use href="#scene" /></svg></div>
+                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(10deg) brightness(0.95)"><use href="#scene" /></svg></div>
+                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(14deg) brightness(0.85)"><use href="#scene" /></svg></div>
+                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(18deg) brightness(0.75)"><use href="#scene" /></svg></div>
+                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(22deg) brightness(0.65)"><use href="#scene" /></svg></div>
+                <!-- 0:03.2 = 3.8%, 0:41.8 = 49.4%, playhead 0:12.4 = 14.7% of 1:24.6 -->
+                <span class="out" style="left: 0; width: 3.8%; border-radius: 14px 0 0 14px"></span>
+                <span class="out" style="left: 49.4%; right: 0; border-radius: 0 14px 14px 0"></span>
+                <span class="sel" style="left: 3.8%; width: 45.6%"></span>
+                <span class="handle start" style="left: 3.8%" role="slider" aria-label="Start" aria-valuetext="0:03.2"></span>
+                <span class="handle end" style="left: 49.4%" role="slider" aria-label="End" aria-valuetext="0:41.8"></span>
+                <span class="playhead" style="left: 14.7%"></span>
+              </div>
+              <div class="trim-readouts">
+                <div class="readout">
+                  <span class="lbl">Start</span>
+                  <span class="val num">0:03.2</span>
+                  <button class="btn" type="button"><svg class="i" aria-hidden="true"><use href="#i-start" /></svg>Start here</button>
+                </div>
+                <div class="readout">
+                  <span class="lbl">End</span>
+                  <span class="val num">0:41.8</span>
+                  <button class="btn" type="button"><svg class="i" aria-hidden="true"><use href="#i-end" /></svg>End here</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="side-col">
+            <div class="card summary">
+              <span class="eyebrow">Ready to export</span>
+              <div>
+                <h2>1080p, H.264/AAC MP4</h2>
+                <p class="sub num prep-sub">30 fps · AAC 128 kbps stereo</p>
+              </div>
+              <div class="estimate">
+                <span class="big num"><span class="v-auto">est. 18-24 MB</span><span class="v-adj">est. 14-18 MB</span></span>
+                <span class="from">from 212 MB</span>
+              </div>
+              <div class="scale" aria-hidden="true">
+                <div class="scale-row">
+                  <div class="scale-label"><span>Original</span><b class="num">212 MB</b></div>
+                  <div class="track"><span class="orig"></span></div>
+                </div>
+                <div class="scale-row">
+                  <div class="scale-label"><span>New, estimated</span><b class="num"><span class="v-auto">18-24 MB</span><span class="v-adj">14-18 MB</span></b></div>
+                  <div class="track v-auto"><span class="new" style="width: 8.5%"></span><span class="range" style="left: 8.5%; width: 2.8%"></span></div>
+                  <div class="track v-adj"><span class="new" style="width: 6.6%"></span><span class="range" style="left: 6.6%; width: 1.9%"></span></div>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-block" type="button">Export</button>
+              <details class="adjust">
+                <summary>Adjust<span class="state"><span class="v-auto">All automatic</span><span class="v-adj">1 change</span></span><svg class="i chev" aria-hidden="true"><use href="#i-chev" /></svg></summary>
+                <div class="opts">
+                  <div class="opt">
+                    <div class="opt-head"><span class="name">Format</span><span class="tag">Auto: MP4</span></div>
+                    <div class="seg" role="group" aria-label="Format">
+                      <button type="button" aria-pressed="true">MP4</button>
+                      <button type="button" aria-pressed="false">WebM</button>
+                    </div>
+                  </div>
+                  <div class="opt">
+                    <div class="opt-head"><span class="name">Video</span><span class="tag">Auto: H.264</span></div>
+                    <div class="seg" role="group" aria-label="Video codec">
+                      <button type="button" aria-pressed="true">H.264</button>
+                      <button type="button" aria-pressed="false">HEVC</button>
+                      <button type="button" aria-pressed="false" disabled>AV1</button>
+                    </div>
+                    <p class="why">AV1 encoding is not available in this browser.</p>
+                  </div>
+                  <div class="opt">
+                    <div class="opt-head"><span class="name">Resolution</span><span class="tag">Auto: 1080p</span></div>
+                    <div class="select"><span class="num">1080p (1920x1080)</span><svg class="i" aria-hidden="true"><use href="#i-chev" /></svg></div>
+                  </div>
+                  <div class="opt">
+                    <div class="opt-head"><span class="name">Frame rate</span><span class="tag">Auto: 30 fps, half of 60</span></div>
+                    <div class="select"><span class="num">30 fps</span><svg class="i" aria-hidden="true"><use href="#i-chev" /></svg></div>
+                  </div>
+                  <div class="opt quality">
+                    <div class="opt-head">
+                      <span class="name">Quality</span>
+                      <span class="tag v-auto">Auto: Balanced</span>
+                      <button class="reset v-adj" type="button"><svg class="i" aria-hidden="true"><use href="#i-reset" /></svg>Reset to Balanced</button>
+                    </div>
+                    <div class="seg" role="group" aria-label="Quality">
+                      <button type="button" class="q-small" aria-pressed="false">Smaller</button>
+                      <button type="button" class="q-bal" aria-pressed="true">Balanced</button>
+                      <button type="button" aria-pressed="false">Sharper</button>
+                    </div>
+                  </div>
+                  <div class="opt">
+                    <div class="opt-head"><span class="name">Audio</span><span class="tag">Auto: AAC 128 kbps</span></div>
+                    <div class="seg" role="group" aria-label="Audio">
+                      <button type="button" aria-pressed="true">AAC</button>
+                      <button type="button" aria-pressed="false">Opus</button>
+                      <button type="button" aria-pressed="false">None</button>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </aside>
+        </div>
+      </main>
+      <footer>
+        <span>Free. Works offline after your first visit.</span>
+        <a href="#">Licences</a>
+      </footer>
+    </section>
+
+    <!-- ===== Progress ===== -->
+    <section class="screen" id="progress" aria-label="Exporting state">
+      <header class="bar">
+        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
+        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+      </header>
+      <main>
+        <div class="col">
+          <p class="file-line"><strong>Exporting IMG_4821-small.mp4</strong><span class="num">1080p · H.264/AAC MP4</span></p>
+          <div class="stage">
+            <svg class="scene" aria-hidden="true" style="filter: hue-rotate(8deg) brightness(0.92)"><use href="#scene" /></svg>
+            <span class="overlay-time num">Encoding 0:24.1 of 0:38.6</span>
+          </div>
+          <div class="card progress-card" role="status" aria-live="polite">
+            <div class="pct num">62<small>%</small></div>
+            <div class="bar-track" role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-label="Export progress">
+              <div class="bar-fill" style="width: 62%"></div>
+            </div>
+            <dl class="facts">
+              <div><dt>Elapsed</dt><dd class="num">0:48</dd></div>
+              <div><dt>Remaining</dt><dd class="num">about 0:30</dd></div>
+              <div><dt>Written so far</dt><dd class="num">12.8 MB</dd></div>
+              <div><dt>Expected</dt><dd class="num">18-24 MB</dd></div>
+            </dl>
+            <div class="scale" aria-hidden="true">
+              <div class="scale-row">
+                <div class="scale-label"><span>Original</span><b class="num">212 MB</b></div>
+                <div class="track"><span class="orig"></span></div>
+              </div>
+              <div class="scale-row">
+                <div class="scale-label"><span>New, so far</span><b class="num">12.8 MB</b></div>
+                <div class="track"><span class="new" style="width: 6%"></span></div>
+              </div>
+            </div>
+            <button class="btn btn-block" type="button"><svg class="i" aria-hidden="true"><use href="#i-stop" /></svg>Cancel export</button>
+          </div>
+          <p class="note">Keep this tab open until it finishes. Your phone may get warm; that is normal for video work.</p>
+        </div>
+      </main>
+      <footer>
+        <span>Free. Works offline after your first visit.</span>
+        <a href="#">Licences</a>
+      </footer>
+    </section>
+
+    <!-- ===== Result ===== -->
+    <section class="screen" id="result" aria-label="Result state">
+      <header class="bar">
+        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
+        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+      </header>
+      <main>
+        <div class="split">
+          <div class="main-col">
+            <div class="verdict">
+              <span class="eyebrow">Done in 1:18</span>
+              <p class="figure num">20.6 MB, <em>90% smaller</em></p>
+              <p>IMG_4821-small.mp4 is ready to send.</p>
+            </div>
+            <div class="stage" aria-label="Compare original and new">
+              <svg class="scene" aria-hidden="true"><use href="#scene" /></svg>
+              <div class="wipe-new"><svg aria-hidden="true" style="filter: saturate(0.96) contrast(0.98)"><use href="#scene" /></svg></div>
+              <span class="side-tag l">Original · 2160p</span>
+              <span class="side-tag r">New · 1080p</span>
+              <span class="wipe-line"></span>
+              <span class="wipe-knob" role="slider" aria-label="Wipe position" aria-valuenow="50"><svg class="i" aria-hidden="true"><use href="#i-wipe" /></svg></span>
+            </div>
+            <div class="compare-bar">
+              <div class="seg" role="group" aria-label="Compare mode">
+                <button type="button" aria-pressed="true">Playback</button>
+                <button type="button" aria-pressed="false">Frame</button>
+              </div>
+              <div class="scrub">
+                <button class="btn" type="button" aria-label="Pause"><svg class="i" aria-hidden="true"><use href="#i-pause" /></svg></button>
+                <div class="bar-track"><div class="bar-fill"></div><span class="dot"></span></div>
+                <span class="num">0:12.4 / 0:38.6</span>
+              </div>
+            </div>
+            <div class="scale" aria-hidden="true">
+              <div class="scale-row">
+                <div class="scale-label"><span>Original</span><b class="num">212 MB</b></div>
+                <div class="track"><span class="orig"></span></div>
+              </div>
+              <div class="scale-row">
+                <div class="scale-label"><span>New</span><b class="num">20.6 MB</b></div>
+                <div class="track"><span class="new" style="width: 9.7%"></span></div>
+              </div>
+            </div>
+          </div>
+          <aside class="side-col">
+            <div class="card stats-card">
+              <table class="stats">
+                <thead>
+                  <tr><th scope="col"><span class="sr">Property</span></th><th scope="col">Original</th><th scope="col">New</th></tr>
+                </thead>
+                <tbody class="num">
+                  <tr><th scope="row">Size</th><td>212 MB</td><td class="new">20.6 MB</td></tr>
+                  <tr><th scope="row">Resolution</th><td>3840x2160</td><td class="new">1920x1080</td></tr>
+                  <tr><th scope="row">Frame rate</th><td>60 fps</td><td class="new">30 fps</td></tr>
+                  <tr><th scope="row">Video</th><td>HEVC, MOV</td><td class="new">H.264, MP4</td></tr>
+                  <tr><th scope="row">Audio</th><td>AAC 192 kbps</td><td class="new">AAC 128 kbps</td></tr>
+                  <tr><th scope="row">Bitrate</th><td>20.0 Mbps</td><td class="new">4.3 Mbps</td></tr>
+                  <tr><th scope="row">Duration</th><td>1:24.6</td><td class="new">0:38.6<span class="delta">trimmed</span></td></tr>
+                  <tr class="total"><th scope="row">Reduction</th><td colspan="2">90% smaller</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="actions">
+              <button class="btn btn-primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-down" /></svg>Download <span class="file">IMG_4821-small.mp4</span></button>
+              <button class="btn btn-share" type="button"><svg class="i" aria-hidden="true"><use href="#i-share" /></svg>Share</button>
+              <button class="btn btn-quiet" type="button"><svg class="i" aria-hidden="true"><use href="#i-smaller" /></svg>Make it smaller</button>
+              <button class="btn btn-quiet" type="button"><svg class="i" aria-hidden="true"><use href="#i-restart" /></svg>Start over</button>
+            </div>
+          </aside>
+        </div>
+      </main>
+      <footer>
+        <span>Free. Works offline after your first visit.</span>
+        <a href="#">Licences</a>
+      </footer>
+    </section>
+
+    <!-- ===== Notices (errors and limits) ===== -->
+    <section class="screen" id="notices" aria-label="Notices">
+      <header class="bar">
+        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
+        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+      </header>
+      <main>
+        <div class="col">
+          <p class="label-mock">Before export: very large file</p>
+          <div class="notice warn" role="alert">
+            <svg class="i" aria-hidden="true"><use href="#i-warn" /></svg>
+            <div class="body">
+              <h3>This video is 2.6 GB</h3>
+              <p>Files over 2 GB can run out of memory on phones and tablets, and the tab may reload. Close other tabs first, or trim it shorter.</p>
+              <div class="row"><button class="btn" type="button">Continue anyway</button><button class="btn btn-quiet" type="button">Choose another video</button></div>
+            </div>
+          </div>
+
+          <p class="label-mock">On open: no decoder</p>
+          <div class="notice error" role="alert">
+            <svg class="i" aria-hidden="true"><use href="#i-stop" /></svg>
+            <div class="body">
+              <h3>This browser cannot read HEVC video</h3>
+              <p>IMG_4821.MOV uses HEVC (H.265). Open this page in Safari, or in Chrome or Edge on a device with HEVC support, and try again.</p>
+              <div class="row"><button class="btn" type="button">Choose another video</button></div>
+            </div>
+          </div>
+
+          <p class="label-mock">Prepare: no H.264 encoder</p>
+          <div class="notice warn">
+            <svg class="i" aria-hidden="true"><use href="#i-warn" /></svg>
+            <div class="body">
+              <h3>H.264 is not available in this browser</h3>
+              <p>The most compatible format cannot be made here. HEVC MP4 is the closest option; it may not play on older Android phones or on Windows without the HEVC extension.</p>
+              <div class="row"><button class="btn" type="button">Use HEVC MP4</button></div>
+            </div>
+          </div>
+
+          <p class="label-mock">Prepare: large output, no file picker</p>
+          <div class="notice warn">
+            <svg class="i" aria-hidden="true"><use href="#i-warn" /></svg>
+            <div class="body">
+              <h3>This export is held in memory</h3>
+              <p>This browser cannot write straight to a file, so the new video (est. 0.9-1.2 GB) stays in memory until you save it. Trim it or pick a lower resolution if the tab reloads.</p>
+            </div>
+          </div>
+
+          <p class="label-mock">Result: output not smaller</p>
+          <div class="notice info">
+            <svg class="i" aria-hidden="true"><use href="#i-info" /></svg>
+            <div class="body">
+              <h3>This video is already small</h3>
+              <p>At 1080p the new file would be 31 MB, larger than the original 28 MB. 720p should come out smaller.</p>
+              <div class="row"><button class="btn" type="button">Try 720p</button><button class="btn btn-quiet" type="button">Keep the original</button></div>
+            </div>
+          </div>
+
+          <p class="label-mock">Before export: no room to save</p>
+          <div class="notice error" role="alert">
+            <svg class="i" aria-hidden="true"><use href="#i-stop" /></svg>
+            <div class="body">
+              <h3>Not enough space to save the new video</h3>
+              <p>It needs about 24 MB and this device reports 9 MB free for this site. Free up space, then try again.</p>
+            </div>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <span>Free. Works offline after your first visit.</span>
+        <a href="#">Licences</a>
+      </footer>
+    </section>
+  </body>
+</html>
