@@ -5,68 +5,49 @@
 [![License: MIT](https://img.shields.io/github/license/bradsec/videoadjust)](LICENSE)
 [![Live site](https://img.shields.io/website?url=https%3A%2F%2Fvideoadjust.com%2F&label=videoadjust.com)](https://videoadjust.com/)
 
-Compress, convert, resize, trim and extract audio from videos. Fast, private, and processed entirely in your browser. Nothing is uploaded.
+Compress, convert, resize, trim and extract audio from videos entirely in your browser. [Mediabunny](https://mediabunny.dev/) runs conversion locally through WebCodecs. Nothing is uploaded.
 
-Pick a video, trim it, choose a tool and its settings, then export. Video output defaults to MP4 with H.264 video and
-AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and the frame rate
-is never raised. Conversion runs locally on WebCodecs through
-[Mediabunny](https://mediabunny.dev/). No ffmpeg.wasm.
+**Live app: https://videoadjust.com/**
 
-Live site: https://videoadjust.com/
+## Features
 
-## Privacy
+- Pick a video, trim it, choose a tool and its settings, then export. Video output defaults to MP4 with H.264 video and AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and the frame rate is never raised. No ffmpeg.wasm.
+- On the prepare screen, choose Shrink video or Extract audio from the workspace tabs. The video and trim controls form the canvas; the summary, action, and Adjust controls form the inspector. On desktop they sit side by side. On narrower screens they stack, with the estimate and Export or Extract audio action fixed at the bottom on phones and sticky within the inspector on tablets.
+- Extract audio is unavailable when the source has no usable audio track.
+- Both tools use the same trim. Drag the trim handles or use arrow keys to adjust by 0.1 seconds. Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set a boundary at the preview playhead. The kept duration and summary estimate update as you trim.
+- The source summary shows whether sampled frames have a variable frame rate and whether the video is HDR, when Mediabunny can determine those properties.
+- If the browser cannot play the preview, the handles and thumbnails still work. Start here and End here are disabled because they need a playhead.
+- Shrink's summary card shows the estimated output range against the original size. Open Adjust to change format, codec, resolution, frame rate, quality, or audio. Each setting has a reset button.
+- Choose Crop and rotate beside the preview to edit the current frame. The canvas editor shows rotation and mirroring on a still frame; Done returns to the video's playback controls. Choose Free, Original, 1:1, 4:5, 9:16, or 16:9. Original locks to the rotated frame's ratio; its full-frame guide leaves the video uncropped. Each locked ratio starts with the largest centred crop and stays locked while you resize it. Drag inside the guide to move it, or drag an edge or corner to resize. Focus the guide and use arrow keys to move, Shift with arrows for larger steps, or Alt with arrows to resize. Rotate and mirror controls in Adjust and the editor stay in sync. Rotation and mirroring happen before cropping and resizing. A smaller crop, rotation, or mirroring re-encodes the video and keeps audio copy when available.
+- Set an optional output title under Metadata. Source descriptive tags are kept by default; Strip source metadata removes them, while retaining any title you entered. Metadata changes can be applied to a trimmed copy without re-encoding the video.
+- Seekability offers the default keyframe interval or 1-second and 2-second intervals. Shorter intervals improve seeking but increase file size. Choosing either interval re-encodes the video; the size estimate does not account for extra keyframes.
+- Unavailable codecs show why they cannot be selected. WebM uses Opus audio. The quality control and audio bitrates stay within the source limits. Quality keeps the same percentage when you change codec, resolution, or frame rate. Reset Quality returns to 100% for the current video settings.
+- If the source is already small, the summary offers Export trimmed copy, which keeps the source video and audio tracks. Select Re-encode anyway to use the adjustment controls.
+- Extract audio defaults to MP3. Open Adjust to choose MP3, M4A (AAC), or WAV, plus bitrate and mono or stereo where available. M4A copies the source audio without re-encoding when the source is AAC at or below the target bitrate; otherwise it encodes AAC at the target. MP3 and WAV are always encoded. WAV is 16-bit PCM with no bitrate control, so files are large. The audio summary shows the estimated size and kept duration.
+- Export saves straight to a file you pick where the browser supports a save picker (Chromium). Elsewhere the new file stays in memory until you download or share it; a large in-memory export asks before it starts.
+- The progress screen shows percent, elapsed and remaining time, and bytes written; Cancel returns to the prepare screen with your settings, and says when a partial file may remain at the chosen location.
+- The result screen compares original and new in a table and, for in-memory exports, with a wipe view (drag the divider or use the arrow keys on it; Frame mode steps one frame at a time).
+- If the new file is not smaller, the result says so and Make it smaller moves to the next smaller size, or lowers quality one step when no smaller size is left.
+- Privacy: No video is uploaded and nothing is sent anywhere. The page is static, has no analytics, web fonts or CDN assets, and makes no requests to other origins. Its CSP only allows `'self'`, `blob:` and workers. `scripts/check-no-remote.mjs` (`pnpm check:remote`, part of `pnpm build`) fails the build if any built file contains a URL outside a short, commented allowlist (spec links in bundled comments). It does not need `SharedArrayBuffer` or COOP/COEP headers.
+- Theme: The app is dark for everyone, whatever the system colour scheme. The "Light theme" switch in the header turns on the light theme. The choice is the only thing the app stores: `localStorage` key `videoadjust-theme`, value `light` or `dark`. If storage is blocked the app stays dark and the switch still works for the open page. `public/theme-init.js` applies the saved theme before first paint; it is a separate same-origin file because the CSP blocks inline scripts. The workspace uses Palette A, "Ink and Chartreuse": dark ink `#0e0f0d`, pale text `#f1f3ec`, and chartreuse actions `#c6ef3a`. Light mode uses `#f6f7f2` behind white surfaces, dark text `#161813`, and a deeper green accent `#4a6b00`. Both modes use system sans-serif fonts and tabular figures for times and sizes.
+- Size guidance: Designed and tested for inputs up to 2 GB. Above 2 GB the app warns and lets you continue. Where there is no save picker (iOS Safari, Firefox) the output stays in memory until you download or share it, and a large estimate asks before it starts.
+- Offline: A service worker (`public/sw.js`, registered only in production builds) precaches every built file, including the lazy AAC and MP3 encoder chunks. Navigations are network-first, revalidated with the server (so the host's max-age cannot serve an old page), with the cache used when offline or after 4 s; hashed assets are cache-first. The previous version's cache is kept until the next update so an open tab can still load the AAC chunk. The build fills in the file list and a cache version at build time.
 
-No video is uploaded and nothing is sent anywhere. The page is static, has no analytics, web fonts or
-CDN assets, and makes no requests to other origins. Its CSP only allows `'self'`, `blob:` and
-workers. `scripts/check-no-remote.mjs` (`pnpm check:remote`, part of `pnpm build`) fails the build if
-any built file contains a URL outside a short, commented allowlist (spec links in bundled comments). It does not need `SharedArrayBuffer` or COOP/COEP
-headers.
+## Structure
 
-## Theme
+```
+index.html          app shell and page metadata
+src/main.ts         app entry point
+src/core/           source probing, capability checks, estimates and conversion
+src/ui/             workspace, trim, crop editor, settings and result controls
+src/styles/         design tokens and application styles
+public/             service worker, theme startup script, icons and site metadata
+scripts/            build checks and asset generation
+tests/              Vitest unit tests and video fixtures
+e2e/                Playwright browser and device tests
+```
 
-The app is dark for everyone, whatever the system colour scheme. The "Light theme" switch in the header
-turns on the light theme. The choice is the only thing the app stores: `localStorage` key
-`videoadjust-theme`, value `light` or `dark`. If storage is blocked the app stays dark and the switch
-still works for the open page. `public/theme-init.js` applies the saved theme before first paint; it is
-a separate same-origin file because the CSP blocks inline scripts.
-
-The workspace uses Palette A, "Ink and Chartreuse": dark ink `#0e0f0d`, pale text `#f1f3ec`,
-and chartreuse actions `#c6ef3a`. Light mode uses `#f6f7f2` behind white surfaces, dark text
-`#161813`, and a deeper green accent `#4a6b00`. Both modes use system sans-serif fonts and
-tabular figures for times and sizes.
-
-## Browser support
-
-Support is probed at runtime from what the browser reports (WebCodecs encoders per codec, native or
-fallback AAC, save picker, file sharing). The app disables what a browser cannot do and says why;
-this README does not claim any specific browser version works. What the e2e suite saw in this
-repository (Playwright's bundled Chromium and WebKit engines, 1280x720 probe):
-
-| Engine              | H.264 | HEVC | AV1 | VP9 | AAC                         | Opus | Save picker |
-| ------------------- | ----- | ---- | --- | --- | --------------------------- | ---- | ----------- |
-| Chromium (headless) | yes   | no   | yes | yes | yes, via the fallback chunk | yes  | yes         |
-| WebKit              | yes   | yes  | yes | yes | yes, native                 | yes  | no          |
-
-Firefox and Chrome on Linux have no native WebCodecs AAC encoder, so the app lazy-loads the
-`@mediabunny/aac-encoder` chunk (about 1 MB) the first time it needs AAC. The service worker caches
-that chunk too, so export still works offline there. Firefox, Safari on real iPhone and iPad
-hardware, and other browsers are not covered by the automated tests; see "Manual device check".
-
-## Size guidance
-
-Designed and tested for inputs up to 2 GB. Above 2 GB the app warns and lets you continue. Where there
-is no save picker (iOS Safari, Firefox) the output stays in memory until you download or share it, and a
-large estimate asks before it starts.
-
-## Offline
-
-A service worker (`public/sw.js`, registered only in production builds) precaches every built file,
-including the lazy AAC and MP3 encoder chunks. Navigations are network-first, revalidated with the server (so the host's max-age cannot serve an
-old page), with the cache used when offline or after 4 s; hashed assets are cache-first. The previous
-version's cache is kept until the next update so an open tab can still load the AAC chunk. The build fills in the file list and
-a cache version at build time.
-
-## Development
+## Develop
 
 Requires Node 22 and pnpm 10.
 
@@ -89,55 +70,7 @@ scripts/make-fixtures.sh   # regenerate tests/fixtures (needs ffmpeg)
 
 First e2e run needs browsers: `pnpm exec playwright install chromium webkit`.
 
-On the prepare screen, choose Shrink video or Extract audio from the workspace tabs. The video
-and trim controls form the canvas; the summary, action, and Adjust controls form the inspector.
-On desktop they sit side by side. On narrower screens they stack, with the estimate and Export
-or Extract audio action fixed at the bottom on phones and sticky within the inspector on tablets.
-Extract audio is unavailable when
-the source has no usable audio track. Both tools use the same trim. Drag the trim handles or use
-arrow keys to adjust by 0.1 seconds.
-Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set
-a boundary at the preview playhead. The kept duration and summary estimate update as you trim.
-The source summary shows whether sampled frames have a variable frame rate and whether the video
-is HDR, when Mediabunny can determine those properties.
-If the browser cannot play the preview, the handles and thumbnails still work. Start here and
-End here are disabled because they need a playhead.
-Shrink's summary card shows the estimated output range against the original size. Open Adjust to
-change format, codec, resolution, frame rate, quality, or audio. Each setting has a reset button.
-Rotate clockwise by 90°, 180°, or 270°, mirror horizontally, or crop around the centre to a
-square, portrait 9:16, or landscape 16:9 frame. Landscape crop is available when the rotated
-source is landscape. Rotation and mirroring happen before cropping and resizing. These changes
-re-encode the video and keep audio copy when available. The preview shows the source video;
-the adjustments appear in the exported file.
-Set an optional output title under Metadata. Source descriptive tags are kept by default;
-Strip source metadata removes them, while retaining any title you entered. Metadata changes
-can be applied to a trimmed copy without re-encoding the video.
-Seekability offers the default keyframe interval or 1-second and 2-second intervals. Shorter
-intervals improve seeking but increase file size. Choosing either interval re-encodes the video;
-the size estimate does not account for extra keyframes.
-Unavailable codecs show why they cannot be selected. WebM uses Opus audio. The quality control
-and audio bitrates stay within the source limits. Quality keeps the same percentage when you
-change codec, resolution, or frame rate. Reset Quality returns to 100% for the current video
-settings. If the source is already small, the summary
-offers Export trimmed copy, which keeps the source video and audio tracks. Select Re-encode anyway
-to use the adjustment controls.
-
-Extract audio defaults to MP3. Open Adjust to choose MP3, M4A (AAC), or WAV, plus bitrate and
-mono or stereo where available. M4A copies the source audio without re-encoding when the source
-is AAC at or below the target bitrate; otherwise it encodes AAC at the target. MP3 and WAV are
-always encoded. WAV is 16-bit PCM with no bitrate control, so files are large. The audio summary
-shows the estimated size and kept duration.
-
-Export saves straight to a file you pick where the browser supports a save picker (Chromium).
-Elsewhere the new file stays in memory until you download or share it; a large in-memory export
-asks before it starts. The progress screen shows percent, elapsed and remaining time, and bytes
-written; Cancel returns to the prepare screen with your settings, and says when a partial file
-may remain at the chosen location. The result screen compares original and new in a table and,
-for in-memory exports, with a wipe view (drag the divider or use the arrow keys on it; Frame mode
-steps one frame at a time). If the new file is not smaller, the result says so and Make it smaller
-moves to the next smaller size, or lowers quality one step when no smaller size is left.
-
-## SEO and assets
+### SEO and assets
 
 `index.html` carries the canonical link, `color-scheme`, Open Graph and Twitter card tags, and a
 `WebApplication` JSON-LD block. `public/robots.txt` allows all crawlers and names
@@ -153,7 +86,24 @@ The service worker does not precache `robots.txt`, `sitemap.xml` or `og-image.pn
 and link-preview bots fetch them, so offline use gains nothing. The JSON-LD block is inert data and
 does not violate the `script-src 'self'` CSP.
 
-## Hosting
+### Manual device check
+
+Playwright cannot drive real touch dragging or the iOS share sheet, so the owner checks these on
+real hardware before a release. Record each result; leave a line empty until it has been run.
+
+Steps: open the live site, drop a recent phone video (portrait, rotation metadata), drag the trim
+handles by touch, export, compare, then share or download. Turn on airplane mode after the first
+load and confirm the page still opens. Then switch to Extract audio, extract MP3 and M4A, and
+confirm the result plays and can be shared or downloaded, also in airplane mode for MP3.
+
+- iPhone (model, iOS version, date):
+  - Result:
+  - Extract audio (MP3, M4A, WAV):
+- iPad (model, iPadOS version, date):
+  - Result:
+  - Extract audio (MP3, M4A, WAV):
+
+## Deploy
 
 Cloudflare Pages, using its Git integration on this repo. Build settings:
 
@@ -171,9 +121,26 @@ so it also runs under a subpath. No asset may exceed 25 MiB (Cloudflare Pages li
 requests. Cloudflare deploys on every push to `main` independently of the Tests workflow, so a red
 Tests run does not block a deploy.
 
-## Licences
+## Browser support
 
-This project is MIT (see `LICENSE`). Production dependencies:
+Support is probed at runtime from what the browser reports (WebCodecs encoders per codec, native or
+fallback AAC, save picker, file sharing). The app disables what a browser cannot do and says why;
+this README does not claim any specific browser version works. What the e2e suite saw in this
+repository (Playwright's bundled Chromium and WebKit engines, 1280x720 probe):
+
+| Engine              | H.264 | HEVC | AV1 | VP9 | AAC                         | Opus | Save picker |
+| ------------------- | ----- | ---- | --- | --- | --------------------------- | ---- | ----------- |
+| Chromium (headless) | yes   | no   | yes | yes | yes, via the fallback chunk | yes  | yes         |
+| WebKit              | yes   | yes  | yes | yes | yes, native                 | yes  | no          |
+
+Firefox and Chrome on Linux have no native WebCodecs AAC encoder, so the app lazy-loads the
+`@mediabunny/aac-encoder` chunk (about 1 MB) the first time it needs AAC. The service worker caches
+that chunk too, so export still works offline there. Firefox, Safari on real iPhone and iPad
+hardware, and other browsers are not covered by the automated tests; see "Manual device check".
+
+## Acknowledgements and credits
+
+Shipped libraries and related type packages:
 
 | Package                           | Licence                                                                 | Source                                                                                          |
 | --------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -206,9 +173,9 @@ Licence audit (version 1.62.0, 2026-10-22):
 - The upstream package does not record which FFmpeg version it was built from.
 
 The npm metadata reports MPL-2.0, so the embedded LGPL code is not visible to `pnpm licenses`.
-`scripts/check-licenses.mjs` keeps an explicit per-package exception (`LGPL_WASM_EXCEPTIONS`):
-LGPL-2.1-or-later is accepted for `@mediabunny/aac-encoder` only, and for no other package. The
-dependency is pinned to the audited version; re-run the audit before upgrading it.
+`scripts/check-licenses.mjs` keeps explicit per-package exceptions (`LGPL_WASM_EXCEPTIONS`):
+LGPL is accepted for `@mediabunny/aac-encoder` and `@mediabunny/mp3-encoder` only. Both
+dependencies are pinned to the audited version; re-run the audit before upgrading either.
 
 ### MP3 fallback encoder
 
@@ -229,25 +196,12 @@ Licence audit (version 1.62.0, 2026-10-22):
 - LAME asks for acknowledgement and a link to https://lame.sourceforge.io/, given here and in
   `THIRD-PARTY-LICENSES.txt`.
 
+## License
+
+VideoAdjust is licensed under [MIT](LICENSE).
+
 Full notices, including the MPL-2.0, LGPL-2.1 and LGPL-2.0 texts, are in `THIRD-PARTY-LICENSES.txt`. The build
 copies it to `dist/THIRD-PARTY-LICENSES.txt` and the page footer links to it. `pnpm check:licenses` reads
 `pnpm licenses list --prod --json`, fails on any licence outside the allowlist (MIT, BSD-2/3-Clause,
 ISC, Apache-2.0, 0BSD, MPL-2.0, plus the per-package LGPL exception above) and fails if a production package has no entry in
 `THIRD-PARTY-LICENSES.txt`. It runs in `pnpm build` and in the Tests workflow.
-
-## Manual device check
-
-Playwright cannot drive real touch dragging or the iOS share sheet, so the owner checks these on
-real hardware before a release. Record each result; leave a line empty until it has been run.
-
-Steps: open the live site, drop a recent phone video (portrait, rotation metadata), drag the trim
-handles by touch, export, compare, then share or download. Turn on airplane mode after the first
-load and confirm the page still opens. Then switch to Extract audio, extract MP3 and M4A, and
-confirm the result plays and can be shared or downloaded, also in airplane mode for MP3.
-
-- iPhone (model, iOS version, date):
-  - Result:
-  - Extract audio (MP3, M4A, WAV):
-- iPad (model, iPadOS version, date):
-  - Result:
-  - Extract audio (MP3, M4A, WAV):
