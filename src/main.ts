@@ -1,7 +1,7 @@
 import './styles/tokens.css';
 import './styles/app.css';
 import { canEncodeVideo } from 'mediabunny';
-import { probeCapabilities } from './core/capabilities';
+import { ensureMp3Encoder, probeCapabilities } from './core/capabilities';
 import { startConversion } from './core/convert';
 import { openSink } from './core/sink';
 import { readSource } from './core/source';
@@ -25,6 +25,7 @@ createApp(document.getElementById('app')!, {
   readSource,
   startConversion,
   openSink,
+  ensureMp3Encoder,
   deviceMemoryGB: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
 });
 

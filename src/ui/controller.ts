@@ -1,10 +1,27 @@
-import { ConversionCanceledError, type canEncodeVideo, type Input } from 'mediabunny';
+import {
+  ConversionCanceledError,
+  type canEncodeVideo,
+  type Input,
+  type OutputFormat,
+} from 'mediabunny';
+import {
+  AUDIO_FORMATS,
+  audioOutputName,
+  autoAudioExtract,
+  estimateAudioBytes,
+  lowerAudioBitrate,
+  validateAudioExtract,
+  type AudioExtractSettings,
+} from '../core/audioExtract';
 import type { probeCapabilities as probeCapabilitiesFn } from '../core/capabilities';
 import { autoSettings, scaleToLongEdge, targetVideoBitrate } from '../core/autoSettings';
 import {
+  audioExtractJob,
   ConversionInvalidError,
+  createAudioOutputFormat,
   createOutputFormat,
   shrinkJob,
+  type ConversionJob,
   type startConversion as startConversionFn,
 } from '../core/convert';
 import { estimateBytes } from '../core/estimate';
@@ -39,6 +56,8 @@ export interface Notice {
   confirm?: 'memory';
 }
 
+export type Tool = 'shrink' | 'audio';
+
 /** The loaded source and its derived limits, carried from prepare through result. */
 interface Loaded {
   file: File;
@@ -47,6 +66,11 @@ interface Loaded {
   auto: AutoResult;
   caps: Capabilities;
   settings: Settings;
+  tool: Tool;
+  /** Null when the audio tool is disabled; audioUnavailable(source) gives the reason. */
+  audioAuto: AudioExtractSettings | null;
+  /** Non-null whenever audioAuto is, so tool 'audio' always has settings. */
+  audioSettings: AudioExtractSettings | null;
 }
 
 export type AppState =
@@ -86,6 +110,8 @@ export type AppAction =
     }
   | { type: 'setTrim'; value: Settings['trim'] }
   | { type: 'setSettings'; value: Settings }
+  | { type: 'setTool'; tool: Tool }
+  | { type: 'setAudioSettings'; value: AudioExtractSettings }
   | { type: 'export'; confirmed?: boolean }
   | { type: 'cancel' }
   | { type: 'smaller' }
@@ -98,6 +124,7 @@ export interface AppDeps {
   readSource: typeof readSourceFn;
   startConversion: typeof startConversionFn;
   openSink: typeof openSinkFn;
+  ensureMp3Encoder: () => Promise<void>;
   /** navigator.deviceMemory where the browser reports it. */
   deviceMemoryGB?: number;
 }
@@ -222,6 +249,33 @@ function describeWritten(
               bitrate: a.bitrate,
             }
         : null,
+  };
+}
+
+/** The audio counterpart of describeWritten. */
+function describeAudioWritten(
+  name: string,
+  bytes: number,
+  s: AudioExtractSettings,
+  source: SourceInfo,
+): SourceInfo {
+  return {
+    name,
+    sizeBytes: bytes,
+    durationSec: Math.max(0, s.trim.end - s.trim.start),
+    containerMime: AUDIO_FORMATS[s.format].mime,
+    video: null,
+    audio:
+      source.audio &&
+      (s.copy
+        ? source.audio
+        : {
+            codec: s.format === 'mp3' ? 'mp3' : s.format === 'wav' ? 'pcm-s16' : 'aac',
+            decodable: true,
+            channels: s.channels,
+            sampleRate: source.audio.sampleRate,
+            bitrate: s.bitrate,
+          }),
   };
 }
 
@@ -370,6 +424,45 @@ export function settingsChangeCount(
   );
 }
 
+/** `from` one step smaller for its tool. Null when nothing smaller is left. */
+function smallerFor(from: Loaded): { loaded: Loaded; note: string } | null {
+  const { audioAuto, audioSettings, source, caps } = from;
+  if (from.tool === 'audio' && audioAuto && audioSettings) {
+    const next = lowerAudioBitrate(audioSettings, audioAuto);
+    return (
+      next && {
+        loaded: {
+          ...from,
+          audioSettings: validateAudioExtract(next.settings, audioAuto, source, caps),
+        },
+        note: next.note,
+      }
+    );
+  }
+  const next = smallerSettings(from.settings, from.auto, source);
+  return (
+    next && {
+      loaded: { ...from, settings: validateSettings(next.settings, from.auto, caps, source) },
+      note: next.note,
+    }
+  );
+}
+
+/** What differs between the Shrink and audio exports; startExport runs the rest for both. */
+interface ExportSpec {
+  outputName: string;
+  mime: string;
+  estimate: { low: number; high: number; mid: number };
+  job: ConversionJob;
+  format(sinkKind: SinkPlan['kind']): OutputFormat;
+  /** Runs before the sink opens; a notice stops the export there. */
+  preflight(): Promise<Notice | undefined>;
+  /** Result info from the settings, for when no Blob can be read back. */
+  describe(bytes: number): SourceInfo;
+  /** Notice for an unexpected conversion failure. */
+  failure: { title: string; message: string };
+}
+
 /**
  * DOM-free state machine: owns state, dispatch and the source-loading flow.
  * `onChange` runs after every state change.
@@ -405,8 +498,20 @@ export function createController(
   }
 
   function toPrepare(from: Loaded, notice?: Notice): void {
-    const { file, source, input, auto, caps: c, settings } = from;
-    setState({ kind: 'prepare', file, source, input, auto, caps: c, settings, notice });
+    const { file, source, input, auto, caps: c, settings, tool, audioAuto, audioSettings } = from;
+    setState({
+      kind: 'prepare',
+      file,
+      source,
+      input,
+      auto,
+      caps: c,
+      settings,
+      tool,
+      audioAuto,
+      audioSettings,
+      notice,
+    });
   }
 
   function dispatch(action: AppAction): void {
@@ -431,7 +536,8 @@ export function createController(
       case 'reading':
         setState({ kind: 'drop', reading: action.name });
         return;
-      case 'loaded':
+      case 'loaded': {
+        const audioAuto = autoAudioExtract(action.source, action.caps);
         setState({
           kind: 'prepare',
           file: action.file,
@@ -440,13 +546,46 @@ export function createController(
           auto: action.auto,
           caps: action.caps,
           settings: { ...action.auto.settings, passthrough: action.auto.alreadyOptimal },
+          tool: 'shrink',
+          audioAuto,
+          audioSettings: audioAuto,
         });
+        return;
+      }
+      case 'setTool':
+        if (
+          (state.kind === 'prepare' || state.kind === 'result') &&
+          (action.tool === 'shrink' || state.audioAuto)
+        )
+          // Drops any notice: a pending memory confirm belongs to the other tool's export.
+          toPrepare({ ...state, tool: action.tool });
         return;
       case 'setTrim':
         if (state.kind === 'prepare') {
           const moved = action.value.start !== state.settings.trim.start ? 'start' : 'end';
           const trim = clampTrim(action.value, state.source.durationSec, moved);
-          setState({ ...state, settings: { ...state.settings, trim } });
+          setState({
+            ...state,
+            settings: { ...state.settings, trim },
+            audioSettings: state.audioSettings && { ...state.audioSettings, trim },
+          });
+        }
+        return;
+      case 'setAudioSettings':
+        if (state.kind === 'prepare' && state.audioAuto) {
+          const value = validateAudioExtract(
+            action.value,
+            state.audioAuto,
+            state.source,
+            state.caps,
+          );
+          setState({
+            ...state,
+            audioSettings: {
+              ...value,
+              trim: clampTrim(value.trim, state.source.durationSec, 'end'),
+            },
+          });
         }
         return;
       case 'setSettings':
@@ -482,14 +621,9 @@ export function createController(
         return;
       case 'smaller':
         if (state.kind === 'result') {
-          const next = smallerSettings(state.settings, state.auto, state.source);
+          const next = smallerFor(state);
           toPrepare(
-            next
-              ? {
-                  ...state,
-                  settings: validateSettings(next.settings, state.auto, state.caps, state.source),
-                }
-              : state,
+            next ? next.loaded : state,
             next
               ? { tone: 'info', title: 'Settings changed to make it smaller', message: next.note }
               : {
@@ -567,8 +701,13 @@ export function createController(
     prep: Extract<AppState, { kind: 'prepare' }>,
     confirmed: boolean,
   ): Promise<void> {
-    const { settings, source, caps: c } = prep;
-    const estimate = estimateBytes(settings, source);
+    const { source, caps: c } = prep;
+    // Tool 'audio' always has audioSettings (see Loaded).
+    const spec =
+      prep.tool === 'audio' && prep.audioSettings
+        ? audioSpec(prep, prep.audioSettings)
+        : shrinkSpec(prep);
+    const { estimate, outputName, mime } = spec;
     const plan = chooseSink({
       estimateBytes: estimate.mid,
       fileStreamSave: c.fileStreamSave,
@@ -590,29 +729,12 @@ export function createController(
     const token = ++exportToken;
     const base: Loaded = prep;
     if (prep.notice) toPrepare(base);
-    if (settings.video) {
-      let supported = false;
-      try {
-        supported = await deps.canEncodeVideo(settings.video.codec, {
-          width: settings.video.width,
-          height: settings.video.height,
-          frameRate: settings.video.fps,
-        });
-      } catch (err) {
-        console.warn('export encoder probe failed', err);
-      }
-      if (token !== exportToken) return;
-      if (!supported) {
-        toPrepare(base, {
-          tone: 'error',
-          title: 'The chosen video encoder is unavailable',
-          message: `${codecLabel(settings.video.codec)} cannot encode ${settings.video.width}x${settings.video.height} at ${settings.video.fps} fps in this browser. Choose another setting.`,
-        });
-        return;
-      }
+    const blocked = await spec.preflight();
+    if (token !== exportToken) return;
+    if (blocked) {
+      toPrepare(base, blocked);
+      return;
     }
-    const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
-    const outputName = outputNameFor(prep.file.name, settings.container);
 
     let sink: OpenSink;
     try {
@@ -651,8 +773,8 @@ export function createController(
     try {
       const job = deps.startConversion({
         input: base.input,
-        job: shrinkJob(settings),
-        format: createOutputFormat(settings.container, plan.kind),
+        job: spec.job,
+        format: spec.format(plan.kind),
         target: sink.target,
         onProgress(p, written) {
           bytes = written;
@@ -670,8 +792,8 @@ export function createController(
       if (token !== exportToken) return;
       cancelExport = undefined;
       const info = blob
-        ? await describeBlob(blob, outputName, mime, settings, source)
-        : describeWritten(outputName, bytes, settings, source, mime);
+        ? await describeBlob(blob, outputName, mime, () => spec.describe(blob.size))
+        : spec.describe(bytes);
       if (token !== exportToken) return;
       const sizeBytes = blob ? blob.size : bytes;
       setState({
@@ -703,20 +825,91 @@ export function createController(
         console.error('export failed', err);
         toPrepare(base, {
           tone: 'error',
-          title: 'The export failed',
-          message: `Something went wrong while making the new file. Try again, or choose a smaller size.${partial}`,
+          title: spec.failure.title,
+          message: `${spec.failure.message}${partial}`,
         });
       }
     }
   }
 
-  /** Read the output back for the result table; settings stand in if this browser cannot read it. */
+  function shrinkSpec(prep: Loaded): ExportSpec {
+    const { settings, source } = prep;
+    const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
+    const outputName = outputNameFor(prep.file.name, settings.container);
+    return {
+      outputName,
+      mime,
+      estimate: estimateBytes(settings, source),
+      job: shrinkJob(settings),
+      format: (sinkKind) => createOutputFormat(settings.container, sinkKind),
+      async preflight() {
+        const v = settings.video;
+        if (!v) return undefined;
+        let supported = false;
+        try {
+          supported = await deps.canEncodeVideo(v.codec, {
+            width: v.width,
+            height: v.height,
+            frameRate: v.fps,
+          });
+        } catch (err) {
+          console.warn('export encoder probe failed', err);
+        }
+        return supported
+          ? undefined
+          : {
+              tone: 'error',
+              title: 'The chosen video encoder is unavailable',
+              message: `${codecLabel(v.codec)} cannot encode ${v.width}x${v.height} at ${v.fps} fps in this browser. Choose another setting.`,
+            };
+      },
+      describe: (bytes) => describeWritten(outputName, bytes, settings, source, mime),
+      failure: {
+        title: 'The export failed',
+        message:
+          'Something went wrong while making the new file. Try again, or choose a smaller size.',
+      },
+    };
+  }
+
+  function audioSpec(prep: Loaded, a: AudioExtractSettings): ExportSpec {
+    const { mime, label } = AUDIO_FORMATS[a.format];
+    const outputName = audioOutputName(prep.file.name, a.format);
+    return {
+      outputName,
+      mime,
+      estimate: estimateAudioBytes(a, prep.source),
+      job: audioExtractJob(a),
+      format: (sinkKind) => createAudioOutputFormat(a.format, sinkKind),
+      async preflight() {
+        if (a.format !== 'mp3') return undefined;
+        try {
+          await deps.ensureMp3Encoder();
+          return undefined;
+        } catch (err) {
+          console.error('loading the MP3 encoder failed', err);
+          return {
+            tone: 'error',
+            title: 'MP3 encoding is unavailable',
+            message: 'The MP3 encoder could not be loaded. Choose M4A or WAV, or try again.',
+          };
+        }
+      },
+      describe: (bytes) => describeAudioWritten(outputName, bytes, a, prep.source),
+      failure: {
+        title: `The ${label} export failed`,
+        message:
+          'Something went wrong while making the new file. Try again, or choose another format.',
+      },
+    };
+  }
+
+  /** Read the output back for the result table; `fallback` stands in if this browser cannot read it. */
   async function describeBlob(
     blob: Blob,
     name: string,
     mime: string,
-    settings: Settings,
-    source: SourceInfo,
+    fallback: () => SourceInfo,
   ): Promise<SourceInfo> {
     try {
       const { info, input } = await deps.readSource(new File([blob], name, { type: mime }));
@@ -724,7 +917,7 @@ export function createController(
       return info;
     } catch (err) {
       console.warn('reading the new file back failed; showing the requested settings', err);
-      return describeWritten(name, blob.size, settings, source, mime);
+      return fallback();
     }
   }
 

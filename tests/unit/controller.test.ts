@@ -1,9 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ConversionCanceledError, Quality, type Input } from 'mediabunny';
-import { ConversionInvalidError } from '../../src/core/convert';
+import { ConversionCanceledError, Mp3OutputFormat, Quality, type Input } from 'mediabunny';
+import type { AudioFormat } from '../../src/core/audioExtract';
+import { audioExtractJob, ConversionInvalidError } from '../../src/core/convert';
 import { autoSettings, targetVideoBitrate } from '../../src/core/autoSettings';
 import type { Capabilities, Settings, SourceInfo } from '../../src/core/types';
-import { createController, LARGE_FILE_BYTES, type AppDeps } from '../../src/ui/controller';
+import {
+  createController,
+  LARGE_FILE_BYTES,
+  type AppDeps,
+  type AppState,
+} from '../../src/ui/controller';
 
 const caps: Capabilities = {
   video: { avc: true, hevc: false, av1: false, vp9: false },
@@ -60,6 +66,7 @@ function setup(probe: AppDeps['probeCapabilities'] = () => Promise.resolve(caps)
     readSource,
     startConversion: vi.fn(),
     openSink: vi.fn(() => new Promise(() => {})),
+    ensureMp3Encoder: vi.fn(async () => {}),
   } as unknown as AppDeps;
   const ctl = createController(deps, () => {});
   return { ctl, pending, readSource };
@@ -279,6 +286,8 @@ describe('export flow', () => {
       src?: SourceInfo;
       outputBytes?: number;
       openSink?: AppDeps['openSink'];
+      ensureMp3Encoder?: AppDeps['ensureMp3Encoder'];
+      name?: string;
     } = {},
   ) {
     const src = opts.src ?? source();
@@ -310,19 +319,21 @@ describe('export flow', () => {
       input: outInput,
     }));
     const canEncodeVideo = vi.fn(async () => true);
+    const ensureMp3Encoder = vi.fn(opts.ensureMp3Encoder ?? (async () => {}));
     const deps = {
       probeCapabilities: () => Promise.resolve(capabilities),
       canEncodeVideo,
       readSource,
       startConversion,
       openSink,
+      ensureMp3Encoder,
       deviceMemoryGB: opts.deviceMemoryGB,
     } as unknown as AppDeps;
     const ctl = createController(deps, () => {});
     const input = fakeInput();
     ctl.dispatch({
       type: 'loaded',
-      file: fakeFile('clip.mov', src.sizeBytes),
+      file: fakeFile(opts.name ?? 'clip.mov', src.sizeBytes),
       source: src,
       input,
       auto: autoSettings(src, capabilities),
@@ -335,6 +346,7 @@ describe('export flow', () => {
       openSink,
       startConversion,
       canEncodeVideo,
+      ensureMp3Encoder,
       readSource,
       outInput,
       input,
@@ -617,5 +629,261 @@ describe('export flow', () => {
     expect(revoke).toHaveBeenCalledWith(result.output.url);
     expect(t.input.dispose).toHaveBeenCalledTimes(1);
     revoke.mockRestore();
+  });
+
+  describe('extract audio', () => {
+    const withAudio = (over: Partial<SourceInfo> = {}) =>
+      source({
+        audio: { codec: 'aac', decodable: true, channels: 2, sampleRate: 48_000, bitrate: 128_000 },
+        ...over,
+      });
+    type Prepare = Extract<AppState, { kind: 'prepare' }>;
+    const prepare = (t: ReturnType<typeof exportSetup>): Prepare => {
+      const s = t.ctl.getState();
+      if (s.kind !== 'prepare') throw new Error(`Expected prepare, got ${s.kind}`);
+      return s;
+    };
+    const audioSetup = (opts: Parameters<typeof exportSetup>[0] = {}) => {
+      const t = exportSetup({ src: withAudio(), name: 'x.mov', ...opts });
+      t.ctl.dispatch({ type: 'setTool', tool: 'audio' });
+      return t;
+    };
+    const setFormat = (t: ReturnType<typeof exportSetup>, format: AudioFormat) =>
+      t.ctl.dispatch({
+        type: 'setAudioSettings',
+        value: { ...prepare(t).audioSettings!, format },
+      });
+
+    it('starts on Shrink with automatic audio settings', () => {
+      const t = exportSetup({ src: withAudio() });
+      expect(prepare(t)).toMatchObject({
+        tool: 'shrink',
+        audioAuto: { format: 'mp3', bitrate: 128_000, channels: 2, trim: { start: 0, end: 3 } },
+      });
+      expect(prepare(t).audioSettings).toEqual(prepare(t).audioAuto);
+    });
+
+    it('disables the audio tool for a source without audio', () => {
+      const t = exportSetup();
+      expect(prepare(t)).toMatchObject({ tool: 'shrink', audioAuto: null, audioSettings: null });
+      t.ctl.dispatch({ type: 'setTool', tool: 'audio' });
+      expect(prepare(t).tool).toBe('shrink');
+    });
+
+    it('keeps Shrink and audio overrides across tool switches', () => {
+      const t = exportSetup({ src: withAudio() });
+      const shrink = prepare(t).settings;
+      t.ctl.dispatch({
+        type: 'setSettings',
+        value: { ...shrink, video: { ...shrink.video!, width: 1280, height: 720 } },
+      });
+      const shrinkChanged = prepare(t).settings;
+      t.ctl.dispatch({ type: 'setTool', tool: 'audio' });
+      t.ctl.dispatch({
+        type: 'setAudioSettings',
+        value: { ...prepare(t).audioSettings!, format: 'm4a', bitrate: 96_000 },
+      });
+      const audioChanged = prepare(t).audioSettings;
+      expect(audioChanged).toMatchObject({ format: 'm4a', bitrate: 96_000 });
+      t.ctl.dispatch({ type: 'setTool', tool: 'shrink' });
+      expect(prepare(t)).toMatchObject({ tool: 'shrink', audioSettings: audioChanged });
+      expect(prepare(t).settings).toEqual(shrinkChanged);
+      t.ctl.dispatch({ type: 'setTool', tool: 'audio' });
+      expect(prepare(t)).toMatchObject({ tool: 'audio', audioSettings: audioChanged });
+      expect(prepare(t).settings).toEqual(shrinkChanged);
+    });
+
+    it('shares the trim between both tools', () => {
+      const t = audioSetup();
+      t.ctl.dispatch({ type: 'setTrim', value: { start: 1, end: 2 } });
+      expect(prepare(t)).toMatchObject({
+        settings: { trim: { start: 1, end: 2 } },
+        audioSettings: { trim: { start: 1, end: 2 } },
+      });
+    });
+
+    it('validates audio settings and clamps their trim', () => {
+      const t = audioSetup();
+      t.ctl.dispatch({
+        type: 'setAudioSettings',
+        value: { ...prepare(t).audioSettings!, bitrate: 12_345, trim: { start: -1, end: 99 } },
+      });
+      expect(prepare(t).audioSettings).toMatchObject({
+        bitrate: 128_000,
+        trim: { start: 0, end: 3 },
+      });
+    });
+
+    it('exports MP3 after loading the encoder, before the sink opens', async () => {
+      const t = audioSetup();
+      const settings = prepare(t).audioSettings!;
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      expect(t.ensureMp3Encoder).toHaveBeenCalledTimes(1);
+      expect(t.openSink).toHaveBeenCalledWith(
+        { kind: 'memory', warn: false },
+        'x-audio.mp3',
+        'audio/mpeg',
+      );
+      expect(t.ensureMp3Encoder.mock.invocationCallOrder[0]!).toBeLessThan(
+        (t.openSink as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!,
+      );
+      expect(t.canEncodeVideo).not.toHaveBeenCalled();
+      const args = t.startConversion.mock.calls[0]?.[0] as Parameters<
+        AppDeps['startConversion']
+      >[0];
+      expect(args.job).toEqual(audioExtractJob(settings));
+      expect(args.format).toBeInstanceOf(Mp3OutputFormat);
+      expect(t.ctl.getState()).toMatchObject({
+        kind: 'working',
+        tool: 'audio',
+        outputName: 'x-audio.mp3',
+      });
+    });
+
+    it('exports M4A without loading the MP3 encoder', async () => {
+      const t = audioSetup();
+      setFormat(t, 'm4a');
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      expect(t.ensureMp3Encoder).not.toHaveBeenCalled();
+      expect(t.openSink).toHaveBeenCalledWith(
+        { kind: 'memory', warn: false },
+        'x-audio.m4a',
+        'audio/mp4',
+      );
+    });
+
+    it('stops with a notice and no sink when the MP3 encoder cannot load', async () => {
+      const t = audioSetup({
+        ensureMp3Encoder: async () => {
+          throw new Error('no encoder');
+        },
+      });
+      const before = prepare(t).audioSettings;
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      expect(t.openSink).not.toHaveBeenCalled();
+      expect(prepare(t)).toMatchObject({
+        tool: 'audio',
+        audioSettings: before,
+        notice: {
+          tone: 'error',
+          title: 'MP3 encoding is unavailable',
+          message: 'The MP3 encoder could not be loaded. Choose M4A or WAV, or try again.',
+        },
+      });
+    });
+
+    it('warns before a large in-memory audio export', async () => {
+      const t = audioSetup({ src: withAudio({ durationSec: 4000 }), deviceMemoryGB: 1 });
+      setFormat(t, 'wav');
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      expect(t.openSink).not.toHaveBeenCalled();
+      expect(prepare(t)).toMatchObject({ notice: { tone: 'warn', confirm: 'memory' } });
+      t.ctl.dispatch({ type: 'setTool', tool: 'shrink' });
+      expect(prepare(t).notice).toBeUndefined();
+      t.ctl.dispatch({ type: 'setTool', tool: 'audio' });
+      t.ctl.dispatch({ type: 'export', confirmed: true });
+      await flush();
+      expect(t.openSink).toHaveBeenCalledWith(
+        { kind: 'memory', warn: true },
+        'x-audio.wav',
+        'audio/wav',
+      );
+    });
+
+    it('names the format when the conversion fails', async () => {
+      const t = audioSetup();
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      t.reject(new Error('boom'));
+      await flush();
+      expect(prepare(t)).toMatchObject({
+        tool: 'audio',
+        notice: {
+          tone: 'error',
+          title: 'The MP3 export failed',
+          message: expect.stringContaining('another format'),
+        },
+      });
+    });
+
+    it('ignores a tool switch while working', async () => {
+      const t = audioSetup();
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      t.ctl.dispatch({ type: 'setTool', tool: 'shrink' });
+      expect(t.ctl.getState()).toMatchObject({ kind: 'working', tool: 'audio' });
+    });
+
+    it('Make it smaller lowers the audio bitrate and stays on the audio tool', async () => {
+      const t = audioSetup({ outputBytes: 1_000_000 });
+      await toResult(t);
+      t.ctl.dispatch({ type: 'smaller' });
+      expect(prepare(t)).toMatchObject({
+        tool: 'audio',
+        audioSettings: { bitrate: 96_000 },
+        notice: { title: 'Settings changed to make it smaller' },
+      });
+    });
+
+    it('Make it smaller at the lowest bitrate leaves settings unchanged', async () => {
+      const t = audioSetup({ outputBytes: 1_000_000 });
+      t.ctl.dispatch({
+        type: 'setAudioSettings',
+        value: { ...prepare(t).audioSettings!, bitrate: 64_000 },
+      });
+      const before = prepare(t).audioSettings;
+      await toResult(t);
+      t.ctl.dispatch({ type: 'smaller' });
+      expect(prepare(t)).toMatchObject({
+        tool: 'audio',
+        audioSettings: before,
+        notice: { title: 'This is as small as these settings go' },
+      });
+    });
+
+    it('a tool switch from the result returns to prepare on that tool', async () => {
+      const revoke = vi.spyOn(URL, 'revokeObjectURL');
+      const t = audioSetup();
+      const result = await toResult(t);
+      t.ctl.dispatch({ type: 'setTool', tool: 'shrink' });
+      expect(prepare(t)).toMatchObject({ tool: 'shrink' });
+      expect(prepare(t).notice).toBeUndefined();
+      expect(revoke).toHaveBeenCalledWith(result.output.url);
+      revoke.mockRestore();
+    });
+
+    it('describes a file-stream audio output from the settings and bytes written', async () => {
+      const t = audioSetup({ fileStreamSave: true });
+      t.ctl.dispatch({ type: 'setTrim', value: { start: 1, end: 2.5 } });
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      t.progress(1, 4000);
+      t.resolve();
+      await flush();
+      await flush();
+      expect(t.readSource).not.toHaveBeenCalled();
+      const s = t.ctl.getState();
+      if (s.kind !== 'result') throw new Error('Expected result');
+      expect(s.output).toMatchObject({ blob: null, url: null, sizeBytes: 4000 });
+      expect(s.output.info).toEqual({
+        name: 'x-audio.mp3',
+        sizeBytes: 4000,
+        durationSec: 1.5,
+        containerMime: 'audio/mpeg',
+        video: null,
+        audio: { codec: 'mp3', decodable: true, channels: 2, sampleRate: 48_000, bitrate: 128_000 },
+      });
+    });
+
+    it('reset clears both tools', async () => {
+      const t = audioSetup();
+      await toResult(t);
+      t.ctl.dispatch({ type: 'reset' });
+      expect(t.ctl.getState()).toEqual({ kind: 'drop' });
+    });
   });
 });
