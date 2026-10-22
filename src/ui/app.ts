@@ -1,5 +1,7 @@
 import { CanvasSink } from 'mediabunny';
+import { audioUnavailable } from '../core/audioExtract';
 import type { Settings, SourceInfo } from '../core/types';
+import { mountAudioPanel } from './audioPanel';
 import { canPlaySource, mountCompare } from './compare';
 import {
   codecLabel,
@@ -8,12 +10,14 @@ import {
   type AppDeps,
   type AppState,
   type Notice,
+  type Tool,
 } from './controller';
 import { el, icon } from './dom';
 import { mountDropZone } from './dropZone';
 import { formatBitrate, formatBytes, formatDuration } from './format';
 import { mountProgress, scaleRow } from './progress';
 import { mountSettings } from './settingsPanel';
+import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
 import { mountTrimBar } from './trimBar';
 
 type Of<K extends AppState['kind']> = Extract<AppState, { kind: K }>;
@@ -85,14 +89,7 @@ export function createApp(
         dropZone = mountDropZone(view, (file) => dispatch({ type: 'pick', file }));
         return;
       case 'prepare':
-        mounted = renderPrepare(
-          view,
-          s,
-          () => dispatch({ type: 'reset' }),
-          (value) => dispatch({ type: 'setTrim', value }),
-          (value) => dispatch({ type: 'setSettings', value }),
-          () => dispatch({ type: 'export' }),
-        );
+        mounted = renderPrepare(view, s, dispatch);
         return;
       case 'working':
         mounted = renderWorking(view, s, () => dispatch({ type: 'cancel' }));
@@ -165,12 +162,10 @@ export function createApp(
 /** Prepare screen. */
 function renderPrepare(
   container: HTMLElement,
-  state: Extract<AppState, { kind: 'prepare' }>,
-  onReset: () => void,
-  onTrim: (value: { start: number; end: number }) => void,
-  onSettings: (value: Extract<AppState, { kind: 'prepare' }>['settings']) => void,
-  onExport: () => void,
+  state: Of<'prepare'>,
+  dispatch: (a: AppAction) => void,
 ): Mounted {
+  const onExport = () => dispatch({ type: 'export' });
   const head = el('div', 'file-line');
   head.append(
     el('h1', 'file-name', state.file.name),
@@ -192,14 +187,49 @@ function renderPrepare(
   previewNote.hidden = true;
   const trimHost = el('div');
   const settingsHost = el('aside', 'settings-host');
-  const settings = mountSettings(settingsHost, {
-    auto: state.auto,
-    caps: state.caps,
-    source: state.source,
-    value: state.settings,
-    onChange: onSettings,
-    onExport,
+  const toolCard = el('div', 'tool-card');
+  const tabsHost = el('div', 'tool-tabs');
+  const panelHost = el('div');
+  panelHost.id = TOOL_PANEL_ID;
+  panelHost.setAttribute('role', 'tabpanel');
+  toolCard.append(tabsHost, panelHost);
+  settingsHost.append(toolCard);
+  const tabs = mountToolTabs(tabsHost, {
+    value: state.tool,
+    disabledReason: audioReason(state),
+    onChange: (tool) => dispatch({ type: 'setTool', tool }),
   });
+  let shownTool: Tool | undefined;
+  let panel: { update(value: Of<'prepare'>): void; setBusy(busy: boolean): void } | undefined;
+  // Each tool's panel is mounted fresh on a switch; its settings live in the controller.
+  function showPanel(value: Of<'prepare'>): void {
+    shownTool = value.tool;
+    panelHost.setAttribute('aria-labelledby', toolTabId(value.tool));
+    if (value.tool === 'audio' && value.audioAuto && value.audioSettings) {
+      const audio = mountAudioPanel(panelHost, {
+        auto: value.audioAuto,
+        source: value.source,
+        caps: value.caps,
+        value: value.audioSettings,
+        onChange: (next) => dispatch({ type: 'setAudioSettings', value: next }),
+        onExport,
+      });
+      panel = {
+        update: (s) => s.audioSettings && audio.update(s.audioSettings),
+        setBusy: audio.setBusy,
+      };
+      return;
+    }
+    const shrink = mountSettings(panelHost, {
+      auto: value.auto,
+      caps: value.caps,
+      source: value.source,
+      value: value.settings,
+      onChange: (next) => dispatch({ type: 'setSettings', value: next }),
+      onExport,
+    });
+    panel = { update: (s) => shrink.update(s.settings), setBusy: shrink.setBusy };
+  }
   const thumbnails = async (count: number, signal: AbortSignal): Promise<HTMLCanvasElement[]> => {
     const track = await state.input.getPrimaryVideoTrack();
     if (!track || signal.aborted) return [];
@@ -240,7 +270,7 @@ function renderPrepare(
     video,
     thumbnails,
     previewPlayable,
-    onChange: onTrim,
+    onChange: (value) => dispatch({ type: 'setTrim', value }),
   });
   const showPreviewUnplayable = () => {
     if (!previewPlayable) return;
@@ -262,12 +292,15 @@ function renderPrepare(
   }
   const another = el('button', 'btn btn-quiet', 'Choose another video');
   another.type = 'button';
-  another.addEventListener('click', onReset);
+  another.addEventListener('click', () => dispatch({ type: 'reset' }));
   container.replaceChildren(head, stage, another);
   function update(value: AppState): void {
     if (value.kind !== 'prepare') return;
     trim.update(value.settings.trim);
-    settings.update(value.settings);
+    tabs.update(value.tool, audioReason(value));
+    if (value.tool !== shownTool) showPanel(value);
+    panel?.update(value);
+    panel?.setBusy(value.exporting === true);
   }
   update(state);
   return {
@@ -281,6 +314,14 @@ function renderPrepare(
       URL.revokeObjectURL(url);
     },
   };
+}
+
+/** Why Extract audio is unavailable for this source, or null when it can be chosen. */
+function audioReason(state: Of<'prepare'>): string | null {
+  if (state.audioAuto) return null;
+  return audioUnavailable(state.source) === 'undecodable'
+    ? 'This browser cannot decode the audio in this video'
+    : 'This video has no audio track';
 }
 
 const CONTAINER_LABELS: Record<string, string> = {

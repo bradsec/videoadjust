@@ -42,7 +42,7 @@ function audioSummary(s: Settings): string {
 export function mountSettings(
   host: HTMLElement,
   opts: SettingsPanelOptions,
-): { update(s: Settings): void } {
+): { update(s: Settings): void; setBusy(busy: boolean): void } {
   let value = opts.value;
   const card = el('section', 'card export-summary');
   card.setAttribute('aria-label', 'Export summary');
@@ -92,6 +92,7 @@ export function mountSettings(
   const exportButton = el('button', 'btn btn-primary btn-block', 'Export');
   exportButton.type = 'button';
   exportButton.addEventListener('click', () => {
+    if (exportButton.getAttribute('aria-disabled') === 'true') return;
     if (opts.auto.alreadyOptimal && !reencode.checked) change({ ...value, passthrough: true });
     opts.onExport?.();
   });
@@ -122,7 +123,8 @@ export function mountSettings(
     const section = el('div', 'setting');
     const head = el('div', 'setting-head');
     head.append(el('strong', undefined, name), el('span', 'setting-auto', `Auto: ${automatic}`));
-    const button = el('button', 'setting-reset', 'Reset to auto');
+    // The visible text must start the accessible name (WCAG 2.5.3, axe label-content-name-mismatch).
+    const button = el('button', 'setting-reset', 'Reset');
     button.type = 'button';
     button.setAttribute('aria-label', `Reset ${name} to auto`);
     button.addEventListener('click', reset);
@@ -494,6 +496,10 @@ export function mountSettings(
     }
     patchControls(next);
   }
+  function setBusy(busy: boolean): void {
+    if (busy) exportButton.setAttribute('aria-disabled', 'true');
+    else exportButton.removeAttribute('aria-disabled');
+  }
   update(value);
-  return { update };
+  return { update, setBusy };
 }

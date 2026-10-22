@@ -647,6 +647,186 @@ footer a {
   outline: 3px solid var(--c-focus);
   outline-offset: 2px;
 }
+/* Tool switcher: the first row of the settings card. The tool's own summary card sits
+   inside it without its own chrome, so the tabs and the summary read as one card. */
+.tool-card {
+  display: grid;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+.tool-card .export-summary {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.tool-tabs {
+  display: grid;
+  gap: var(--sp-2);
+}
+.tools {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--r-md);
+  background: var(--c-surface-2);
+}
+.tools [role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: var(--fs-2);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tools [role='tab'] svg.i {
+  width: 18px;
+  height: 18px;
+}
+.tools [role='tab'][aria-selected='true'] {
+  background: var(--c-raised);
+  color: var(--c-accent-text);
+  font-weight: var(--fw-bold);
+  box-shadow: var(--shadow-lift);
+}
+.tools [role='tab']:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 2px;
+}
+/* Faded and struck through, like disabled segments, so it does not read as an
+   unselected but available tab. */
+.tools [role='tab'][aria-disabled='true'] {
+  color: var(--c-ink-3);
+  opacity: 0.7;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  cursor: not-allowed;
+}
+.tools-why {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--c-ink-3);
+  font-size: var(--fs-1);
+}
+.tools-why svg.i {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.tools-why[hidden],
+.setting[hidden],
+.setting-auto[hidden],
+.setting-reset[hidden],
+.choice .hint[hidden] {
+  display: none;
+}
+/* The audio rows show either the auto value or the reset, which then takes the right edge. */
+.setting-auto[hidden] + .setting-reset {
+  margin: -8px -8px -8px auto;
+  padding: 0 8px;
+}
+.btn-primary[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: progress;
+}
+/* A changed setting carries the signal dot next to its name. */
+.setting.is-changed .setting-name::after {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--c-signal);
+  vertical-align: 1px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%);
+}
+.setting .seg {
+  min-width: 0;
+}
+.seg button:disabled {
+  color: var(--c-ink-3);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  cursor: not-allowed;
+}
+/* Radio list for options that need a hint under each choice. */
+.choices {
+  display: grid;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--r-md);
+  background: var(--c-surface-2);
+}
+.choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px var(--sp-3);
+  min-height: var(--tap);
+  padding: 10px var(--sp-3);
+  border-radius: 11px;
+  color: var(--c-ink-2);
+  font-size: var(--fs-2);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.choice input {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 2px solid var(--c-line-strong);
+  border-radius: 50%;
+  cursor: inherit;
+}
+.choice input:checked {
+  border: 5px solid var(--c-accent);
+}
+.choice input:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 2px;
+}
+.choice .hint {
+  grid-column: 2;
+  color: var(--c-ink-3);
+  font-size: var(--fs-1);
+  font-weight: var(--fw-regular);
+}
+.choice.is-checked {
+  background: var(--c-raised);
+  color: var(--c-ink);
+  font-weight: var(--fw-bold);
+  box-shadow: var(--shadow-lift);
+}
+.choice:has(input:disabled) {
+  color: var(--c-ink-3);
+  cursor: not-allowed;
+}
+.track .range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--c-signal) 45%, transparent);
+}
 @media (min-width: 720px) {
   .prepare-regions {
     gap: var(--sp-5);
@@ -657,6 +837,9 @@ footer a {
   .prepare-regions {
     max-width: var(--wide-max);
     grid-template-columns: minmax(0, 1fr) minmax(320px, var(--side-col));
+    /* A settings card taller than preview and trim gives its extra height to the trim row,
+       so the trim stays under the preview. */
+    grid-template-rows: auto 1fr;
     align-items: start;
   }
   .prepare-regions > .settings-host {

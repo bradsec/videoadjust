@@ -494,7 +494,11 @@ describe('export flow', () => {
     expect(t.openSink).not.toHaveBeenCalled();
     expect(t.ctl.getState()).toMatchObject({
       kind: 'prepare',
-      notice: { tone: 'warn', confirm: 'memory' },
+      notice: {
+        tone: 'warn',
+        confirm: 'memory',
+        message: expect.stringContaining('Trim it shorter or choose a smaller size to be safe.'),
+      },
     });
     t.ctl.dispatch({ type: 'export', confirmed: true });
     await flush();
@@ -553,7 +557,11 @@ describe('export flow', () => {
     expect(t.sink.abort).toHaveBeenCalled();
     expect(t.ctl.getState()).toMatchObject({
       kind: 'prepare',
-      notice: { tone: 'error', message: expect.stringContaining('partial file may remain') },
+      notice: {
+        tone: 'error',
+        title: 'This video cannot be exported with these settings',
+        message: expect.stringContaining('partial file may remain'),
+      },
     });
   });
 
@@ -816,6 +824,90 @@ describe('export flow', () => {
       await flush();
       t.ctl.dispatch({ type: 'setTool', tool: 'shrink' });
       expect(t.ctl.getState()).toMatchObject({ kind: 'working', tool: 'audio' });
+    });
+
+    describe('while the MP3 encoder loads', () => {
+      const pendingSetup = () => {
+        let loaded!: () => void;
+        const t = audioSetup({
+          ensureMp3Encoder: () =>
+            new Promise<void>((resolve) => {
+              loaded = resolve;
+            }),
+        });
+        t.ctl.dispatch({ type: 'export' });
+        return { t, loaded: () => loaded() };
+      };
+
+      it('marks the export pending and ignores a second Export', async () => {
+        const { t, loaded } = pendingSetup();
+        await flush();
+        expect(prepare(t).exporting).toBe(true);
+        t.ctl.dispatch({ type: 'export' });
+        await flush();
+        expect(t.ensureMp3Encoder).toHaveBeenCalledTimes(1);
+        loaded();
+        await flush();
+        expect(t.openSink).toHaveBeenCalledTimes(1);
+        expect(t.ctl.getState().kind).toBe('working');
+      });
+
+      const changes: [string, (t: ReturnType<typeof exportSetup>) => void][] = [
+        ['a tab switch', (t) => t.ctl.dispatch({ type: 'setTool', tool: 'shrink' })],
+        ['a trim change', (t) => t.ctl.dispatch({ type: 'setTrim', value: { start: 1, end: 3 } })],
+        [
+          'an audio settings change',
+          (t) =>
+            t.ctl.dispatch({
+              type: 'setAudioSettings',
+              value: { ...prepare(t).audioSettings!, bitrate: 192_000 },
+            }),
+        ],
+        [
+          'a Shrink settings change',
+          (t) => t.ctl.dispatch({ type: 'setSettings', value: prepare(t).settings }),
+        ],
+      ];
+      it.each(changes)('%s drops the pending export', async (_, change) => {
+        const { t, loaded } = pendingSetup();
+        await flush();
+        change(t);
+        expect(prepare(t).exporting).toBeFalsy();
+        loaded();
+        await flush();
+        expect(t.openSink).not.toHaveBeenCalled();
+        expect(t.ctl.getState().kind).toBe('prepare');
+        const tool = prepare(t).tool;
+        t.ctl.dispatch({ type: 'export' });
+        await flush();
+        if (tool === 'audio') loaded();
+        await flush();
+        expect(t.openSink).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('suggests a lower bitrate, not a smaller size, in the memory warning', async () => {
+      const t = audioSetup({ src: withAudio({ durationSec: 4000 }), deviceMemoryGB: 1 });
+      setFormat(t, 'wav');
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      const message = prepare(t).notice?.message ?? '';
+      expect(message).not.toContain('smaller size');
+      expect(message).toContain('lower bitrate or another format');
+    });
+
+    it('names the audio in an invalid-conversion notice', async () => {
+      const t = audioSetup();
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      t.reject(
+        new ConversionInvalidError([{ track: 'audio', reason: 'undecodable_source_codec' }]),
+      );
+      await flush();
+      expect(prepare(t).notice).toMatchObject({
+        tone: 'error',
+        title: 'This audio cannot be extracted with these settings',
+      });
     });
 
     it('Make it smaller lowers the audio bitrate and stays on the audio tool', async () => {

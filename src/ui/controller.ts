@@ -75,7 +75,12 @@ interface Loaded {
 
 export type AppState =
   | { kind: 'drop'; notice?: Notice; reading?: string }
-  | (Loaded & { kind: 'prepare'; notice?: Notice })
+  | (Loaded & {
+      kind: 'prepare';
+      notice?: Notice;
+      /** An export started and still awaits its encoder check or save picker. */
+      exporting?: boolean;
+    })
   | (Loaded & {
       kind: 'working';
       outputName: string;
@@ -462,6 +467,10 @@ interface ExportSpec {
   describe(bytes: number): SourceInfo;
   /** Notice for an unexpected conversion failure. */
   failure: { title: string; message: string };
+  /** Notice title when the settings cannot convert this source. */
+  invalidTitle: string;
+  /** Closes the in-memory size warning: what the user can change to need less memory. */
+  memoryAdvice: string;
 }
 
 /**
@@ -486,6 +495,12 @@ export function createController(
     cancelExport?.();
     cancelExport = undefined;
   };
+
+  // A prepare-screen change while an export awaits its preflight or save picker drops that
+  // export, so it never starts with the settings, trim or tool it was begun with.
+  function supersedePending(): void {
+    if (state.kind === 'prepare' && state.exporting) exportToken++;
+  }
 
   function setState(next: AppState): void {
     const prev = state;
@@ -557,16 +572,20 @@ export function createController(
         if (
           (state.kind === 'prepare' || state.kind === 'result') &&
           (action.tool === 'shrink' || state.audioAuto)
-        )
+        ) {
+          supersedePending();
           // Drops any notice: a pending memory confirm belongs to the other tool's export.
           toPrepare({ ...state, tool: action.tool });
+        }
         return;
       case 'setTrim':
         if (state.kind === 'prepare') {
+          supersedePending();
           const moved = action.value.start !== state.settings.trim.start ? 'start' : 'end';
           const trim = clampTrim(action.value, state.source.durationSec, moved);
           setState({
             ...state,
+            exporting: undefined,
             settings: { ...state.settings, trim },
             audioSettings: state.audioSettings && { ...state.audioSettings, trim },
           });
@@ -574,6 +593,7 @@ export function createController(
         return;
       case 'setAudioSettings':
         if (state.kind === 'prepare' && state.audioAuto) {
+          supersedePending();
           const value = validateAudioExtract(
             action.value,
             state.audioAuto,
@@ -582,6 +602,7 @@ export function createController(
           );
           setState({
             ...state,
+            exporting: undefined,
             audioSettings: {
               ...value,
               trim: clampTrim(value.trim, state.source.durationSec, 'end'),
@@ -591,8 +612,10 @@ export function createController(
         return;
       case 'setSettings':
         if (state.kind === 'prepare') {
+          supersedePending();
           setState({
             ...state,
+            exporting: undefined,
             settings: validateSettings(
               preserveQuality(state.settings, action.value, state.source),
               state.auto,
@@ -603,7 +626,8 @@ export function createController(
         }
         return;
       case 'export':
-        if (state.kind === 'prepare') void startExport(state, action.confirmed === true);
+        if (state.kind === 'prepare' && !state.exporting)
+          void startExport(state, action.confirmed === true);
         return;
       case 'cancel':
         if (state.kind === 'working') {
@@ -720,8 +744,7 @@ export function createController(
         notice: {
           tone: 'warn',
           title: `This export may need about ${formatBytes(estimate.high)} of memory`,
-          message:
-            'This browser keeps the new file in memory until you save it. Phones and tablets may reload the tab and lose the work. Trim it shorter or choose a smaller size to be safe.',
+          message: `This browser keeps the new file in memory until you save it. Phones and tablets may reload the tab and lose the work. ${spec.memoryAdvice}`,
           confirm: 'memory',
         },
       });
@@ -729,7 +752,7 @@ export function createController(
     }
     const token = ++exportToken;
     const base: Loaded = prep;
-    if (prep.notice) toPrepare(base);
+    setState({ ...prep, notice: undefined, exporting: true });
     const blocked = await spec.preflight();
     if (token !== exportToken) return;
     if (blocked) {
@@ -819,7 +842,7 @@ export function createController(
       } else if (err instanceof ConversionInvalidError) {
         toPrepare(base, {
           tone: 'error',
-          title: 'This video cannot be exported with these settings',
+          title: spec.invalidTitle,
           message: `${err.message}${partial}`,
         });
       } else {
@@ -870,6 +893,8 @@ export function createController(
         message:
           'Something went wrong while making the new file. Try again, or choose a smaller size.',
       },
+      invalidTitle: 'This video cannot be exported with these settings',
+      memoryAdvice: 'Trim it shorter or choose a smaller size to be safe.',
     };
   }
 
@@ -902,6 +927,8 @@ export function createController(
         message:
           'Something went wrong while making the new file. Try again, or choose another format.',
       },
+      invalidTitle: 'This audio cannot be extracted with these settings',
+      memoryAdvice: 'Trim it shorter, or choose a lower bitrate or another format, to be safe.',
     };
   }
 
