@@ -123,10 +123,9 @@ export function mountSettings(
     const section = el('div', 'setting');
     const head = el('div', 'setting-head');
     head.append(el('strong', undefined, name), el('span', 'setting-auto', `Auto: ${automatic}`));
-    // The visible text must start the accessible name (WCAG 2.5.3, axe label-content-name-mismatch).
-    const button = el('button', 'setting-reset', 'Reset');
+    const button = el('button', 'setting-reset', 'Reset to auto');
     button.type = 'button';
-    button.setAttribute('aria-label', `Reset ${name} to auto`);
+    button.setAttribute('aria-label', `Reset to auto: ${name}`);
     button.addEventListener('click', reset);
     head.append(button);
     section.append(head);

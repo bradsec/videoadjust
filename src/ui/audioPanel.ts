@@ -22,13 +22,11 @@ export interface AudioPanelOptions {
 }
 
 const FORMATS: AudioFormat[] = ['mp3', 'm4a', 'wav'];
-/** "M4A (AAC)" -> "M4A" for the heading. */
 const shortLabel = (format: AudioFormat) => AUDIO_FORMATS[format].label.split(' ')[0]!;
 const kbps = (bps: number) => `${Math.round(bps / 1000)} kbps`;
 const channelName = (channels: 1 | 2) => (channels === 1 ? 'mono' : 'stereo');
 const wholeSeconds = (sec: number) => formatDuration(Math.round(sec));
 
-/** The Extract audio card: summary, estimate, button and the Adjust controls. */
 export function mountAudioPanel(
   host: HTMLElement,
   opts: AudioPanelOptions,
@@ -212,7 +210,6 @@ export function mountAudioPanel(
       label.classList.toggle('is-checked', input.checked);
     }
     if (caps.audio.aac) {
-      // Only while M4A would copy: a chosen M4A that re-encodes says nothing.
       const copies =
         (next.format !== 'm4a' || next.copy) &&
         validateAudioExtract({ ...next, format: 'm4a', copy: true }, auto, source, caps).copy;

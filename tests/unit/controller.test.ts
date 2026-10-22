@@ -710,7 +710,33 @@ describe('export flow', () => {
       });
     });
 
-    it('validates audio settings and clamps their trim', () => {
+    it('ignores trim in audio settings changes', () => {
+      const t = audioSetup();
+      t.ctl.dispatch({ type: 'setTrim', value: { start: 1, end: 2 } });
+      t.ctl.dispatch({
+        type: 'setAudioSettings',
+        value: { ...prepare(t).audioSettings!, bitrate: 96_000, trim: { start: 0, end: 3 } },
+      });
+      expect(prepare(t)).toMatchObject({
+        settings: { trim: { start: 1, end: 2 } },
+        audioSettings: { bitrate: 96_000, trim: { start: 1, end: 2 } },
+      });
+    });
+
+    it('ignores trim in Shrink settings changes', () => {
+      const t = audioSetup();
+      t.ctl.dispatch({ type: 'setTrim', value: { start: 1, end: 2 } });
+      t.ctl.dispatch({
+        type: 'setSettings',
+        value: { ...prepare(t).settings, trim: { start: 0, end: 3 } },
+      });
+      expect(prepare(t)).toMatchObject({
+        settings: { trim: { start: 1, end: 2 } },
+        audioSettings: { trim: { start: 1, end: 2 } },
+      });
+    });
+
+    it('validates audio settings and ignores their trim', () => {
       const t = audioSetup();
       t.ctl.dispatch({
         type: 'setAudioSettings',
@@ -884,6 +910,50 @@ describe('export flow', () => {
         await flush();
         expect(t.openSink).toHaveBeenCalledTimes(1);
       });
+    });
+
+    it.each([
+      [
+        'a tab switch',
+        (t: ReturnType<typeof exportSetup>) => t.ctl.dispatch({ type: 'setTool', tool: 'shrink' }),
+      ],
+      [
+        'a trim change',
+        (t: ReturnType<typeof exportSetup>) =>
+          t.ctl.dispatch({ type: 'setTrim', value: { start: 1, end: 3 } }),
+      ],
+      [
+        'an audio settings change',
+        (t: ReturnType<typeof exportSetup>) =>
+          t.ctl.dispatch({
+            type: 'setAudioSettings',
+            value: { ...prepare(t).audioSettings!, bitrate: 192_000 },
+          }),
+      ],
+      [
+        'a Shrink settings change',
+        (t: ReturnType<typeof exportSetup>) =>
+          t.ctl.dispatch({ type: 'setSettings', value: prepare(t).settings }),
+      ],
+    ])('%s aborts a sink opened after the change', async (_, change) => {
+      let resolveSink!: (sink: Awaited<ReturnType<AppDeps['openSink']>>) => void;
+      const openSink = vi.fn(
+        () =>
+          new Promise<Awaited<ReturnType<AppDeps['openSink']>>>((resolve) => {
+            resolveSink = resolve;
+          }),
+      );
+      const t = audioSetup({ openSink });
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      expect(openSink).toHaveBeenCalledTimes(1);
+      change(t);
+      expect(prepare(t).exporting).toBeFalsy();
+      resolveSink(t.sink as unknown as Awaited<ReturnType<AppDeps['openSink']>>);
+      await flush();
+      expect(t.sink.abort).toHaveBeenCalledTimes(1);
+      expect(t.startConversion).not.toHaveBeenCalled();
+      expect(t.ctl.getState().kind).toBe('prepare');
     });
 
     it('suggests a lower bitrate, not a smaller size, in the memory warning', async () => {

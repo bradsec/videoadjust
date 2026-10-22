@@ -595,7 +595,7 @@ export function createController(
         if (state.kind === 'prepare' && state.audioAuto) {
           supersedePending();
           const value = validateAudioExtract(
-            action.value,
+            { ...action.value, trim: state.settings.trim },
             state.audioAuto,
             state.source,
             state.caps,
@@ -603,10 +603,7 @@ export function createController(
           setState({
             ...state,
             exporting: undefined,
-            audioSettings: {
-              ...value,
-              trim: clampTrim(value.trim, state.source.durationSec, 'end'),
-            },
+            audioSettings: value,
           });
         }
         return;
@@ -617,7 +614,11 @@ export function createController(
             ...state,
             exporting: undefined,
             settings: validateSettings(
-              preserveQuality(state.settings, action.value, state.source),
+              preserveQuality(
+                state.settings,
+                { ...action.value, trim: state.settings.trim },
+                state.source,
+              ),
               state.auto,
               state.caps,
               state.source,

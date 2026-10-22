@@ -40,7 +40,7 @@ test('summary and controls track trim and overrides', async ({ page }) => {
     slider.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await expect(card).toContainText('1 change');
-  await card.getByRole('button', { name: 'Reset Quality to auto' }).click();
+  await card.getByRole('button', { name: 'Reset to auto: Quality' }).click();
   await expect(card).toContainText('All automatic');
 });
 
@@ -50,7 +50,7 @@ test('audio removal and WebM selection stay valid', async ({ page }) => {
   await card.getByLabel('Audio codec', { exact: true }).selectOption('none');
   await expect(card.locator('h2')).toContainText('MP4');
   await expect(card.locator('.export-sub')).toContainText('no audio');
-  await card.getByRole('button', { name: 'Reset Audio codec to auto' }).click();
+  await card.getByRole('button', { name: 'Reset to auto: Audio codec' }).click();
   await expect(card.locator('.export-sub')).toContainText('AAC');
   const webm = card.getByLabel('Format', { exact: true }).locator('option[value="webm"]');
   test.skip(!(await webm.isEnabled()), 'WebM is unavailable in this browser');
@@ -93,7 +93,7 @@ test('settings changes and reset keep keyboard focus', async ({ page }) => {
   await resolution.focus();
   await resolution.selectOption('1280');
   await expect(resolution).toBeFocused();
-  const reset = card.getByRole('button', { name: 'Reset Resolution to auto' });
+  const reset = card.getByRole('button', { name: 'Reset to auto: Resolution' });
   await reset.click();
   await expect(reset).toBeFocused();
 });
@@ -107,11 +107,11 @@ test('audio reset buttons change only their own setting', async ({ page }) => {
   const bitrate = card.getByLabel('Audio bitrate', { exact: true });
   await bitrate.selectOption('64000');
   await codec.selectOption('opus');
-  await card.getByRole('button', { name: 'Reset Audio codec to auto' }).click();
+  await card.getByRole('button', { name: 'Reset to auto: Audio codec' }).click();
   await expect(codec).toHaveValue('aac');
   await expect(bitrate).toHaveValue('64000');
   await codec.selectOption('opus');
-  await card.getByRole('button', { name: 'Reset Audio bitrate to auto' }).click();
+  await card.getByRole('button', { name: 'Reset to auto: Audio bitrate' }).click();
   await expect(codec).toHaveValue('opus');
   await expect(bitrate).toHaveValue('128000');
 });
