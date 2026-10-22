@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VideoAdjust - Prepare</title>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <style>
+      :root {
+        --bg: #0e0f0d;
+        --surface: #171916;
+        --raised: #21241f;
+        --line: #30342d;
+        --text: #f1f3ec;
+        --text-2: #b6bbad;
+        --text-3: #8b9182;
+        --accent: #c6ef3a;
+        --on-accent: #11140a;
+        --accent-text: #d4f56a;
+        --accent-soft: #242a16;
+        --warn: #e2b84b;
+        --warn-soft: #2a2614;
+        --stage-bg: #0a0908;
+        --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        --font-tc:
+          ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+        --max: 1280px;
+        --gutter: 32px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      .num {
+        font-variant-numeric: tabular-nums;
+        font-family: var(--font-tc);
+      }
+      .grid {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: 0 var(--gutter);
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        column-gap: var(--gutter);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--raised);
+        color: var(--text);
+        font-family: var(--font-ui);
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .btn:hover {
+        border-color: var(--text-2);
+      }
+      .btn-primary {
+        min-height: 48px;
+        border: 1px solid var(--accent);
+        background: var(--accent);
+        color: var(--on-accent);
+        font-weight: 650;
+        font-size: 16px;
+      }
+      .btn-primary:hover {
+        background: #d4f556;
+      }
+      iconify-icon {
+        display: inline-flex;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      style="
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-ui);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      "
+    >
+      <header style="border-bottom: 1px solid var(--line)">
+        <div class="grid" style="min-height: 64px; align-items: center">
+          <div
+            style="
+              grid-column: 1 / span 8;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              min-width: 0;
+            "
+          >
+            <span
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 18px;
+                letter-spacing: -0.01em;
+                font-weight: 400;
+              "
+              ><img
+                src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/8d962ac5-eb8f-44ce-9237-abcf5b4c939f/brand-assets/public-icon.svg/icon.svg"
+                alt=""
+                style="width: 26px; height: 26px"
+              />Video<b style="font-weight: 800">Adjust</b></span
+            ><span
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 12px;
+                color: var(--text-2);
+              "
+              ><iconify-icon
+                icon="lucide:lock"
+                style="font-size: 13px; color: var(--accent-text)"
+              ></iconify-icon
+              >Stays on this device</span
+            >
+          </div>
+          <div style="grid-column: 9 / span 4; display: flex; justify-content: flex-end">
+            <button
+              role="switch"
+              aria-label="Light theme"
+              aria-checked="false"
+              style="
+                display: grid;
+                place-items: center;
+                width: 44px;
+                height: 44px;
+                border-radius: 10px;
+                border: 1px solid var(--line);
+                background: var(--raised);
+                cursor: pointer;
+              "
+            >
+              <iconify-icon
+                icon="lucide:sun"
+                style="font-size: 20px; color: var(--text)"
+              ></iconify-icon>
+            </button>
+          </div>
+        </div>
+      </header>
+      <main style="flex: 1; padding: 24px 0 0">
+        <div class="grid" style="align-items: start; row-gap: 0">
+          <div style="grid-column: 1 / span 8; display: flex; flex-direction: column">
+            <div
+              role="tablist"
+              style="
+                display: inline-flex;
+                align-self: flex-start;
+                gap: 4px;
+                padding: 3px;
+                border-radius: 10px;
+                border: 1px solid var(--line);
+                background: var(--surface);
+                margin-bottom: 16px;
+              "
+            >
+              <button
+                role="tab"
+                aria-selected="true"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 8px;
+                  min-height: 40px;
+                  padding: 0 16px;
+                  border-radius: 7px;
+                  border: 1px solid var(--accent);
+                  background: var(--accent-soft);
+                  color: var(--text);
+                  font-weight: 600;
+                  font-size: 15px;
+                  cursor: pointer;
+                "
+              >
+                <iconify-icon
+                  icon="lucide:minimize-2"
+                  style="font-size: 20px; color: var(--accent-text)"
+                ></iconify-icon
+                >Shrink video</button
+              ><button
+                role="tab"
+                aria-selected="false"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 8px;
+                  min-height: 40px;
+                  padding: 0 16px;
+                  border-radius: 7px;
+                  border: 1px solid transparent;
+                  background: transparent;
+                  color: var(--text-2);
+                  font-weight: 600;
+                  font-size: 15px;
+                  cursor: pointer;
+                "
+              >
+                <iconify-icon icon="lucide:audio-lines" style="font-size: 20px"></iconify-icon
+                >Extract audio
+              </button>
+            </div>
+            <div
+              style="
+                position: relative;
+                width: 100%;
+                aspect-ratio: 16/9;
+                background: var(--stage-bg);
+                border-radius: 14px;
+                overflow: hidden;
+              "
+            >
+              <div
+                style="
+                  position: absolute;
+                  inset: 0;
+                  display: grid;
+                  grid-template-columns: repeat(6, 1fr);
+                "
+              >
+                <div style="background: #ff0000"></div>
+                <div style="background: #00ff00"></div>
+                <div style="background: #ffff00"></div>
+                <div style="background: #0000ff"></div>
+                <div style="background: #ff00ff"></div>
+                <div style="background: #00ffff"></div>
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 14px;
+                  bottom: 14px;
+                  display: flex;
+                  align-items: center;
+                  gap: 14px;
+                  color: #fff;
+                  font-size: 14px;
+                "
+                class="num"
+              >
+                <iconify-icon
+                  icon="material-symbols:play-arrow"
+                  style="font-size: 26px"
+                ></iconify-icon
+                >0:00 / 0:03
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  right: 16px;
+                  bottom: 16px;
+                  display: flex;
+                  align-items: center;
+                  gap: 18px;
+                  color: #fff;
+                "
+              >
+                <iconify-icon icon="lucide:volume-2" style="font-size: 22px"></iconify-icon
+                ><iconify-icon icon="lucide:maximize" style="font-size: 22px"></iconify-icon
+                ><iconify-icon icon="lucide:more-vertical" style="font-size: 22px"></iconify-icon>
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  right: 0;
+                  bottom: 0;
+                  height: 5px;
+                  background: #fff;
+                "
+              ></div>
+            </div>
+            <div
+              style="
+                display: flex;
+                align-items: baseline;
+                gap: 4px;
+                flex-wrap: wrap;
+                padding: 14px 0;
+              "
+            >
+              <span style="font-size: 16px; font-weight: 650">land-1080p30-aac.mp4</span
+              ><span
+                class="num"
+                style="
+                  font-size: 13px;
+                  letter-spacing: -0.02em;
+                  color: var(--text-2);
+                  margin-left: 14px;
+                "
+                >185.5 kB &nbsp;·&nbsp; 1920x1080 &nbsp;·&nbsp; 30 fps &nbsp;·&nbsp; H.264
+                &nbsp;·&nbsp; 0:03</span
+              >
+            </div>
+            <div style="padding: 8px 0 0">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: baseline;
+                  margin-bottom: 12px;
+                "
+              >
+                <h2 style="font-size: 18px; font-weight: 650; margin: 0">Trim</h2>
+              </div>
+              <div
+                style="
+                  position: relative;
+                  height: 56px;
+                  margin: 0 14px;
+                  border-radius: 6px;
+                  background: var(--stage-bg);
+                "
+              >
+                <div
+                  style="
+                    position: absolute;
+                    inset: 0;
+                    display: grid;
+                    grid-auto-flow: column;
+                    grid-auto-columns: 1fr;
+                    overflow: hidden;
+                    border-radius: 6px;
+                    opacity: 0.5;
+                  "
+                >
+                  <div style="background: #ff0000"></div>
+                  <div style="background: #00ff00"></div>
+                  <div style="background: #ffff00"></div>
+                  <div style="background: #0000ff"></div>
+                  <div style="background: #ff00ff"></div>
+                  <div style="background: #00ffff"></div>
+                  <div style="background: #ff0000"></div>
+                  <div style="background: #00ff00"></div>
+                </div>
+                <div
+                  style="
+                    position: absolute;
+                    top: -3px;
+                    bottom: -3px;
+                    left: 0;
+                    width: 14px;
+                    background: var(--accent);
+                    border-radius: 6px 0 0 6px;
+                    transform: translateX(-100%);
+                  "
+                ></div>
+                <div
+                  style="
+                    position: absolute;
+                    top: -3px;
+                    bottom: -3px;
+                    right: 0;
+                    width: 14px;
+                    background: var(--accent);
+                    border-radius: 0 6px 6px 0;
+                  "
+                ></div>
+                <div
+                  style="
+                    position: absolute;
+                    top: -3px;
+                    bottom: -3px;
+                    left: 0;
+                    right: 0;
+                    border-top: 3px solid var(--accent);
+                    border-bottom: 3px solid var(--accent);
+                    pointer-events: none;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: 1fr auto 1fr;
+                  align-items: center;
+                  gap: 16px;
+                  margin-top: 24px;
+                  padding-top: 16px;
+                  border-top: 1px solid var(--line);
+                "
+              >
+                <div style="display: flex; align-items: center; gap: 16px">
+                  <div style="display: flex; flex-direction: column; gap: 2px">
+                    <span
+                      style="
+                        font-size: 12px;
+                        font-weight: 700;
+                        letter-spacing: 0.09em;
+                        text-transform: uppercase;
+                        color: var(--text-3);
+                      "
+                      >Start</span
+                    ><span class="num" style="font-size: 22px; font-weight: 700">0:00.0</span>
+                  </div>
+                  <button class="btn">
+                    <iconify-icon
+                      icon="lucide:chevrons-left"
+                      style="font-size: 20px; color: var(--accent-text)"
+                    ></iconify-icon
+                    >Start here
+                  </button>
+                </div>
+                <div style="text-align: center">
+                  <div class="num" style="font-size: 13px; color: var(--text-2)">
+                    0:03 of 0:03 kept
+                  </div>
+                </div>
+                <div
+                  style="display: flex; align-items: center; gap: 16px; justify-content: flex-end"
+                >
+                  <button class="btn">
+                    <iconify-icon
+                      icon="lucide:chevrons-right"
+                      style="font-size: 20px; color: var(--accent-text)"
+                    ></iconify-icon
+                    >End here
+                  </button>
+                  <div
+                    style="display: flex; flex-direction: column; gap: 2px; align-items: flex-end"
+                  >
+                    <span
+                      style="
+                        font-size: 12px;
+                        font-weight: 700;
+                        letter-spacing: 0.09em;
+                        text-transform: uppercase;
+                        color: var(--text-3);
+                      "
+                      >End</span
+                    ><span class="num" style="font-size: 22px; font-weight: 700">0:03.0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <aside
+            style="
+              grid-column: 9 / span 4;
+              background: var(--surface);
+              border: 1px solid var(--line);
+              border-radius: 14px;
+            "
+          >
+            <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+              <span
+                style="
+                  font-size: 12px;
+                  font-weight: 700;
+                  letter-spacing: 0.09em;
+                  text-transform: uppercase;
+                  color: var(--text-3);
+                "
+                >Ready to export</span
+              >
+              <div>
+                <h2
+                  style="
+                    font-size: 20px;
+                    font-weight: 650;
+                    letter-spacing: -0.01em;
+                    line-height: 1.25;
+                    margin: 0;
+                  "
+                >
+                  1080p, H.264/AAC MP4
+                </h2>
+                <p class="num" style="margin: 4px 0 0; font-size: 14px; color: var(--text-2)">
+                  30 fps · AAC 128 kbps stereo
+                </p>
+              </div>
+              <div style="display: flex; flex-direction: column">
+                <strong
+                  class="num"
+                  style="
+                    font-size: 32px;
+                    font-weight: 800;
+                    letter-spacing: -0.02em;
+                    line-height: 1.15;
+                  "
+                  ><span style="font-size: 16px; font-weight: 600; color: var(--text-2)">est.</span>
+                  120–160 kB</strong
+                ><span class="num" style="font-size: 13px; color: var(--text-2); margin-top: 2px"
+                  >from 185.5 kB</span
+                >
+              </div>
+              <div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 13px;
+                    color: var(--text-2);
+                    margin-bottom: 6px;
+                  "
+                >
+                  <span
+                    >New, estimated
+                    <b class="num" style="color: var(--accent-text); font-weight: 700"
+                      >120–160 kB</b
+                    ></span
+                  ><span
+                    >Original
+                    <b class="num" style="color: var(--text); font-weight: 700">185.5 kB</b></span
+                  >
+                </div>
+                <div
+                  style="
+                    position: relative;
+                    height: 12px;
+                    border-radius: 6px;
+                    border: 1px solid var(--ctl, #4a4e45);
+                    overflow: hidden;
+                    background: repeating-linear-gradient(
+                      135deg,
+                      var(--raised) 0 5px,
+                      transparent 5px 10px
+                    );
+                  "
+                >
+                  <div
+                    style="
+                      position: absolute;
+                      top: 0;
+                      bottom: 0;
+                      left: 0;
+                      width: 75%;
+                      background: var(--accent);
+                    "
+                  ></div>
+                </div>
+              </div>
+              <div
+                style="
+                  padding: 12px;
+                  border: 1px solid var(--line);
+                  border-left: 4px solid var(--warn);
+                  border-radius: 10px;
+                  background: var(--warn-soft);
+                  font-size: 14px;
+                  color: var(--text-2);
+                "
+              >
+                <strong style="color: var(--text); display: block; margin-bottom: 4px"
+                  >This video is already small</strong
+                >The automatic export may not be smaller. You can trim this video and export only
+                the part you need.
+              </div>
+              <button class="btn btn-primary" style="width: 100%">
+                <iconify-icon icon="lucide:download" style="font-size: 20px"></iconify-icon>Export
+              </button>
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+                  min-height: 56px;
+                  border-top: 1px solid var(--line);
+                  margin-top: 0;
+                  cursor: pointer;
+                "
+              >
+                <span style="font-weight: 650">Adjust</span
+                ><span style="margin-left: auto; font-size: 14px; color: var(--text-2)"
+                  >All automatic</span
+                ><iconify-icon
+                  icon="lucide:chevron-down"
+                  style="font-size: 20px; color: var(--text-2)"
+                ></iconify-icon>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+      <footer style="border-top: 1px solid var(--line); margin-top: 48px">
+        <div class="grid" style="padding-top: 24px; padding-bottom: 24px">
+          <div
+            style="
+              grid-column: 1 / span 12;
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: space-between;
+              gap: 8px 24px;
+              font-size: 13px;
+              color: var(--text-2);
+            "
+          >
+            <span>Free. Works offline after your first visit.</span
+            ><span style="display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 16px"
+              ><a
+                href="#"
+                id="footer-licences-link"
+                style="color: var(--text); text-decoration: underline; text-underline-offset: 3px"
+                >Licences</a
+              ><a
+                href="https://github.com/bradsec/videoadjust"
+                id="footer-github-link"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  color: var(--text);
+                  text-decoration: underline;
+                  text-underline-offset: 3px;
+                "
+                ><iconify-icon icon="lucide:github" style="font-size: 14px"></iconify-icon
+                >github.com/bradsec/videoadjust</a
+              ><span class="num" style="color: var(--text-3)">v1.0.0</span></span
+            >
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
