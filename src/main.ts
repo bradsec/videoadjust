@@ -25,3 +25,12 @@ createApp(document.getElementById('app')!, {
   openSink,
   deviceMemoryGB: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
 });
+
+// Production only: the dev server serves modules that a precache list cannot describe.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('./sw.js', { scope: './' })
+      .catch((err: unknown) => console.error('service worker registration failed', err));
+  });
+}

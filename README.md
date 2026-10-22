@@ -1,9 +1,50 @@
 # videoresize
 
-Shrink and trim videos in the browser. Conversion runs locally on WebCodecs through
-[Mediabunny](https://mediabunny.dev/). No video is uploaded; the page makes no requests to
-other origins and its CSP only allows `'self'`, `blob:` and workers. It does not need
-`SharedArrayBuffer` or COOP/COEP headers.
+Shrink and trim phone videos in the browser so they are small enough to send. Pick a video, trim
+it, choose a size, export, then compare the original and the new file. Output defaults to MP4 with
+H.264 video and AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and
+the frame rate is never raised. Conversion runs locally on WebCodecs through
+[Mediabunny](https://mediabunny.dev/). No ffmpeg.wasm.
+
+Live site: https://bradsec.github.io/videoresize/
+
+## Privacy
+
+No video is uploaded and nothing is sent anywhere. The page is static, has no analytics, web fonts or
+CDN assets, and makes no requests to other origins. Its CSP only allows `'self'`, `blob:` and
+workers. `scripts/check-no-remote.mjs` (`pnpm check:remote`, part of `pnpm build`) fails the build if
+the output contains a remote request target. It does not need `SharedArrayBuffer` or COOP/COEP
+headers.
+
+## Browser support
+
+Support is probed at runtime from what the browser reports (WebCodecs encoders per codec, native or
+fallback AAC, save picker, file sharing). The app disables what a browser cannot do and says why;
+this README does not claim any specific browser version works. What the e2e suite saw in this
+repository (Playwright's bundled Chromium and WebKit engines, 1280x720 probe):
+
+| Engine | H.264 | HEVC | AV1 | VP9 | AAC | Opus | Save picker |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Chromium (headless) | yes | no | yes | yes | yes, via the fallback chunk | yes | yes |
+| WebKit | yes | yes | yes | yes | yes, native | yes | no |
+
+Firefox and Chrome on Linux have no native WebCodecs AAC encoder, so the app lazy-loads the
+`@mediabunny/aac-encoder` chunk (about 1 MB) the first time it needs AAC. The service worker caches
+that chunk too, so export still works offline there. Firefox, Safari on real iPhone and iPad
+hardware, and other browsers are not covered by the automated tests; see "Manual device check".
+
+## Size guidance
+
+Designed and tested for inputs up to 2 GB. Above 2 GB the app warns and lets you continue. Where there
+is no save picker (iOS Safari, Firefox) the output stays in memory until you download or share it, and a
+large estimate asks before it starts.
+
+## Offline
+
+A service worker (`public/sw.js`, registered only in production builds) precaches every built file,
+including the lazy AAC chunk. Navigations are network-first with a cache fallback, so an update is
+picked up on the next online load; hashed assets are cache-first. The build fills in the file list and
+a cache version at build time.
 
 ## Development
 
@@ -12,7 +53,9 @@ Requires Node 22 and pnpm 10.
 ```sh
 pnpm install
 pnpm dev            # dev server
-pnpm build          # licence check, type check, production build into dist/
+pnpm build          # licence check, type check, production build into dist/, remote-URL check
+pnpm check:remote   # alone: scan dist/ for remote request targets
+scripts/make-icons.sh   # regenerate public/ icons from scripts/icons/*.svg (needs inkscape, ImageMagick)
 pnpm test           # unit tests (vitest)
 pnpm test:e2e       # Playwright (chromium, webkit, iPhone 15, iPad Pro 11)
 scripts/make-fixtures.sh   # regenerate tests/fixtures (needs ffmpeg)
@@ -43,7 +86,9 @@ moves to the next smaller size, or lowers quality one step when no smaller size 
 
 Static output in `dist/`, with a relative base so it runs under a GitHub Pages repo subpath.
 `.github/workflows/pages.yml` deploys on push to `main`. `public/_headers` carries the same CSP
-for Cloudflare Pages. No asset may exceed 25 MiB (Cloudflare Pages limit).
+for Cloudflare Pages: set the build command to `pnpm build` and the output directory to `dist`.
+No asset may exceed 25 MiB (Cloudflare Pages limit); check with `find dist -size +25M`, which
+should print nothing.
 
 ## Licences
 
@@ -53,6 +98,8 @@ This project is MIT (see `LICENSE`). Production dependencies:
 | --- | --- | --- |
 | mediabunny | MPL-2.0 (unmodified) | https://github.com/Vanilagy/mediabunny |
 | @mediabunny/aac-encoder | MPL-2.0 (unmodified), embeds FFmpeg AAC encoder under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder |
+| @types/dom-webcodecs | MIT (type declarations only, not shipped) | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs |
+| @types/dom-mediacapture-transform | MIT (type declarations only, not shipped) | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform |
 
 ### AAC fallback encoder
 
@@ -86,3 +133,17 @@ copies it to `dist/THIRD-PARTY-LICENSES.txt` and the page footer links to it. `p
 `pnpm licenses list --prod --json`, fails on any licence outside the allowlist (MIT, BSD-2/3-Clause,
 ISC, Apache-2.0, 0BSD, MPL-2.0, plus the per-package LGPL exception above) and fails if a production package has no entry in
 `THIRD-PARTY-LICENSES.txt`. It runs in `pnpm build` and in the Pages workflow.
+
+## Manual device check
+
+Playwright cannot drive real touch dragging or the iOS share sheet, so the owner checks these on
+real hardware before a release. Record each result; leave a line empty until it has been run.
+
+Steps: open the live site, drop a recent phone video (portrait, rotation metadata), drag the trim
+handles by touch, export, compare, then share or download. Turn on airplane mode after the first
+load and confirm the page still opens.
+
+- iPhone (model, iOS version, date):
+  - Result:
+- iPad (model, iPadOS version, date):
+  - Result:

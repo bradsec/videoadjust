@@ -6,11 +6,12 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm check:licenses && tsc --noEmit && vite build",
+    "build": "pnpm check:licenses && tsc --noEmit && vite build && pnpm check:remote",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "check:licenses": "node scripts/check-licenses.mjs"
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "check:remote": "node scripts/check-no-remote.mjs"
   },
   "dependencies": {
     "@mediabunny/aac-encoder": "1.62.0",

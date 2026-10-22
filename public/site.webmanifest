@@ -1,0 +1,15 @@
+{
+  "name": "videoresize",
+  "short_name": "videoresize",
+  "description": "Shrink and trim videos in your browser. Nothing is uploaded.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef2f0",
+  "theme_color": "#0b6e66",
+  "icons": [
+    { "src": "android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "android-chrome-maskable-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
