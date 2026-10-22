@@ -1,4 +1,4 @@
-import { el } from './dom';
+import { el, icon } from './dom';
 import { formatDuration } from './format';
 
 export const MIN_TRIM_SPAN = 0.1;
@@ -94,8 +94,9 @@ export function mountTrimBar(
     const group = el('div', 'trim-readout');
     const label = el('span', 'trim-label', side === 'start' ? 'Start' : 'End');
     const output = el('output', 'trim-value num');
-    const button = el('button', 'btn', side === 'start' ? 'Start here' : 'End here');
+    const button = el('button', 'btn btn-cue', side === 'start' ? 'Start here' : 'End here');
     button.type = 'button';
+    button.prepend(icon(side === 'start' ? 'i-start' : 'i-end'));
     button.addEventListener('click', () => change(side, video.currentTime));
     group.append(label, output, button);
     readouts.append(group);

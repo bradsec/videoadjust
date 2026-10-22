@@ -22,6 +22,14 @@ workers. `scripts/check-no-remote.mjs` (`pnpm check:remote`, part of `pnpm build
 any built file contains a URL outside a short, commented allowlist (spec links in bundled comments). It does not need `SharedArrayBuffer` or COOP/COEP
 headers.
 
+## Theme
+
+The app is dark for everyone, whatever the system colour scheme. The "Light theme" switch in the header
+turns on the light theme. The choice is the only thing the app stores: `localStorage` key
+`videoadjust-theme`, value `light` or `dark`. If storage is blocked the app stays dark and the switch
+still works for the open page. `public/theme-init.js` applies the saved theme before first paint; it is
+a separate same-origin file because the CSP blocks inline scripts.
+
 ## Browser support
 
 Support is probed at runtime from what the browser reports (WebCodecs encoders per codec, native or
@@ -75,7 +83,9 @@ scripts/make-fixtures.sh   # regenerate tests/fixtures (needs ffmpeg)
 
 First e2e run needs browsers: `pnpm exec playwright install chromium webkit`.
 
-On the prepare screen, choose Shrink video or Extract audio. Extract audio is unavailable when
+On the prepare screen, choose Shrink video or Extract audio from the tabs under the header (in the
+header centre on wide screens). The estimate and the Export or Extract audio button stay docked
+together at the bottom of the screen or settings panel. Extract audio is unavailable when
 the source has no usable audio track. Both tools use the same trim. Drag the trim handles or use
 arrow keys to adjust by 0.1 seconds.
 Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set

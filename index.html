@@ -7,7 +7,8 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; worker-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'"
     />
-    <meta name="theme-color" content="#0b6e66" />
+    <meta name="theme-color" content="#121110" />
+    <script src="/theme-init.js"></script>
     <link rel="icon" href="./favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png" />
@@ -85,15 +86,47 @@
           <path d="M20 4v4h-4" />
         </symbol>
         <symbol id="i-wipe" viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5" /></symbol>
+        <symbol id="i-start" viewBox="0 0 24 24">
+          <path d="M6 4v16M10 12h10M15 8l-5 4 5 4" />
+        </symbol>
+        <symbol id="i-end" viewBox="0 0 24 24"><path d="M18 4v16M4 12h10M9 8l5 4-5 4" /></symbol>
+        <symbol id="i-reset" viewBox="0 0 24 24">
+          <path d="M4 12a8 8 0 1 0 2.5-5.8" />
+          <path d="M4 4v4h4" />
+        </symbol>
+        <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"
+          />
+        </symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24">
+          <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
+        </symbol>
       </defs>
     </svg>
-    <header class="bar">
-      <span class="mark"
-        ><svg aria-hidden="true"><use href="#i-logo" /></svg>VideoAdjust</span
+    <header class="top">
+      <div class="brand">
+        <span class="mark"
+          ><svg class="logo" aria-hidden="true"><use href="#i-logo" /></svg
+          ><span>Video<b>Adjust</b></span></span
+        >
+        <span class="local"
+          ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
+        >
+      </div>
+      <div class="tools-slot"></div>
+      <button
+        class="theme"
+        type="button"
+        role="switch"
+        aria-checked="false"
+        aria-label="Light theme"
       >
-      <span class="chip"
-        ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
-      >
+        <svg class="i sun" aria-hidden="true"><use href="#i-sun" /></svg
+        ><svg class="i moon" aria-hidden="true"><use href="#i-moon" /></svg>
+      </button>
     </header>
     <main id="app"></main>
     <footer>

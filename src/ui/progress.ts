@@ -29,19 +29,40 @@ function fact(label: string): { node: HTMLElement; value: HTMLElement } {
   return { node, value };
 }
 
-export function scaleRow(
-  label: string,
-  kind: 'orig' | 'new',
-): { node: HTMLElement; value: HTMLElement; fill: HTMLElement } {
-  const node = el('div', 'scale-row');
-  const head = el('div', 'scale-label');
-  const value = el('b', 'num');
-  head.append(el('span', undefined, label), value);
-  const track = el('div', 'track');
-  const fill = el('span', kind);
-  track.append(fill);
-  node.append(head, track);
-  return { node, value, fill };
+export interface SizeMeter {
+  node: HTMLElement;
+  newValue: HTMLElement;
+  origValue: HTMLElement;
+  /** Fills the new size, low to high, against the original as the whole track. */
+  show(low: number, high: number, original: number): void;
+}
+
+/** One meter: the hatched track is the original file, the filled part the new size. */
+export function sizeMeter(newLabel: string, origLabel: string): SizeMeter {
+  const node = el('div', 'meter');
+  // The same numbers are printed as text elsewhere on each screen.
+  node.setAttribute('aria-hidden', 'true');
+  const labels = el('div', 'meter-labels');
+  const newValue = el('b', 'num');
+  const origValue = el('b', 'num');
+  const newText = el('span', 'm-new', newLabel);
+  newText.append(newValue);
+  const origText = el('span', 'm-orig', origLabel);
+  origText.append(origValue);
+  labels.append(newText, origText);
+  const track = el('div', 'meter-track');
+  const fill = el('span', 'fill');
+  const range = el('span', 'range');
+  track.append(fill, range);
+  node.append(labels, track);
+  function show(low: number, high: number, original: number): void {
+    const share = (bytes: number) => Math.min(100, (bytes / Math.max(1, original)) * 100);
+    fill.style.width = `${share(low)}%`;
+    range.style.left = `${share(low)}%`;
+    range.style.width = `${Math.max(0, share(high) - share(low))}%`;
+    range.hidden = high <= low;
+  }
+  return { node, newValue, origValue, show };
 }
 
 /** Progress card: percent, bar, elapsed, remaining, bytes written and Cancel. */
@@ -71,16 +92,10 @@ export function mountProgress(
     facts.append(expected.node);
   }
 
-  const scale = el('div', 'scale');
-  scale.setAttribute('aria-hidden', 'true');
-  const orig = scaleRow('Original', 'orig');
-  const now = scaleRow('New, so far', 'new');
-  if (opts.originalBytes) {
-    orig.value.textContent = formatBytes(opts.originalBytes);
-    scale.append(orig.node, now.node);
-  }
+  const meter = sizeMeter('New, so far', 'Original');
+  if (opts.originalBytes) meter.origValue.textContent = formatBytes(opts.originalBytes);
 
-  const cancel = el('button', 'btn btn-block');
+  const cancel = el('button', 'btn btn-block btn-cancel');
   cancel.type = 'button';
   cancel.append(icon('i-stop'), 'Cancel export');
   cancel.addEventListener('click', () => {
@@ -90,7 +105,7 @@ export function mountProgress(
   });
 
   card.append(pct, track, facts);
-  if (opts.originalBytes) card.append(scale);
+  if (opts.originalBytes) card.append(meter.node);
   card.append(cancel);
   host.replaceChildren(card);
 
@@ -107,9 +122,8 @@ export function mountProgress(
           ? 'Finishing'
           : 'Estimating';
     written.value.textContent = formatBytes(bytes);
-    now.value.textContent = formatBytes(bytes);
-    if (opts.originalBytes)
-      now.fill.style.width = `${Math.min(100, (bytes / opts.originalBytes) * 100)}%`;
+    meter.newValue.textContent = formatBytes(bytes);
+    if (opts.originalBytes) meter.show(bytes, bytes, opts.originalBytes);
   }
 
   update(0, 0, 0);

@@ -10,8 +10,9 @@ import type {
   VideoCodecId,
 } from '../core/types';
 import { availableVideoCodecs, codecLabel, settingsChangeCount } from './controller';
-import { el } from './dom';
+import { el, icon } from './dom';
 import { formatBitrate, formatBytes } from './format';
+import { formatByteRange, sizeMeter } from './progress';
 
 export interface SettingsPanelOptions {
   auto: AutoResult;
@@ -55,23 +56,8 @@ export function mountSettings(
   const big = el('strong', 'export-estimate-big num');
   const from = el('span', 'export-from num');
   estimate.append(big, from);
-  const bars = el('div', 'export-bars');
-  const original = el('div', 'export-bar-row');
-  original.append(
-    el('span', undefined, 'Original'),
-    el('span', 'num', formatBytes(opts.source.sizeBytes)),
-  );
-  const originalBar = el('progress');
-  originalBar.max = 1;
-  originalBar.value = 1;
-  original.append(originalBar);
-  const newer = el('div', 'export-bar-row');
-  const newLabel = el('span', undefined, 'New, estimated');
-  const newSize = el('span', 'num');
-  const newBar = el('progress');
-  newBar.max = Math.max(1, opts.source.sizeBytes);
-  newer.append(newLabel, newSize, newBar);
-  bars.append(original, newer);
+  const meter = sizeMeter('New, estimated', 'Original');
+  meter.origValue.textContent = formatBytes(opts.source.sizeBytes);
   const optimal = el('div', 'export-optimal');
   optimal.append(
     el('strong', undefined, 'This video is already small'),
@@ -89,7 +75,7 @@ export function mountSettings(
   reencode.addEventListener('change', () => change({ ...value, passthrough: !reencode.checked }));
   optimal.append(reencodeLabel);
   const warning = el('p', 'export-warning');
-  const exportButton = el('button', 'btn btn-primary btn-block', 'Export');
+  const exportButton = el('button', 'btn btn-primary btn-go', 'Export');
   exportButton.type = 'button';
   exportButton.addEventListener('click', () => {
     if (exportButton.getAttribute('aria-disabled') === 'true') return;
@@ -99,21 +85,16 @@ export function mountSettings(
   const details = el('details', 'adjust');
   const disclosure = el('summary');
   const changeCount = el('span', 'adjust-state');
-  disclosure.append(document.createTextNode('Adjust'), changeCount);
+  disclosure.append(document.createTextNode('Adjust'), changeCount, icon('i-chev'));
   const controls = el('div', 'settings-controls');
   const passthroughReason = el('p', 'setting-reason', 'Not needed for a trimmed copy');
   details.append(disclosure, controls);
-  card.append(
-    eyebrow,
-    title,
-    estimate,
-    bars,
-    optimal,
-    warning,
-    exportButton,
-    passthroughReason,
-    details,
-  );
+  // The estimate and the one primary action are docked together at the foot of the card.
+  const dock = el('div', 'dock');
+  dock.append(estimate, exportButton);
+  const spec = el('div', 'spec');
+  spec.append(eyebrow, title, meter.node, optimal, warning, passthroughReason);
+  card.append(spec, details, dock);
   host.replaceChildren(card);
 
   function change(next: Settings): void {
@@ -125,6 +106,7 @@ export function mountSettings(
     head.append(el('strong', undefined, name), el('span', 'setting-auto', `Auto: ${automatic}`));
     const button = el('button', 'setting-reset', 'Reset to auto');
     button.type = 'button';
+    button.prepend(icon('i-reset'));
     button.setAttribute('aria-label', `Reset to auto: ${name}`);
     button.addEventListener('click', reset);
     head.append(button);
@@ -457,11 +439,11 @@ export function mountSettings(
     heading.textContent = `${resolution(next)}, ${videoName}${audioName} ${next.container.toUpperCase()}`;
     sub.textContent = `${formatFps(next.video?.fps ?? 0)} fps · ${audioSummary(next)}`;
     const { low, high } = estimateBytes(next, opts.source);
-    const range = `${formatBytes(low)}–${formatBytes(high)}`;
-    big.textContent = `est. ${range}`;
+    const range = formatByteRange(low, high);
+    big.replaceChildren(el('small', undefined, 'est.'), ` ${range}`);
     from.textContent = `from ${formatBytes(opts.source.sizeBytes)}`;
-    newSize.textContent = range;
-    newBar.value = Math.min(high, newBar.max);
+    meter.newValue.textContent = range;
+    meter.show(low, high, opts.source.sizeBytes);
     optimal.hidden = !opts.auto.alreadyOptimal;
     reencode.checked = !next.passthrough;
     exportButton.textContent = next.passthrough ? 'Export trimmed copy' : 'Export';
@@ -476,6 +458,7 @@ export function mountSettings(
     changeCount.textContent = changes
       ? `${changes} ${changes === 1 ? 'change' : 'changes'}`
       : 'All automatic';
+    changeCount.classList.toggle('is-changed', changes > 0);
     const nextStructure = `${next.container}:${!!next.video}:${!!next.audio}:${next.passthrough}`;
     if (nextStructure !== structure) {
       const active = controls.contains(document.activeElement)

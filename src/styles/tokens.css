@@ -1,125 +1,98 @@
-/* videoadjust design tokens.
-   Sea-glass neutrals, one deep teal action colour, one marigold signal used
-   only for "the new, smaller file" (size bar, wipe handle). System fonts only.
-   Contrast notes are WCAG ratios measured against --c-bg and --c-surface. */
+/* VideoAdjust design tokens. Spec: docs/design/2026-10-22-videoadjust-ui-overhaul.md.
+   Warm graphite neutrals and one tangerine accent. Dark is the default for everyone;
+   [data-theme='light'] (set by public/theme-init.js and the header switch) overrides it.
+   The system colour scheme is deliberately ignored. System fonts only.
+   Contrast ratios for every pair are listed in the spec. */
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  /* Colour: light */
-  --c-bg: #eef2f0;
-  --c-surface: #ffffff;
-  --c-surface-2: #e2e9e6;
-  --c-raised: #ffffff; /* selected segment on --c-surface-2 */
-  --c-ink: #13201d; /* 15:1 */
-  --c-ink-2: #3f4e4a; /* 7.7:1 */
-  --c-ink-3: #56655f; /* 5.0:1 on surface-2, 5.4:1 on bg */
-  --c-line: #cfd8d4; /* decorative dividers only */
-  --c-line-strong: #7a8a85; /* 3.2:1 on bg, control borders (WCAG 1.4.11) */
-  --c-accent: #0b6e66; /* 6.1:1 with white text */
-  --c-accent-hover: #085a53;
-  --c-accent-ink: #ffffff;
-  --c-accent-soft: #d4ebe7;
-  --c-accent-text: #0a625b; /* accent used as text on bg */
-  --c-signal: #f0b23e;
-  --c-signal-ink: #2a1c00;
-  --c-warn-bg: #fbefd4;
-  --c-warn-ink: #5c3d00;
-  --c-error-bg: #f9e0dc;
-  --c-error-ink: #7a1f12;
-  /* The video stage stays dark in both themes so footage reads true. */
-  --c-stage: #0b1211;
-  --c-stage-ink: #f1f5f3;
-  --c-scrim: rgb(11 18 17 / 62%);
-  --c-focus: #0b6e66;
+  --bg: #121110;
+  --panel: #1c1a18;
+  --raised: #2a2724;
+  --line: #3a3632; /* decorative dividers only */
+  --ctl: #77706a; /* control borders, 3:1 or more on bg, panel and raised */
+  --text: #f2ede6;
+  --text-2: #b5ada2;
+  --text-3: #958c81;
+  --accent: #ff8a3d; /* fills and bars; text uses --accent-text */
+  --accent-hover: #ff9c5c;
+  --accent-press: #eb7a2f;
+  --on-accent: #1f0f04;
+  --accent-text: #ffa266;
+  --accent-soft: #3b2416;
+  --ok: #5cc98f;
+  --error: #ff6b6b;
+  --warn: #e9c46a;
+  --error-soft: #2e1817;
+  --warn-soft: #2a2416;
+  --shadow-btn: 0 1px 0 rgb(0 0 0 / 45%);
+  --shadow-dock: 0 -8px 24px rgb(0 0 0 / 25%);
 
-  /* Type: rounded system face for display (SF Pro Rounded on Apple,
-     falls back to the platform UI face), UI face for body, mono for numbers. */
-  --font-display:
-    ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, sans-serif;
-  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', monospace;
-  --fs-1: 0.8125rem; /* 13 captions, labels */
-  --fs-2: 0.9375rem; /* 15 secondary */
-  --fs-3: 1.0625rem; /* 17 body (iOS body size) */
-  --fs-4: 1.3125rem; /* 21 card titles */
-  --fs-5: 1.75rem; /* 28 screen headings */
-  --fs-6: 2.5rem; /* 40 hero figure */
-  --fw-regular: 400;
-  --fw-medium: 560;
-  --fw-bold: 700;
-  --fw-heavy: 800;
-  --lh-tight: 1.15;
-  --lh-body: 1.45;
-  --track-display: -0.02em;
-  --track-caps: 0.06em;
+  /* The video stage stays near-black in both themes so footage looks the same. */
+  --stage-bg: #0a0908;
+  --stage-text: #f2ede6;
+  --scrim: rgb(10 9 8 / 75%);
 
-  /* Space: 4px base */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 24px;
-  --sp-6: 32px;
-  --sp-7: 48px;
-  --sp-8: 64px;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  --font-tc: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, monospace;
 
-  /* Shape */
-  --r-sm: 8px;
-  --r-md: 14px;
-  --r-lg: 22px;
-  --r-pill: 999px;
-  --shadow-card: 0 1px 2px rgb(19 32 29 / 6%), 0 8px 24px rgb(19 32 29 / 7%);
-  --shadow-lift: 0 2px 6px rgb(19 32 29 / 14%);
+  --fs-micro: 12px;
+  --fs-meta: 13px;
+  --fs-small: 14px;
+  --fs-body: 16px;
+  --fs-lead: 18px;
+  --fs-h3: 20px;
+  --fs-figure: 34px;
 
-  /* Interaction */
-  --tap: 44px; /* minimum touch target */
-  --tap-lg: 56px; /* primary action */
-  --ring: 0 0 0 3px var(--c-bg), 0 0 0 5px var(--c-focus);
-  --dur-fast: 120ms;
-  --dur: 220ms;
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
 
-  /* Layout */
-  --content-max: 680px;
-  --wide-max: 1240px;
-  --side-col: 380px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  --tap: 44px;
   --gutter: 16px;
+  --inspector: 440px;
+  --dur-fast: 150ms;
+  --dur: 200ms;
 }
 
-@media (min-width: 720px) {
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f5f1ea;
+  --panel: #ffffff;
+  --raised: #eee8df;
+  --line: #e0d8cc;
+  --ctl: #857c70;
+  --text: #1b1814;
+  --text-2: #57504a;
+  --text-3: #6e665d;
+  --accent: #c2470e;
+  --accent-hover: #d0571d;
+  --accent-press: #a83d0c;
+  --on-accent: #ffffff;
+  --accent-text: #a63c0b;
+  --accent-soft: #fbe6d8;
+  --ok: #1e7a4c;
+  --error: #b42318;
+  --warn: #8a5a00;
+  --error-soft: #fbeceb;
+  --warn-soft: #fbf3e2;
+  --shadow-btn: 0 1px 0 rgb(27 24 20 / 12%);
+  --shadow-dock: 0 -6px 18px rgb(27 24 20 / 8%);
+  --stage-bg: #1b1814;
+}
+
+@media (min-width: 700px) {
   :root {
     --gutter: 32px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --c-bg: #0e1513;
-    --c-surface: #161f1c;
-    --c-surface-2: #1f2a27;
-    --c-raised: #33433e;
-    --c-ink: #e7eeeb;
-    --c-ink-2: #bccac5;
-    --c-ink-3: #93a49e;
-    --c-line: #2a3632;
-    --c-line-strong: #62756f;
-    --c-accent: #5fd3c3;
-    --c-accent-hover: #86e0d3;
-    --c-accent-ink: #04211d;
-    --c-accent-soft: #173a35;
-    --c-accent-text: #6fd9ca;
-    --c-signal: #f5c15a;
-    --c-signal-ink: #2a1c00;
-    --c-warn-bg: #3a2d10;
-    --c-warn-ink: #f6d999;
-    --c-error-bg: #3d1d18;
-    --c-error-ink: #f6b8ad;
-    --c-stage: #050908;
-    --c-scrim: rgb(0 0 0 / 60%);
-    --c-focus: #5fd3c3;
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
-    --shadow-lift: 0 2px 6px rgb(0 0 0 / 50%);
   }
 }
 

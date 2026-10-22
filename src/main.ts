@@ -6,6 +6,9 @@ import { startConversion } from './core/convert';
 import { openSink } from './core/sink';
 import { readSource } from './core/source';
 import { createApp } from './ui/app';
+import { mountThemeSwitch } from './ui/theme';
+
+mountThemeSwitch(document.querySelector<HTMLButtonElement>('.theme')!);
 
 const caps = probeCapabilities();
 

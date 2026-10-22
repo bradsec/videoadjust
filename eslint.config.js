@@ -32,6 +32,11 @@ export default tseslint.config(
   },
   {
     files: ['public/**/*.js'],
+    ignores: ['public/theme-init.js'],
     languageOptions: { globals: globals.serviceworker },
+  },
+  {
+    files: ['public/theme-init.js'],
+    languageOptions: { globals: globals.browser },
   },
 );

@@ -8,9 +8,9 @@ import {
   type AudioFormat,
 } from '../core/audioExtract';
 import type { Capabilities, SourceInfo } from '../core/types';
-import { el } from './dom';
+import { el, icon } from './dom';
 import { formatBytes, formatDuration } from './format';
-import { formatByteRange, scaleRow } from './progress';
+import { formatByteRange, sizeMeter } from './progress';
 
 export interface AudioPanelOptions {
   auto: AudioExtractSettings;
@@ -44,15 +44,9 @@ export function mountAudioPanel(
   const big = el('strong', 'export-estimate-big num');
   const from = el('span', 'export-from num', `from ${formatBytes(source.sizeBytes)} video`);
   estimate.append(big, from);
-  const scale = el('div', 'scale');
-  scale.setAttribute('aria-hidden', 'true');
-  const original = scaleRow('Original video', 'orig');
-  original.value.textContent = formatBytes(source.sizeBytes);
-  const output = scaleRow('Audio, estimated', 'new');
-  const range = el('span', 'range');
-  output.fill.after(range);
-  scale.append(original.node, output.node);
-  const exportButton = el('button', 'btn btn-primary btn-block', 'Extract audio');
+  const meter = sizeMeter('Audio, estimated', 'Original video');
+  meter.origValue.textContent = formatBytes(source.sizeBytes);
+  const exportButton = el('button', 'btn btn-primary btn-go', 'Extract audio');
   exportButton.type = 'button';
   exportButton.addEventListener('click', () => {
     if (exportButton.getAttribute('aria-disabled') !== 'true') opts.onExport();
@@ -61,7 +55,7 @@ export function mountAudioPanel(
   const details = el('details', 'adjust');
   const disclosure = el('summary');
   const changeCount = el('span', 'adjust-state');
-  disclosure.append(document.createTextNode('Adjust'), changeCount);
+  disclosure.append(document.createTextNode('Adjust'), changeCount, icon('i-chev'));
   const controls = el('div', 'settings-controls');
   details.append(disclosure, controls);
 
@@ -78,6 +72,7 @@ export function mountAudioPanel(
     const autoTag = el('span', 'setting-auto', `Auto: ${automatic}`);
     const resetButton = el('button', 'setting-reset', `Reset to ${resetTo}`);
     resetButton.type = 'button';
+    resetButton.prepend(icon('i-reset'));
     resetButton.addEventListener('click', () => {
       reset();
       // The button hides once the value is automatic; keep focus inside this setting.
@@ -172,7 +167,12 @@ export function mountAudioPanel(
   if (monoSource) channels.section.append(el('p', 'setting-reason', 'The original audio is mono.'));
 
   controls.append(format.section, bitrate.section, channels.section);
-  card.append(eyebrow, title, estimate, scale, exportButton, details);
+  // The estimate and the one primary action are docked together at the foot of the card.
+  const dock = el('div', 'dock');
+  dock.append(estimate, exportButton);
+  const spec = el('div', 'spec');
+  spec.append(eyebrow, title, meter.node);
+  card.append(spec, details, dock);
   host.replaceChildren(card);
 
   function showReset(
@@ -193,17 +193,15 @@ export function mountAudioPanel(
     sub.textContent = `Audio ${wholeSeconds(kept)} of ${wholeSeconds(source.durationSec)}${next.copy ? ' · no re-encoding' : ''}`;
     const { low, high } = estimateAudioBytes(next, source);
     const text = low === high ? formatBytes(high) : formatByteRange(low, high);
-    big.textContent = `est. ${text}`;
-    output.value.textContent = text;
-    const share = (bytes: number) => Math.min(100, (bytes / Math.max(1, source.sizeBytes)) * 100);
-    output.fill.style.width = `${share(low)}%`;
-    range.style.left = `${share(low)}%`;
-    range.style.width = `${share(high) - share(low)}%`;
+    big.replaceChildren(el('small', undefined, 'est.'), ` ${text}`);
+    meter.newValue.textContent = text;
+    meter.show(low, high, source.sizeBytes);
 
     const changes = audioExtractChangeCount(next, auto, source, caps);
     changeCount.textContent = changes
       ? `${changes} ${changes === 1 ? 'change' : 'changes'}`
       : 'All automatic';
+    changeCount.classList.toggle('is-changed', changes > 0);
 
     for (const [id, { label, input }] of radios) {
       input.checked = id === next.format;
