@@ -36,6 +36,9 @@ export function summarySource(s: SourceInfo): string {
   if (s.video) {
     parts.push(`${s.video.displayWidth}x${s.video.displayHeight}`);
     parts.push(`${Number(s.video.fps.toFixed(1))} fps`);
+    if (s.video.variableFrameRate !== null && s.video.variableFrameRate !== undefined)
+      parts.push(s.video.variableFrameRate ? 'Variable frame rate' : 'Constant frame rate');
+    if (s.video.hdr !== null && s.video.hdr !== undefined) parts.push(s.video.hdr ? 'HDR' : 'SDR');
     parts.push(codecLabel(s.video.codec));
   } else if (s.audio) {
     parts.push(`${codecLabel(s.audio.codec)} audio`);

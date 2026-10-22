@@ -44,6 +44,26 @@ test('summary and controls track trim and overrides', async ({ page }) => {
   await expect(card).toContainText('All automatic');
 });
 
+test('rotation, crop, mirror, and metadata controls stay available', async ({ page }) => {
+  const card = page.getByRole('region', { name: 'Export summary' });
+  await card.locator('summary').click();
+  await card.getByLabel('Rotate clockwise').selectOption('90');
+  await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1080x1920');
+  await card.getByLabel('Crop preset').selectOption('square');
+  await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1080x1080');
+  await expect(card).toContainText('The preview shows the original video.');
+  await card.getByLabel('Crop preset').selectOption('original');
+  await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1080x1920');
+  await card.getByLabel('Crop preset').selectOption('square');
+  await card.getByLabel('Mirror video').check();
+  await card.getByLabel('Keyframe interval').selectOption('1');
+  await expect(card).toContainText('More keyframes improve seeking but increase file size.');
+  await card.getByLabel('Output title').fill('Square clip');
+  await card.getByLabel('Output title').blur();
+  await card.getByLabel('Strip source metadata').check();
+  await expect(card).toContainText('changes');
+});
+
 test('audio removal and WebM selection stay valid', async ({ page }) => {
   const card = page.getByRole('region', { name: 'Export summary' });
   await card.locator('summary').click();

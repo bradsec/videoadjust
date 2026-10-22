@@ -1,5 +1,18 @@
-import { ALL_FORMATS, BlobSource, Input } from 'mediabunny';
+import { ALL_FORMATS, BlobSource, Input, type FrameRateMetrics } from 'mediabunny';
 import type { SourceInfo } from './types';
+
+const SAMPLE_PACKET_COUNT = 256;
+
+export function deriveVideoDiagnostics(
+  metrics: Pick<FrameRateMetrics, 'underlyingFrameRate'> | null,
+  packetCount: number,
+  hdr: boolean | null,
+): { variableFrameRate: boolean | null; hdr: boolean | null } {
+  return {
+    variableFrameRate: metrics && packetCount >= 8 ? metrics.underlyingFrameRate === null : null,
+    hdr,
+  };
+}
 
 export class UnsupportedSourceError extends Error {
   constructor(
@@ -42,14 +55,19 @@ async function describe(file: File, input: Input): Promise<SourceInfo> {
 
   const video = videoTrack
     ? await (async () => {
-        const [codec, decodable, displayWidth, displayHeight, rotation, stats] = await Promise.all([
-          videoTrack.getCodec(),
-          videoTrack.canDecode(),
-          videoTrack.getDisplayWidth(),
-          videoTrack.getDisplayHeight(),
-          videoTrack.getRotation(),
-          videoTrack.computePacketStats(),
-        ]);
+        const [codec, decodable, displayWidth, displayHeight, rotation, stats, metrics, hdr] =
+          await Promise.all([
+            videoTrack.getCodec(),
+            videoTrack.canDecode(),
+            videoTrack.getDisplayWidth(),
+            videoTrack.getDisplayHeight(),
+            videoTrack.getRotation(),
+            videoTrack.computePacketStats(),
+            videoTrack
+              .computeFrameRateMetrics({ targetPacketCount: SAMPLE_PACKET_COUNT })
+              .catch(() => null),
+            videoTrack.hasHighDynamicRange().catch(() => null),
+          ]);
         return {
           codec,
           decodable,
@@ -58,6 +76,7 @@ async function describe(file: File, input: Input): Promise<SourceInfo> {
           rotation,
           fps: stats.averagePacketRate,
           bitrate: stats.averageBitrate > 0 ? stats.averageBitrate : null,
+          ...deriveVideoDiagnostics(metrics, stats.packetCount, hdr),
         };
       })()
     : null;

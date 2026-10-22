@@ -1,6 +1,8 @@
 export type Container = 'mp4' | 'webm';
 export type VideoCodecId = 'avc' | 'hevc' | 'av1' | 'vp9';
 export type AudioCodecId = 'aac' | 'opus';
+export type Rotation = 0 | 90 | 180 | 270;
+export type CropPreset = 'original' | 'square' | 'portrait' | 'landscape';
 
 export interface SourceInfo {
   name: string;
@@ -15,6 +17,8 @@ export interface SourceInfo {
     rotation: 0 | 90 | 180 | 270;
     fps: number;
     bitrate: number | null; // bits/s, estimated from packet stats
+    variableFrameRate?: boolean | null;
+    hdr?: boolean | null;
   };
   audio: null | {
     codec: string | null;
@@ -37,6 +41,9 @@ export interface Settings {
   container: Container;
   passthrough: boolean;
   trim: { start: number; end: number };
+  keyFrameInterval?: 1 | 2 | null;
+  transform?: { rotate: Rotation; flip: boolean; crop: CropPreset };
+  metadata?: { title: string; strip: boolean };
   video: null | {
     codec: VideoCodecId;
     width: number;

@@ -98,10 +98,23 @@ the source has no usable audio track. Both tools use the same trim. Drag the tri
 arrow keys to adjust by 0.1 seconds.
 Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set
 a boundary at the preview playhead. The kept duration and summary estimate update as you trim.
+The source summary shows whether sampled frames have a variable frame rate and whether the video
+is HDR, when Mediabunny can determine those properties.
 If the browser cannot play the preview, the handles and thumbnails still work. Start here and
 End here are disabled because they need a playhead.
 Shrink's summary card shows the estimated output range against the original size. Open Adjust to
 change format, codec, resolution, frame rate, quality, or audio. Each setting has a reset button.
+Rotate clockwise by 90°, 180°, or 270°, mirror horizontally, or crop around the centre to a
+square, portrait 9:16, or landscape 16:9 frame. Landscape crop is available when the rotated
+source is landscape. Rotation and mirroring happen before cropping and resizing. These changes
+re-encode the video and keep audio copy when available. The preview shows the source video;
+the adjustments appear in the exported file.
+Set an optional output title under Metadata. Source descriptive tags are kept by default;
+Strip source metadata removes them, while retaining any title you entered. Metadata changes
+can be applied to a trimmed copy without re-encoding the video.
+Seekability offers the default keyframe interval or 1-second and 2-second intervals. Shorter
+intervals improve seeking but increase file size. Choosing either interval re-encodes the video;
+the size estimate does not account for extra keyframes.
 Unavailable codecs show why they cannot be selected. WebM uses Opus audio. The quality control
 and audio bitrates stay within the source limits. Quality keeps the same percentage when you
 change codec, resolution, or frame rate. Reset Quality returns to 100% for the current video

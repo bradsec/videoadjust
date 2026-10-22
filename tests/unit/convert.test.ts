@@ -16,6 +16,7 @@ import {
 } from '../../src/core/convert';
 import type { AudioExtractSettings } from '../../src/core/audioExtract';
 import type { Settings } from '../../src/core/types';
+import { cropRectangle, outputSize, rotatedSize } from '../../src/core/videoGeometry';
 
 const base: Settings = {
   container: 'mp4',
@@ -77,6 +78,110 @@ describe('conversion jobs', () => {
 });
 
 describe('toConversionOptions', () => {
+  const source = {
+    name: 'clip.mp4',
+    sizeBytes: 100,
+    durationSec: 2,
+    containerMime: 'video/mp4',
+    video: {
+      codec: 'avc',
+      decodable: true,
+      displayWidth: 1920,
+      displayHeight: 1080,
+      rotation: 0 as const,
+      fps: 30,
+      bitrate: 4_000_000,
+    },
+    audio: null,
+  };
+  it('sets the chosen keyframe interval and re-encodes video without changing audio copy', () => {
+    for (const seconds of [1, 2] as const) {
+      const options = toConversionOptions({
+        ...base,
+        passthrough: true,
+        keyFrameInterval: seconds,
+      });
+      expect(options.video).toMatchObject({ keyFrameInterval: seconds, forceTranscode: true });
+      expect(options.audio).toEqual({});
+    }
+    expect(toConversionOptions({ ...base, passthrough: true }).video).toEqual({});
+    expect(toConversionOptions(base).video).not.toHaveProperty('keyFrameInterval');
+  });
+  it('rotates before centered crop and swaps output dimensions', () => {
+    expect(rotatedSize(1920, 1080, 90)).toEqual({ width: 1080, height: 1920 });
+    expect(outputSize(source.video, 90, 'original', 1920)).toEqual({ width: 1080, height: 1920 });
+    expect(cropRectangle(1920, 1080, 'square')).toEqual({
+      left: 420,
+      top: 0,
+      width: 1080,
+      height: 1080,
+    });
+    expect(cropRectangle(1080, 1920, 'square')).toEqual({
+      left: 0,
+      top: 420,
+      width: 1080,
+      height: 1080,
+    });
+    expect(cropRectangle(1920, 1080, 'portrait')).toEqual({
+      left: 663,
+      top: 12,
+      width: 594,
+      height: 1056,
+    });
+    expect(cropRectangle(1080, 1920, 'portrait')).toEqual({
+      left: 0,
+      top: 0,
+      width: 1080,
+      height: 1920,
+    });
+    expect(cropRectangle(1920, 1080, 'landscape')).toEqual({
+      left: 0,
+      top: 0,
+      width: 1920,
+      height: 1080,
+    });
+    expect(cropRectangle(1080, 1920, 'landscape')).toBeNull();
+    const portraitRotated = rotatedSize(1080, 1920, 90);
+    expect(cropRectangle(portraitRotated.width, portraitRotated.height, 'landscape')).toEqual({
+      left: 0,
+      top: 0,
+      width: 1920,
+      height: 1080,
+    });
+  });
+
+  it('maps transform and metadata without forcing audio transcode', () => {
+    const transformed = {
+      ...base,
+      passthrough: true,
+      transform: { rotate: 90 as const, flip: true, crop: 'square' as const },
+      metadata: { title: 'New title', strip: true },
+    };
+    const options = toConversionOptions(transformed, source);
+    expect(options.video).toMatchObject({
+      rotate: 90,
+      flip: true,
+      forceTranscode: true,
+      allowTransformationMetadata: false,
+      crop: { left: 0, top: 420, width: 1080, height: 1080 },
+    });
+    expect(options.video).toHaveProperty('codec', 'avc');
+    expect(options.audio).toEqual({});
+    expect(options.tags).toEqual({ title: 'New title' });
+    const tagsOnly = toConversionOptions({
+      ...base,
+      passthrough: true,
+      metadata: { title: 'New title', strip: false },
+    });
+    expect(tagsOnly.video).toEqual({});
+    expect(toConversionOptions(base).tags).toBeUndefined();
+    expect(
+      (tagsOnly.tags as (tags: { title?: string; artist?: string }) => object)({
+        artist: 'Artist',
+      }),
+    ).toEqual({ artist: 'Artist', title: 'New title' });
+    expect(toConversionOptions({ ...base, metadata: { title: '', strip: true } }).tags).toEqual({});
+  });
   it('keeps trim and copies present tracks in passthrough mode', () => {
     expect(toConversionOptions({ ...base, passthrough: true })).toEqual({
       trim: { start: 0.5, end: 2 },

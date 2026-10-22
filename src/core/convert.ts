@@ -16,7 +16,8 @@ import {
 } from 'mediabunny';
 import type { AudioExtractSettings, AudioFormat } from './audioExtract';
 import type { SinkPlan } from './sink';
-import type { Container, Settings } from './types';
+import type { Container, Settings, SourceInfo } from './types';
+import { cropRectangle, rotatedSize } from './videoGeometry';
 
 export class ConversionInvalidError extends Error {
   constructor(public readonly discarded: { track: TrackType; reason: DiscardedTrack['reason'] }[]) {
@@ -27,7 +28,7 @@ export class ConversionInvalidError extends Error {
 }
 
 export type ConversionJob = {
-  options: Pick<ConversionOptions, 'video' | 'audio' | 'trim'>;
+  options: Pick<ConversionOptions, 'video' | 'audio' | 'trim' | 'tags'>;
   keeps: { video: boolean; audio: boolean };
 };
 
@@ -36,13 +37,32 @@ const quality = (bitrate: number) => new Quality({ bitrate: Math.round(bitrate) 
 
 export function toConversionOptions(
   s: Settings,
-): Pick<ConversionOptions, 'video' | 'audio' | 'trim'> {
+  source?: SourceInfo,
+): Pick<ConversionOptions, 'video' | 'audio' | 'trim' | 'tags'> {
   const v = s.video;
   const a = s.audio;
+  const transform = s.transform;
+  const transformed =
+    !!transform && (transform.rotate !== 0 || transform.flip || transform.crop !== 'original');
+  const reencode = transformed || !!s.keyFrameInterval;
+  const rotated =
+    source?.video && transform
+      ? rotatedSize(source.video.displayWidth, source.video.displayHeight, transform.rotate)
+      : null;
+  if (transform?.crop !== undefined && transform.crop !== 'original' && !rotated)
+    throw new Error('Source video dimensions are required for cropping.');
+  const crop =
+    rotated && transform ? cropRectangle(rotated.width, rotated.height, transform.crop) : null;
+  const title = s.metadata?.title.trim();
   return {
     trim: { start: s.trim.start, end: s.trim.end },
+    ...(s.metadata?.strip
+      ? { tags: title ? { title } : {} }
+      : title
+        ? { tags: (inputTags) => ({ ...inputTags, title }) }
+        : {}),
     video: v
-      ? s.passthrough
+      ? s.passthrough && !reencode
         ? {}
         : {
             width: v.width,
@@ -51,6 +71,12 @@ export function toConversionOptions(
             frameRate: v.fps,
             codec: v.codec,
             quality: quality(v.bitrate),
+            ...(reencode ? { forceTranscode: true } : {}),
+            ...(transformed ? { allowTransformationMetadata: false } : {}),
+            ...(s.keyFrameInterval ? { keyFrameInterval: s.keyFrameInterval } : {}),
+            ...(transform?.rotate ? { rotate: transform.rotate } : {}),
+            ...(transform?.flip ? { flip: true } : {}),
+            ...(crop ? { crop } : {}),
           }
       : { discard: true },
     audio: !a
@@ -64,9 +90,9 @@ export function toConversionOptions(
   };
 }
 
-export function shrinkJob(s: Settings): ConversionJob {
+export function shrinkJob(s: Settings, source?: SourceInfo): ConversionJob {
   return {
-    options: toConversionOptions(s),
+    options: toConversionOptions(s, source),
     keeps: { video: !!s.video, audio: !!s.audio },
   };
 }

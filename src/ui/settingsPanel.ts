@@ -1,10 +1,13 @@
-import { scaleToLongEdge, targetVideoBitrate } from '../core/autoSettings';
+import { targetVideoBitrate } from '../core/autoSettings';
 import { estimateBytes } from '../core/estimate';
+import { cropRectangle, outputSize, rotatedSize, videoFrameSize } from '../core/videoGeometry';
 import type {
   AudioCodecId,
   AutoResult,
   Capabilities,
   Container,
+  CropPreset,
+  Rotation,
   Settings,
   SourceInfo,
   VideoCodecId,
@@ -132,6 +135,7 @@ export function mountSettings(
     items: { value: string; label: string; disabled?: boolean }[],
     current: string,
     onSelect: (selected: string) => void,
+    unavailableReason?: string,
   ): void {
     // The setting's heading already names it on screen; the select keeps its own name.
     const label = el('label', 'setting-label');
@@ -156,11 +160,14 @@ export function mountSettings(
         el(
           'p',
           'setting-reason',
-          `${unavailable.map((item) => item.label).join(', ')} ${unavailable.length === 1 ? 'is' : 'are'} unavailable in this browser or format.`,
+          unavailableReason ??
+            `${unavailable.map((item) => item.label).join(', ')} ${unavailable.length === 1 ? 'is' : 'are'} unavailable in this browser or format.`,
         ),
       );
   }
   let structure = '';
+  // The resolution the user asked for, so a crop that shrinks the frame does not lose it when undone.
+  let preferredEdge: number | null = null;
   function renderControls(): void {
     const groups: HTMLElement[] = [];
     const format = group('Format', opts.auto.settings.container.toUpperCase(), () =>
@@ -184,6 +191,99 @@ export function mountSettings(
     if (value.video && opts.auto.settings.video && opts.source.video) {
       const video = value.video;
       const autoVideo = opts.auto.settings.video;
+      const rotate = value.transform?.rotate ?? 0;
+      const crop = value.transform?.crop ?? 'original';
+      const frameSize = videoFrameSize(opts.source.video, rotate, crop);
+      const autoSize = outputSize(
+        opts.source.video,
+        rotate,
+        crop,
+        Math.max(autoVideo.width, autoVideo.height),
+      );
+      const updateTransform = (transform: NonNullable<Settings['transform']>) => {
+        const frame = videoFrameSize(opts.source.video!, transform.rotate, transform.crop);
+        preferredEdge ??= Math.max(video.width, video.height);
+        const edge = Math.min(preferredEdge, Math.max(frame.width, frame.height));
+        change({
+          ...value,
+          passthrough: false,
+          transform,
+          video: {
+            ...video,
+            ...outputSize(opts.source.video!, transform.rotate, transform.crop, edge),
+          },
+        });
+      };
+      const rotation = group('Rotate', '0°', () =>
+        updateTransform({ ...(value.transform ?? { flip: false, crop: 'original' }), rotate: 0 }),
+      );
+      rotation.classList.add('transform-setting');
+      select(
+        rotation,
+        'Rotate clockwise',
+        [0, 90, 180, 270].map((angle) => ({ value: String(angle), label: `${angle}°` })),
+        String(rotate),
+        (angle) =>
+          updateTransform({
+            rotate: Number(angle) as Rotation,
+            flip: value.transform?.flip ?? false,
+            crop: value.transform?.crop ?? 'original',
+          }),
+      );
+      groups.push(rotation);
+      const mirror = group('Mirror', 'Off', () => updateTransform({ rotate, flip: false, crop }));
+      mirror.classList.add('transform-setting');
+      const mirrorLabel = el('label', 'setting-label');
+      const mirrorInput = el('input') as HTMLInputElement;
+      mirrorInput.type = 'checkbox';
+      mirrorInput.checked = value.transform?.flip ?? false;
+      mirrorInput.setAttribute('aria-label', 'Mirror video');
+      mirrorInput.addEventListener('change', () =>
+        updateTransform({ rotate, flip: mirrorInput.checked, crop }),
+      );
+      mirrorLabel.append(mirrorInput, document.createTextNode('Flip horizontally'));
+      mirror.append(mirrorLabel);
+      groups.push(mirror);
+      const cropGroup = group('Crop', 'Original', () =>
+        updateTransform({ rotate, flip: value.transform?.flip ?? false, crop: 'original' }),
+      );
+      cropGroup.classList.add('transform-setting');
+      const rotated = rotatedSize(
+        opts.source.video.displayWidth,
+        opts.source.video.displayHeight,
+        rotate,
+      );
+      select(
+        cropGroup,
+        'Crop preset',
+        [
+          { value: 'original', label: 'Original' },
+          { value: 'square', label: 'Square 1:1' },
+          { value: 'portrait', label: 'Portrait 9:16' },
+          {
+            value: 'landscape',
+            label: 'Landscape 16:9',
+            disabled: !cropRectangle(rotated.width, rotated.height, 'landscape'),
+          },
+        ],
+        crop,
+        (preset) =>
+          updateTransform({
+            rotate,
+            flip: value.transform?.flip ?? false,
+            crop: preset as CropPreset,
+          }),
+        'Landscape crop needs a landscape frame after rotation.',
+      );
+      if (rotate || value.transform?.flip || crop !== 'original')
+        cropGroup.append(
+          el(
+            'p',
+            'setting-help',
+            'The preview shows the original video. Rotate, mirror, and crop apply to the export.',
+          ),
+        );
+      groups.push(cropGroup);
       const codec = group('Video codec', codecLabel(autoVideo.codec), () =>
         change({ ...value, video: { ...value.video!, codec: autoVideo.codec } }),
       );
@@ -200,13 +300,14 @@ export function mountSettings(
       );
       groups.push(codec);
 
-      const size = group('Resolution', resolution(opts.auto.settings), () =>
+      const size = group('Resolution', `${Math.min(autoSize.width, autoSize.height)}p`, () => {
+        preferredEdge = null;
         change({
           ...value,
-          video: { ...value.video!, width: autoVideo.width, height: autoVideo.height },
-        }),
-      );
-      const sourceEdge = Math.max(opts.source.video.displayWidth, opts.source.video.displayHeight);
+          video: { ...value.video!, ...autoSize },
+        });
+      });
+      const sourceEdge = Math.max(frameSize.width, frameSize.height);
       const edges = [...new Set([sourceEdge, ...opts.auto.sizeSteps])]
         .filter((edge) => edge <= sourceEdge)
         .sort((a, b) => b - a);
@@ -214,11 +315,7 @@ export function mountSettings(
         size,
         'Resolution',
         edges.map((edge) => {
-          const dims = scaleToLongEdge(
-            opts.source.video!.displayWidth,
-            opts.source.video!.displayHeight,
-            edge,
-          );
+          const dims = outputSize(opts.source.video!, rotate, crop, edge);
           return {
             value: String(edge),
             label: `${Math.min(dims.width, dims.height)}p (${dims.width}x${dims.height})`,
@@ -226,20 +323,13 @@ export function mountSettings(
         }),
         String(
           edges.find((edge) => {
-            const dims = scaleToLongEdge(
-              opts.source.video!.displayWidth,
-              opts.source.video!.displayHeight,
-              edge,
-            );
+            const dims = outputSize(opts.source.video!, rotate, crop, edge);
             return dims.width === video.width && dims.height === video.height;
           }) ?? sourceEdge,
         ),
         (edge) => {
-          const dims = scaleToLongEdge(
-            opts.source.video!.displayWidth,
-            opts.source.video!.displayHeight,
-            Number(edge),
-          );
+          preferredEdge = Number(edge);
+          const dims = outputSize(opts.source.video!, rotate, crop, Number(edge));
           change({ ...value, video: { ...value.video!, ...dims } });
         },
       );
@@ -259,6 +349,31 @@ export function mountSettings(
         (fps) => change({ ...value, video: { ...value.video!, fps: Number(fps) } }),
       );
       groups.push(frame);
+
+      const seekability = group('Seekability', 'Default', () =>
+        change({ ...value, keyFrameInterval: null }),
+      );
+      seekability.classList.add('seek-setting');
+      select(
+        seekability,
+        'Keyframe interval',
+        [
+          { value: 'default', label: 'Default' },
+          { value: '1', label: '1 second' },
+          { value: '2', label: '2 seconds' },
+        ],
+        String(value.keyFrameInterval ?? 'default'),
+        (interval) =>
+          change({
+            ...value,
+            passthrough: false,
+            keyFrameInterval: interval === 'default' ? null : (Number(interval) as 1 | 2),
+          }),
+      );
+      seekability.append(
+        el('p', 'setting-help', 'More keyframes improve seeking but increase file size.'),
+      );
+      groups.push(seekability);
 
       const baseline = Math.min(
         targetVideoBitrate(video.codec, video.width, video.height, video.fps),
@@ -281,6 +396,7 @@ export function mountSettings(
           },
         }),
       );
+      quality.classList.add('quality-setting');
       const maxPercent = Math.min(
         150,
         Math.floor(((opts.source.video.bitrate ?? Infinity) / baseline) * 100),
@@ -323,6 +439,40 @@ export function mountSettings(
       );
       groups.push(quality);
     }
+
+    const metadata = group('Metadata', 'Keep source tags', () =>
+      change({ ...value, metadata: { title: '', strip: false } }),
+    );
+    metadata.classList.add('metadata-setting');
+    const titleLabel = el('label', 'setting-label');
+    titleLabel.append(el('span', undefined, 'Title'));
+    const titleInput = el('input', 'setting-select') as HTMLInputElement;
+    titleInput.type = 'text';
+    titleInput.maxLength = 200;
+    titleInput.value = value.metadata?.title ?? '';
+    titleInput.setAttribute('aria-label', 'Output title');
+    titleInput.addEventListener('change', () =>
+      change({
+        ...value,
+        metadata: { title: titleInput.value, strip: value.metadata?.strip ?? false },
+      }),
+    );
+    titleLabel.append(titleInput);
+    metadata.append(titleLabel);
+    const stripLabel = el('label', 'setting-label');
+    const stripInput = el('input') as HTMLInputElement;
+    stripInput.type = 'checkbox';
+    stripInput.checked = value.metadata?.strip ?? false;
+    stripInput.setAttribute('aria-label', 'Strip source metadata');
+    stripInput.addEventListener('change', () =>
+      change({
+        ...value,
+        metadata: { title: value.metadata?.title ?? '', strip: stripInput.checked },
+      }),
+    );
+    stripLabel.append(stripInput, document.createTextNode('Strip source metadata'));
+    metadata.append(stripLabel);
+    groups.push(metadata);
 
     if (opts.source.audio && opts.auto.settings.audio) {
       const automatic = opts.auto.settings.audio;
@@ -390,15 +540,21 @@ export function mountSettings(
     selected('Format', next.container);
     if (next.video && opts.source.video) {
       const video = next.video;
+      selected('Rotate clockwise', String(next.transform?.rotate ?? 0));
+      selected('Crop preset', next.transform?.crop ?? 'original');
+      selected('Keyframe interval', String(next.keyFrameInterval ?? 'default'));
+      const mirror = controls.querySelector<HTMLInputElement>('input[aria-label="Mirror video"]');
+      if (mirror) mirror.checked = next.transform?.flip ?? false;
       selected('Video codec', video.codec);
       const edges = [
         Math.max(opts.source.video.displayWidth, opts.source.video.displayHeight),
         ...opts.auto.sizeSteps,
       ];
       const edge = edges.find((candidate) => {
-        const dims = scaleToLongEdge(
-          opts.source.video!.displayWidth,
-          opts.source.video!.displayHeight,
+        const dims = outputSize(
+          opts.source.video!,
+          next.transform?.rotate ?? 0,
+          next.transform?.crop ?? 'original',
           candidate,
         );
         return dims.width === video.width && dims.height === video.height;
@@ -421,10 +577,17 @@ export function mountSettings(
       }
       const qualityValue = controls.querySelector('.quality-value');
       if (qualityValue) qualityValue.textContent = `Quality: ${percent}% of auto`;
-      const help = controls.querySelector('.setting-help');
+      const help = controls.querySelector('.quality-setting .setting-help');
       if (help)
         help.textContent = `25% to ${maxPercent}% of auto · ${formatBitrate(video.bitrate)}`;
     }
+    const titleInput = controls.querySelector<HTMLInputElement>('input[aria-label="Output title"]');
+    if (titleInput && titleInput !== document.activeElement)
+      titleInput.value = next.metadata?.title ?? '';
+    const stripInput = controls.querySelector<HTMLInputElement>(
+      'input[aria-label="Strip source metadata"]',
+    );
+    if (stripInput) stripInput.checked = next.metadata?.strip ?? false;
     selected('Audio codec', next.audio?.codec ?? 'none');
     if (next.audio) {
       const bitrate = controls.querySelector<HTMLSelectElement>(
@@ -445,7 +608,9 @@ export function mountSettings(
         'input, select, button',
       )
       .forEach((input) => {
-        input.disabled = next.passthrough;
+        input.disabled =
+          next.passthrough &&
+          !input.closest('.metadata-setting, .transform-setting, .seek-setting');
       });
   }
   function update(next: Settings): void {
@@ -477,7 +642,7 @@ export function mountSettings(
       ? `${changes} ${changes === 1 ? 'change' : 'changes'}`
       : 'All automatic';
     changeCount.classList.toggle('is-changed', changes > 0);
-    const nextStructure = `${next.container}:${!!next.video}:${!!next.audio}:${next.passthrough}`;
+    const nextStructure = `${next.container}:${!!next.video}:${!!next.audio}:${next.passthrough}:${next.transform?.rotate}:${next.transform?.crop}`;
     if (nextStructure !== structure) {
       const active = controls.contains(document.activeElement)
         ? (document.activeElement as HTMLElement)

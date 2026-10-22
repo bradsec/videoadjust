@@ -29,6 +29,61 @@ const source: SourceInfo = {
 
 describe('settings validation', () => {
   const auto = autoSettings(source, caps);
+  it('disables video passthrough for shorter keyframe intervals', () => {
+    for (const keyFrameInterval of [1, 2] as const) {
+      const settings = validateSettings(
+        { ...auto.settings, passthrough: true, keyFrameInterval },
+        auto,
+        caps,
+        source,
+      );
+      expect(settings.passthrough).toBe(false);
+      expect(settings.keyFrameInterval).toBe(keyFrameInterval);
+      expect(settingsChangeCount(settings, auto, caps, source)).toBe(1);
+    }
+    expect(
+      validateSettings({ ...auto.settings, passthrough: true }, auto, caps, source).passthrough,
+    ).toBe(true);
+  });
+  it('swaps dimensions for rotation, crops in rotated coordinates, and disables video passthrough', () => {
+    const rotated = validateSettings(
+      {
+        ...auto.settings,
+        passthrough: true,
+        transform: { rotate: 90, flip: false, crop: 'original' },
+      },
+      auto,
+      caps,
+      source,
+    );
+    expect(rotated.video).toMatchObject({ width: 1080, height: 1920 });
+    expect(rotated.passthrough).toBe(false);
+    expect(settingsChangeCount(rotated, auto, caps, source)).toBe(1);
+    const square = validateSettings(
+      { ...rotated, transform: { rotate: 90, flip: true, crop: 'square' } },
+      auto,
+      caps,
+      source,
+    );
+    expect(square.video).toMatchObject({ width: 1080, height: 1080 });
+    expect(square.passthrough).toBe(false);
+    for (const transform of [
+      { rotate: 0 as const, flip: true, crop: 'original' as const },
+      { rotate: 0 as const, flip: false, crop: 'square' as const },
+    ]) {
+      expect(
+        validateSettings({ ...auto.settings, passthrough: true, transform }, auto, caps, source)
+          .passthrough,
+      ).toBe(false);
+    }
+    const tagsOnly = validateSettings(
+      { ...auto.settings, passthrough: true, metadata: { title: 'New', strip: true } },
+      auto,
+      caps,
+      source,
+    );
+    expect(tagsOnly.passthrough).toBe(true);
+  });
   it('bounds size, frame rate, video quality, and audio bitrate by source', () => {
     const actual = validateSettings(
       {

@@ -14,7 +14,7 @@ import {
   type AudioExtractSettings,
 } from '../core/audioExtract';
 import type { probeCapabilities as probeCapabilitiesFn } from '../core/capabilities';
-import { autoSettings, scaleToLongEdge, targetVideoBitrate } from '../core/autoSettings';
+import { autoSettings, targetVideoBitrate } from '../core/autoSettings';
 import {
   audioExtractJob,
   ConversionInvalidError,
@@ -25,6 +25,7 @@ import {
   type startConversion as startConversionFn,
 } from '../core/convert';
 import { estimateBytes } from '../core/estimate';
+import { cropRectangle, outputSize, rotatedSize, videoFrameSize } from '../core/videoGeometry';
 import { UnsupportedSourceError, type readSource as readSourceFn } from '../core/source';
 import {
   chooseSink,
@@ -175,7 +176,12 @@ export function smallerSettings(
     const edge = Math.max(v.width, v.height);
     const next = auto.sizeSteps.find((step) => step < edge);
     if (next !== undefined) {
-      const { width, height } = scaleToLongEdge(sv.displayWidth, sv.displayHeight, next);
+      const { width, height } = outputSize(
+        sv,
+        settings.transform?.rotate ?? 0,
+        settings.transform?.crop ?? 'original',
+        next,
+      );
       const bitrate = Math.round(
         Math.min(targetVideoBitrate(v.codec, width, height, v.fps), sv.bitrate ?? Infinity),
       );
@@ -335,24 +341,30 @@ export function validateSettings(
       : fallback.container;
   const supported = availableVideoCodecs(container, caps);
   let video: Settings['video'] = null;
+  let effectiveCrop = value.transform?.crop ?? 'original';
   if (source.video && fallback.video) {
     const requested = value.video ?? fallback.video;
+    const rotate = value.transform?.rotate ?? 0;
+    const rotated = rotatedSize(source.video.displayWidth, source.video.displayHeight, rotate);
+    const requestedCrop = value.transform?.crop ?? 'original';
+    const crop =
+      requestedCrop === 'landscape' && !cropRectangle(rotated.width, rotated.height, requestedCrop)
+        ? 'original'
+        : requestedCrop;
+    effectiveCrop = crop;
+    const frame = videoFrameSize(source.video, rotate, crop);
     const codec = supported.includes(requested.codec)
       ? requested.codec
       : supported.includes(fallback.video.codec)
         ? fallback.video.codec
         : (supported[0] ?? fallback.video.codec);
-    const sourceEdge = Math.max(source.video.displayWidth, source.video.displayHeight);
-    const allowedEdges = [sourceEdge, ...auto.sizeSteps];
+    const sourceEdge = Math.max(frame.width, frame.height);
+    const allowedEdges = [sourceEdge, ...auto.sizeSteps.filter((step) => step <= sourceEdge)];
     const requestedEdge = Math.max(requested.width, requested.height);
     const edge = allowedEdges.includes(requestedEdge)
       ? requestedEdge
       : Math.max(fallback.video.width, fallback.video.height);
-    const { width, height } = scaleToLongEdge(
-      source.video.displayWidth,
-      source.video.displayHeight,
-      edge,
-    );
+    const { width, height } = outputSize(source.video, rotate, crop, edge);
     const fps =
       Number.isFinite(requested.fps) && requested.fps > 0
         ? Math.min(requested.fps, source.video.fps)
@@ -395,8 +407,29 @@ export function validateSettings(
   }
   return {
     container,
-    passthrough: auto.alreadyOptimal && value.passthrough,
+    passthrough:
+      auto.alreadyOptimal &&
+      value.passthrough &&
+      !(
+        (value.transform?.rotate ?? 0) ||
+        value.transform?.flip ||
+        (value.transform?.crop ?? 'original') !== 'original' ||
+        value.keyFrameInterval
+      ),
     trim: clampTrim(value.trim, source.durationSec, 'end'),
+    keyFrameInterval:
+      value.keyFrameInterval === 1 || value.keyFrameInterval === 2 ? value.keyFrameInterval : null,
+    transform: source.video
+      ? {
+          rotate: value.transform?.rotate ?? 0,
+          flip: value.transform?.flip ?? false,
+          crop: effectiveCrop,
+        }
+      : fallback.transform,
+    metadata: {
+      title: value.metadata?.title.trim().slice(0, 200) ?? '',
+      strip: value.metadata?.strip ?? false,
+    },
     video,
     audio,
   };
@@ -411,12 +444,23 @@ export function settingsChangeCount(
 ): number {
   const current = validateSettings(value, auto, caps, source);
   const automatic = validateSettings(auto.settings, auto, caps, source);
+  const expectedSize =
+    automatic.video && source.video
+      ? outputSize(
+          source.video,
+          current.transform?.rotate ?? 0,
+          current.transform?.crop ?? 'original',
+          Math.max(automatic.video.width, automatic.video.height),
+        )
+      : null;
   return (
     Number(current.container !== automatic.container) +
     Number(current.video?.codec !== automatic.video?.codec) +
     Number(
-      current.video?.width !== automatic.video?.width ||
-        current.video?.height !== automatic.video?.height,
+      current.video && expectedSize
+        ? current.video.width !== expectedSize.width || current.video.height !== expectedSize.height
+        : current.video?.width !== automatic.video?.width ||
+            current.video?.height !== automatic.video?.height,
     ) +
     Number(current.video?.fps !== automatic.video?.fps) +
     Number(
@@ -426,7 +470,13 @@ export function settingsChangeCount(
         : current.video?.bitrate !== automatic.video?.bitrate,
     ) +
     Number(current.audio?.codec !== automatic.audio?.codec) +
-    Number(current.audio?.bitrate !== automatic.audio?.bitrate)
+    Number(current.audio?.bitrate !== automatic.audio?.bitrate) +
+    Number(current.transform?.rotate !== automatic.transform?.rotate) +
+    Number(current.transform?.flip !== automatic.transform?.flip) +
+    Number(current.transform?.crop !== automatic.transform?.crop) +
+    Number(current.keyFrameInterval !== automatic.keyFrameInterval) +
+    Number(current.metadata?.title !== automatic.metadata?.title) +
+    Number(current.metadata?.strip !== automatic.metadata?.strip)
   );
 }
 
@@ -868,7 +918,7 @@ export function createController(
       outputName,
       mime,
       estimate: estimateBytes(settings, source),
-      job: shrinkJob(settings),
+      job: shrinkJob(settings, source),
       format: (sinkKind) => createOutputFormat(settings.container, sinkKind),
       async preflight() {
         const v = settings.video;
