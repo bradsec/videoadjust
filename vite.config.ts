@@ -28,9 +28,12 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
   version: string;
 };
 
-// Files the worker must not precache: itself, host config, and the e2e-only harness.
+// Files the worker must not precache: itself, host config, the e2e-only harness, and the files
+// only crawlers and link-preview bots fetch (the app never loads them, so offline use gains nothing).
 const NOT_PRECACHED = (path: string) =>
-  path === 'sw.js' || path === '_headers' || path.startsWith('e2e/') || /harness/.test(path);
+  ['sw.js', '_headers', 'robots.txt', 'sitemap.xml', 'og-image.png'].includes(path) ||
+  path.startsWith('e2e/') ||
+  /harness/.test(path);
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {

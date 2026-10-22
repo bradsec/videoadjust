@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>VideoAdjust share image</title>
+    <!-- Brand colours and fonts come from the app's own tokens (dark theme is the default). -->
+    <link rel="stylesheet" href="../src/styles/tokens.css" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-ui);
+        overflow: hidden;
+      }
+      main {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        padding: 88px 96px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 36px;
+        background:
+          radial-gradient(900px 520px at 100% 0%, var(--accent-soft), transparent 70%), var(--bg);
+      }
+      .bar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 12px;
+        height: 100%;
+        background: var(--accent);
+      }
+      .mark {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        font-size: 112px;
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .mark b {
+        font-weight: 800;
+      }
+      .logo {
+        width: 112px;
+        height: 112px;
+        color: var(--text);
+      }
+      .signal {
+        fill: var(--accent);
+      }
+      .tagline {
+        margin: 0;
+        max-width: 880px;
+        font-size: 44px;
+        line-height: 1.25;
+        color: var(--text-2);
+      }
+      .tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .tools li {
+        padding: 10px 22px;
+        border: 2px solid var(--ctl);
+        border-radius: 999px;
+        background: var(--panel);
+        font-family: var(--font-tc);
+        font-size: 28px;
+        color: var(--accent-text);
+      }
+      .site {
+        position: absolute;
+        right: 96px;
+        bottom: 56px;
+        font-family: var(--font-tc);
+        font-size: 28px;
+        color: var(--text-3);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="bar"></div>
+      <div class="mark">
+        <svg class="logo" viewBox="0 0 26 26" aria-hidden="true">
+          <rect
+            x="1.5"
+            y="3.5"
+            width="23"
+            height="17"
+            rx="4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+          />
+          <rect class="signal" x="11" y="10" width="10" height="7" rx="2" />
+          <path
+            d="M5.5 12 L10 12 L10 7.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path d="M5 7.5 L10 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+        <span>Video<b>Adjust</b></span>
+      </div>
+      <p class="tagline">
+        Free video tools that run privately in your browser. Nothing is uploaded.
+      </p>
+      <ul class="tools">
+        <li>Compress</li>
+        <li>Convert</li>
+        <li>Resize</li>
+        <li>Trim</li>
+        <li>Extract audio</li>
+      </ul>
+      <div class="site">videoadjust.com</div>
+    </main>
+  </body>
+</html>

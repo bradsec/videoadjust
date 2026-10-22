@@ -27,7 +27,7 @@ export default tseslint.config(
     rules: { 'no-empty-pattern': 'off' },
   },
   {
-    files: ['scripts/render-mockups.mjs', 'scripts/render-overhaul.mjs'],
+    files: ['scripts/render-mockups.mjs', 'scripts/render-overhaul.mjs', 'scripts/render-og.mjs'],
     languageOptions: { globals: globals.browser },
   },
   {

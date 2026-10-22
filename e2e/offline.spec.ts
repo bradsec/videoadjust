@@ -67,6 +67,8 @@ test('precache list covers the build and excludes the e2e harness', async ({ req
   expect(sw).not.toContain('__VA_');
   expect(sw).not.toContain('harness');
   expect(sw).toContain('index.html');
+  for (const crawlerOnly of ['robots.txt', 'sitemap.xml', 'og-image.png'])
+    expect(sw).not.toContain(crawlerOnly);
   expect(sw).toContain("cache: 'no-cache'");
   expect(sw).toMatch(/assets\/(?:index|main)-[\w-]+\.js/);
   expect(sw).toMatch(/aac-encoder[\w-]*\.js/);

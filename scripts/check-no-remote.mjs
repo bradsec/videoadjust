@@ -27,6 +27,31 @@ const REPO_HREF = new RegExp(
   'g',
 );
 
+// The site's own absolute URLs are metadata for crawlers and link previews, never requests the
+// page makes. They are allowed only where a browser does not load them: canonical, og:* and
+// twitter:* tags and JSON-LD blocks in HTML, plus robots.txt and sitemap.xml. The host must be
+// followed by "/", so videoadjust.com.evil.example never matches.
+const SITE_URL = /https:\/\/videoadjust\.com\/[\w./-]*/g;
+const META_TAG = /<(?:link|meta)\b[^>]*>/g;
+const IS_SHARE_META = /\brel="canonical"|\b(?:property="og:|name="twitter:)[\w:]+"/;
+const JSON_LD = /(<script\s+type="application\/ld\+json"\s*>)([\s\S]*?)(<\/script>)/g;
+// JSON-LD names its vocabulary with this URL; it is an identifier, never fetched.
+const SCHEMA_CONTEXT = /("@context":\s*")https:\/\/schema\.org(")/g;
+const SITEMAP_NS = 'http://www.sitemaps.org/schemas/sitemap/0.9';
+
+function withoutSiteMetadata(rel, source) {
+  if (rel === 'robots.txt') return source.replace(SITE_URL, '');
+  if (rel === 'sitemap.xml') return source.replace(SITE_URL, '').replace(SITEMAP_NS, '');
+  if (!rel.endsWith('.html')) return source;
+  return source
+    .replace(META_TAG, (tag) => (IS_SHARE_META.test(tag) ? tag.replace(SITE_URL, '') : tag))
+    .replace(
+      JSON_LD,
+      (_all, open, body, close) =>
+        open + body.replace(SITE_URL, '').replaceAll(SCHEMA_CONTEXT, '$1$2') + close,
+    );
+}
+
 const MARKUP_NS = new Set(['http://www.w3.org/2000/svg', 'http://www.w3.org/1999/xlink']);
 // Absolute http(s)/ws(s) URLs anywhere, and protocol-relative ones at the start of a string
 // literal or after url( / @import / = in markup and CSS.
@@ -45,7 +70,10 @@ export function checkRemote(files) {
   for (const [rel, source] of Object.entries(files)) {
     if (rel === 'THIRD-PARTY-LICENSES.txt') continue;
     const isJs = /\.m?js$/.test(rel);
-    const text = rel.endsWith('.html') ? source.replace(REPO_HREF, '$1$2') : source;
+    const text = withoutSiteMetadata(
+      rel,
+      rel.endsWith('.html') ? source.replace(REPO_HREF, '$1$2') : source,
+    );
     for (const raw of text.match(ABSOLUTE) ?? []) {
       const url = normalise(raw);
       if (isJs ? !JS_URL_ALLOWLIST.has(url) : !MARKUP_NS.has(url))
@@ -70,7 +98,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const files = {};
   for (const file of walk(dist)) {
     const rel = relative(dist, file);
-    if (/\.(?:js|mjs|html|css|webmanifest|json|svg|txt)$/.test(rel))
+    if (/\.(?:js|mjs|html|css|webmanifest|json|svg|txt|xml)$/.test(rel))
       files[rel] = readFileSync(file, 'utf8');
   }
   const problems = checkRemote(files);

@@ -75,6 +75,7 @@ pnpm format:check   # Prettier check
 pnpm format         # format supported files
 pnpm check:size     # fail if any dist/ file exceeds 25 MiB
 pnpm check:remote   # alone: scan dist/ for remote request targets
+node scripts/render-og.mjs   # regenerate public/og-image.png from scripts/og-image.html (needs Playwright chromium)
 scripts/make-icons.sh   # regenerate public/ icons from scripts/icons/*.svg (needs inkscape, ImageMagick)
 pnpm test           # unit tests (vitest)
 pnpm test:e2e       # Playwright (chromium, webkit, iPhone 15, iPad Pro 11)
@@ -116,6 +117,22 @@ may remain at the chosen location. The result screen compares original and new i
 for in-memory exports, with a wipe view (drag the divider or use the arrow keys on it; Frame mode
 steps one frame at a time). If the new file is not smaller, the result says so and Make it smaller
 moves to the next smaller size, or lowers quality one step when no smaller size is left.
+
+## SEO and assets
+
+`index.html` carries the canonical link, `color-scheme`, Open Graph and Twitter card tags, and a
+`WebApplication` JSON-LD block. `public/robots.txt` allows all crawlers and names
+`public/sitemap.xml`, which lists the single page. The share image is `public/og-image.png`
+(1200x630). It is rendered from `scripts/og-image.html`, which reads colours and fonts from
+`src/styles/tokens.css` and uses no remote fonts: run `node scripts/render-og.mjs` after a brand
+change, and re-run it on the machine whose system fonts you want in the image. Icons and the
+manifest live in `public/` (`scripts/make-icons.sh` regenerates the icons).
+
+The page's own `https://videoadjust.com/` URLs are allowed by `check:remote` only in canonical,
+`og:*` and `twitter:*` tags and the JSON-LD block of the HTML, plus `robots.txt` and `sitemap.xml`.
+The service worker does not precache `robots.txt`, `sitemap.xml` or `og-image.png`: only crawlers
+and link-preview bots fetch them, so offline use gains nothing. The JSON-LD block is inert data and
+does not violate the `script-src 'self'` CSP.
 
 ## Hosting
 
