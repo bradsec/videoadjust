@@ -11,6 +11,9 @@ describe('check-no-remote', () => {
     'setAttribute src': 'el.setAttribute("src","https://evil.example/a.js")',
     'protocol-relative string': 'import("//cdn.evil.example/m.js")',
     'protocol-relative single quote': "s.src='//cdn.evil.example/m.js'",
+    'protocol-relative IPv4': "fetch('//192.0.2.1/x')",
+    'protocol-relative localhost with port': 'fetch("//localhost:8080/x")',
+    'protocol-relative IPv6': 'fetch("//[::1]/x")',
     'websocket': 'new WebSocket("wss://evil.example/s")',
   };
   for (const [name, code] of Object.entries(bad)) {
@@ -32,6 +35,8 @@ describe('check-no-remote', () => {
     expect(checkRemote({ 'index.html': '<script src="//cdn.evil.example/x.js"></script>' })).not.toEqual([]);
     expect(checkRemote({ 'a.css': '@import "//evil.example/a.css";' })).not.toEqual([]);
     expect(checkRemote({ 'a.css': '@import url(//evil.example/a.css);' })).not.toEqual([]);
+    expect(checkRemote({ 'a.css': '@import url(//localhost:8080/a.css);' })).not.toEqual([]);
+    expect(checkRemote({ 'a.css': '@import url(//192.0.2.1/a.css);' })).not.toEqual([]);
     expect(checkRemote({ 'a.css': 'a{background:url(https://evil.example/i.png)}' })).not.toEqual([]);
   });
 

@@ -23,8 +23,11 @@ const MARKUP_NS = new Set(['http://www.w3.org/2000/svg', 'http://www.w3.org/1999
 // Absolute http(s)/ws(s) URLs anywhere, and protocol-relative ones at the start of a string
 // literal or after url( / @import / = in markup and CSS.
 const ABSOLUTE = /(?:https?|wss?):\/\/[^\s"'`)<>\\]+/g;
-const PROTO_REL_STRING = /["'`]\/\/[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}[^"'`\s]*/g;
-const PROTO_REL_MARKUP = /(?:["'(=]|@import\s+)\s*\/\/[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}/g;
+// Protocol-relative: //host, //host:port, //1.2.3.4, //[::1], //localhost, in a JS string
+// literal or after quote / ( / = / @import in markup and CSS.
+const HOST = String.raw`\/\/(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9.-]*)(?::\d+)?`;
+const PROTO_REL_STRING = new RegExp('["\'`]' + HOST + '[^"\'`\\s]*', 'g');
+const PROTO_REL_MARKUP = new RegExp('(?:["\'(=]|@import\\s+)\\s*' + HOST, 'g');
 
 const normalise = (url) => url.replace(/[.,;:]+$/, '');
 

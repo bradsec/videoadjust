@@ -35,8 +35,11 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Navigations read the current cache only: an older version's index.html names assets this
+// version may not have, and must never be served in its place.
 async function cachedPage(request) {
-  return (await caches.match(request, { ignoreSearch: true })) || (await caches.match(scoped('./index.html')));
+  const cache = await caches.open(CACHE);
+  return (await cache.match(request, { ignoreSearch: true })) || (await cache.match(scoped('./index.html')));
 }
 
 async function networkFirst(request) {
@@ -53,7 +56,8 @@ async function networkFirst(request) {
 }
 
 async function cacheFirst(request) {
-  const hit = await caches.match(request);
+  // Hashed assets may come from any cache so an open tab's lazy chunk survives a deploy.
+  const hit = (await (await caches.open(CACHE)).match(request)) || (await caches.match(request));
   if (hit) return hit;
   const response = await fetch(request);
   // Cache only complete 200 responses (not 206 ranges) and never an HTML fallback page.

@@ -40,3 +40,30 @@ test('precache list covers the build and excludes the e2e harness', async ({ req
   expect(sw).toMatch(/assets\/(?:index|main)-[\w-]+\.js/);
   expect(sw).toMatch(/aac-encoder[\w-]*\.js/);
 });
+
+test('offline navigation uses the current cache only, never an older version', async ({ page, context }) => {
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  // An older version's cache sorts first in caches.match, so a lookup across caches would hit it.
+  await page.evaluate(async () => {
+    const stale = await caches.open('videoresize-0.0.0-old');
+    const body = () => new Response('<!doctype html><title>STALE</title>', { headers: { 'content-type': 'text/html' } });
+    for (const url of ['./', './index.html', location.href]) await stale.put(new URL(url, location.href).href, body());
+    const names = await caches.keys();
+    // Put the stale cache first in creation order by recreating the current ones after it.
+    for (const name of names.filter((n) => n !== 'videoresize-0.0.0-old')) {
+      const cache = await caches.open(name);
+      const entries = await cache.keys();
+      const saved = await Promise.all(entries.map(async (r) => [r, await cache.match(r)] as const));
+      await caches.delete(name);
+      const fresh = await caches.open(name);
+      for (const [r, res] of saved) await fresh.put(r, res!);
+    }
+  });
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page).not.toHaveTitle('STALE');
+  await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
+});
