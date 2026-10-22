@@ -64,11 +64,11 @@
         display: block;
         border-bottom: 6px solid var(--c-line);
       }
-      html[data-screen="drop"] #drop,
-      html[data-screen="prepare"] #prepare,
-      html[data-screen="progress"] #progress,
-      html[data-screen="result"] #result,
-      html[data-screen="notices"] #notices {
+      html[data-screen='drop'] #drop,
+      html[data-screen='prepare'] #prepare,
+      html[data-screen='progress'] #progress,
+      html[data-screen='result'] #result,
+      html[data-screen='notices'] #notices {
         display: block;
       }
 
@@ -465,7 +465,7 @@
         color: var(--c-signal-ink);
       }
       .handle::before {
-        content: "";
+        content: '';
         width: 3px;
         height: 22px;
         border-radius: 2px;
@@ -474,7 +474,7 @@
       }
       /* Invisible hit area keeps the handle >= 44px wide for touch. */
       .handle::after {
-        content: "";
+        content: '';
         position: absolute;
         inset: -6px -11px;
       }
@@ -497,7 +497,7 @@
         box-shadow: 0 0 0 1px var(--c-stage);
       }
       .playhead::before {
-        content: "";
+        content: '';
         position: absolute;
         top: -2px;
         left: 50%;
@@ -649,7 +649,7 @@
         font-weight: var(--fw-medium);
       }
       /* The 3px track padding brings each segment's hit area to 44px+. */
-      .seg button[aria-pressed="true"] {
+      .seg button[aria-pressed='true'] {
         background: var(--c-raised);
         color: var(--c-ink);
         font-weight: var(--fw-bold);
@@ -677,24 +677,24 @@
       }
       /* Variant switch for the mockup: data-variant="adjusted" shows the
          Prepare screen with one override (Quality: Smaller). */
-      html:not([data-variant="adjusted"]) .v-adj,
-      html[data-variant="adjusted"] .v-auto {
+      html:not([data-variant='adjusted']) .v-adj,
+      html[data-variant='adjusted'] .v-auto {
         display: none;
       }
-      html[data-variant="adjusted"] .quality .q-small {
+      html[data-variant='adjusted'] .quality .q-small {
         background: var(--c-raised);
         color: var(--c-ink);
         font-weight: var(--fw-bold);
         box-shadow: var(--shadow-lift);
       }
-      html[data-variant="adjusted"] .quality .q-bal {
+      html[data-variant='adjusted'] .quality .q-bal {
         background: transparent;
         color: var(--c-ink-2);
         font-weight: var(--fw-medium);
         box-shadow: none;
       }
-      html[data-variant="adjusted"] .opt.quality .opt-head .name::after {
-        content: "";
+      html[data-variant='adjusted'] .opt.quality .opt-head .name::after {
+        content: '';
         display: inline-block;
         width: 8px;
         height: 8px;
@@ -1081,48 +1081,112 @@
         <rect width="160" height="90" fill="url(#sky)" />
         <circle cx="104" cy="50" r="22" fill="url(#sun)" />
         <circle cx="104" cy="50" r="7" fill="#fff4d6" />
-        <path d="M0 52 L22 40 L40 47 L62 34 L84 49 L160 44 L160 60 L0 60Z" fill="#4e5f7c" opacity="0.85" />
+        <path
+          d="M0 52 L22 40 L40 47 L62 34 L84 49 L160 44 L160 60 L0 60Z"
+          fill="#4e5f7c"
+          opacity="0.85"
+        />
         <rect y="56" width="160" height="34" fill="url(#sea)" />
-        <path d="M70 62 h68 M84 67 h40 M92 72 h22" stroke="#ffe2a6" stroke-width="1.2" opacity="0.6" />
+        <path
+          d="M70 62 h68 M84 67 h40 M92 72 h22"
+          stroke="#ffe2a6"
+          stroke-width="1.2"
+          opacity="0.6"
+        />
         <path d="M0 74 C30 66 52 70 70 90 L0 90Z" fill="#14222b" />
         <path d="M18 73 l2 -14 l2 14Z" fill="#14222b" />
       </symbol>
       <symbol id="i-logo" viewBox="0 0 26 26">
-        <rect x="1.5" y="3.5" width="23" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.8" />
+        <rect
+          x="1.5"
+          y="3.5"
+          width="23"
+          height="17"
+          rx="4"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+        />
         <rect x="11" y="10" width="10" height="7" rx="2" fill="var(--c-signal)" />
         <path d="M5 7.5 L10 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-        <path d="M5.5 12 L10 12 L10 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+        <path
+          d="M5.5 12 L10 12 L10 7.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       </symbol>
-      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></symbol>
-      <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10 9.5v5l4-2.5z" /><path d="M3 9h3M3 15h3M18 9h3M18 15h3" /></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="5" y="11" width="14" height="10" rx="2.5" />
+        <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+      </symbol>
+      <symbol id="i-film" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="3" />
+        <path d="M10 9.5v5l4-2.5z" />
+        <path d="M3 9h3M3 15h3M18 9h3M18 15h3" />
+      </symbol>
       <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" /></symbol>
       <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></symbol>
       <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
-      <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8" /><path d="M4 4v4h4" /></symbol>
+      <symbol id="i-reset" viewBox="0 0 24 24">
+        <path d="M4 12a8 8 0 1 0 2.5-5.8" />
+        <path d="M4 4v4h4" />
+      </symbol>
       <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></symbol>
-      <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4" /><path d="M7 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1" /></symbol>
-      <symbol id="i-smaller" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M14 10h-4V6M10 10L5 5M10 14v4M14 14l5 5M14 14h4" /></symbol>
-      <symbol id="i-restart" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8" /><path d="M20 4v4h-4" /></symbol>
+      <symbol id="i-share" viewBox="0 0 24 24">
+        <path d="M12 3v12M8 7l4-4 4 4" />
+        <path d="M7 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1" />
+      </symbol>
+      <symbol id="i-smaller" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="3" />
+        <path d="M14 10h-4V6M10 10L5 5M10 14v4M14 14l5 5M14 14h4" />
+      </symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24">
+        <path d="M20 12a8 8 0 1 1-2.5-5.8" />
+        <path d="M20 4v4h-4" />
+      </symbol>
       <symbol id="i-wipe" viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5" /></symbol>
       <symbol id="i-start" viewBox="0 0 24 24"><path d="M6 4v16M10 12h10M15 8l-5 4 5 4" /></symbol>
       <symbol id="i-end" viewBox="0 0 24 24"><path d="M18 4v16M4 12h10M9 8l5 4-5 4" /></symbol>
-      <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17h.01" /></symbol>
-      <symbol id="i-stop" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></symbol>
-      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></symbol>
-      <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M4 4l16 16M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 4-2.4M14.5 10a10 10 0 0 1 4.5 2.5M12 20h.01" /></symbol>
+      <symbol id="i-warn" viewBox="0 0 24 24">
+        <path d="M12 4l9 16H3z" />
+        <path d="M12 10v4M12 17h.01" />
+      </symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8.5 8.5l7 7M15.5 8.5l-7 7" />
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 11v5M12 8h.01" />
+      </symbol>
+      <symbol id="i-wifi-off" viewBox="0 0 24 24">
+        <path
+          d="M4 4l16 16M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 4-2.4M14.5 10a10 10 0 0 1 4.5 2.5M12 20h.01"
+        />
+      </symbol>
     </svg>
 
     <!-- ===== Drop ===== -->
     <section class="screen" id="drop" aria-label="Drop state">
       <header class="bar">
-        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
-        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+        <span class="mark"
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+        >
+        <span class="chip"
+          ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
+        >
       </header>
       <main>
         <div class="drop-grid">
           <div class="hero">
             <h1>Make a video <span class="shrink">small enough</span> to send.</h1>
-            <p>Shrink and trim phone videos for messages and email. It all happens in this browser, so your video is never uploaded.</p>
+            <p>
+              Shrink and trim phone videos for messages and email. It all happens in this browser,
+              so your video is never uploaded.
+            </p>
             <ol class="steps" aria-label="How it works">
               <li><b>Choose</b>Pick a video</li>
               <li><b>Export</b>Settings are automatic</li>
@@ -1130,7 +1194,9 @@
             </ol>
           </div>
           <div class="dropzone">
-            <span class="glyph"><svg class="i" aria-hidden="true"><use href="#i-film" /></svg></span>
+            <span class="glyph"
+              ><svg class="i" aria-hidden="true"><use href="#i-film" /></svg
+            ></span>
             <button class="btn btn-primary" type="button">Choose video</button>
             <p class="hint">or drop a video file here</p>
             <p class="formats">MP4, MOV, WebM, MKV. Works best up to 2&nbsp;GB.</p>
@@ -1146,16 +1212,25 @@
     <!-- ===== Prepare ===== -->
     <section class="screen" id="prepare" aria-label="Prepare state">
       <header class="bar">
-        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
-        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+        <span class="mark"
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+        >
+        <span class="chip"
+          ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
+        >
       </header>
       <main>
         <div class="split">
           <div class="main-col">
-            <p class="file-line"><strong>IMG_4821.MOV</strong><span class="num">212 MB · 3840x2160 · 60 fps · HEVC · 1:24.6</span></p>
+            <p class="file-line">
+              <strong>IMG_4821.MOV</strong
+              ><span class="num">212 MB · 3840x2160 · 60 fps · HEVC · 1:24.6</span>
+            </p>
             <div class="stage">
               <svg class="scene" aria-hidden="true"><use href="#scene" /></svg>
-              <button class="play" type="button" aria-label="Play"><svg class="i" aria-hidden="true"><use href="#i-play" /></svg></button>
+              <button class="play" type="button" aria-label="Play">
+                <svg class="i" aria-hidden="true"><use href="#i-play" /></svg>
+              </button>
               <span class="overlay-time num">0:12.4 / 1:24.6</span>
             </div>
             <div class="trim">
@@ -1164,32 +1239,81 @@
                 <span class="num">0:38.6 of 1:24.6 kept</span>
               </div>
               <div class="strip" aria-label="Trim range">
-                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(-12deg) brightness(0.9)"><use href="#scene" /></svg></div>
-                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(-6deg)"><use href="#scene" /></svg></div>
-                <div class="thumb"><svg aria-hidden="true"><use href="#scene" /></svg></div>
-                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(6deg) brightness(1.05)"><use href="#scene" /></svg></div>
-                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(10deg) brightness(0.95)"><use href="#scene" /></svg></div>
-                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(14deg) brightness(0.85)"><use href="#scene" /></svg></div>
-                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(18deg) brightness(0.75)"><use href="#scene" /></svg></div>
-                <div class="thumb"><svg aria-hidden="true" style="filter: hue-rotate(22deg) brightness(0.65)"><use href="#scene" /></svg></div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(-12deg) brightness(0.9)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(-6deg)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true"><use href="#scene" /></svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(6deg) brightness(1.05)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(10deg) brightness(0.95)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(14deg) brightness(0.85)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(18deg) brightness(0.75)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(22deg) brightness(0.65)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
                 <!-- 0:03.2 = 3.8%, 0:41.8 = 49.4%, playhead 0:12.4 = 14.7% of 1:24.6 -->
                 <span class="out" style="left: 0; width: 3.8%; border-radius: 14px 0 0 14px"></span>
-                <span class="out" style="left: 49.4%; right: 0; border-radius: 0 14px 14px 0"></span>
+                <span
+                  class="out"
+                  style="left: 49.4%; right: 0; border-radius: 0 14px 14px 0"
+                ></span>
                 <span class="sel" style="left: 3.8%; width: 45.6%"></span>
-                <span class="handle start" style="left: 3.8%" role="slider" aria-label="Start" aria-valuetext="0:03.2"></span>
-                <span class="handle end" style="left: 49.4%" role="slider" aria-label="End" aria-valuetext="0:41.8"></span>
+                <span
+                  class="handle start"
+                  style="left: 3.8%"
+                  role="slider"
+                  aria-label="Start"
+                  aria-valuetext="0:03.2"
+                ></span>
+                <span
+                  class="handle end"
+                  style="left: 49.4%"
+                  role="slider"
+                  aria-label="End"
+                  aria-valuetext="0:41.8"
+                ></span>
                 <span class="playhead" style="left: 14.7%"></span>
               </div>
               <div class="trim-readouts">
                 <div class="readout">
                   <span class="lbl">Start</span>
                   <span class="val num">0:03.2</span>
-                  <button class="btn" type="button"><svg class="i" aria-hidden="true"><use href="#i-start" /></svg>Start here</button>
+                  <button class="btn" type="button">
+                    <svg class="i" aria-hidden="true"><use href="#i-start" /></svg>Start here
+                  </button>
                 </div>
                 <div class="readout">
                   <span class="lbl">End</span>
                   <span class="val num">0:41.8</span>
-                  <button class="btn" type="button"><svg class="i" aria-hidden="true"><use href="#i-end" /></svg>End here</button>
+                  <button class="btn" type="button">
+                    <svg class="i" aria-hidden="true"><use href="#i-end" /></svg>End here
+                  </button>
                 </div>
               </div>
             </div>
@@ -1203,7 +1327,10 @@
                 <p class="sub num prep-sub">30 fps · AAC 128 kbps stereo</p>
               </div>
               <div class="estimate">
-                <span class="big num"><span class="v-auto">est. 18-24 MB</span><span class="v-adj">est. 14-18 MB</span></span>
+                <span class="big num"
+                  ><span class="v-auto">est. 18-24 MB</span
+                  ><span class="v-adj">est. 14-18 MB</span></span
+                >
                 <span class="from">from 212 MB</span>
               </div>
               <div class="scale" aria-hidden="true">
@@ -1212,24 +1339,44 @@
                   <div class="track"><span class="orig"></span></div>
                 </div>
                 <div class="scale-row">
-                  <div class="scale-label"><span>New, estimated</span><b class="num"><span class="v-auto">18-24 MB</span><span class="v-adj">14-18 MB</span></b></div>
-                  <div class="track v-auto"><span class="new" style="width: 8.5%"></span><span class="range" style="left: 8.5%; width: 2.8%"></span></div>
-                  <div class="track v-adj"><span class="new" style="width: 6.6%"></span><span class="range" style="left: 6.6%; width: 1.9%"></span></div>
+                  <div class="scale-label">
+                    <span>New, estimated</span
+                    ><b class="num"
+                      ><span class="v-auto">18-24 MB</span><span class="v-adj">14-18 MB</span></b
+                    >
+                  </div>
+                  <div class="track v-auto">
+                    <span class="new" style="width: 8.5%"></span
+                    ><span class="range" style="left: 8.5%; width: 2.8%"></span>
+                  </div>
+                  <div class="track v-adj">
+                    <span class="new" style="width: 6.6%"></span
+                    ><span class="range" style="left: 6.6%; width: 1.9%"></span>
+                  </div>
                 </div>
               </div>
               <button class="btn btn-primary btn-block" type="button">Export</button>
               <details class="adjust">
-                <summary>Adjust<span class="state"><span class="v-auto">All automatic</span><span class="v-adj">1 change</span></span><svg class="i chev" aria-hidden="true"><use href="#i-chev" /></svg></summary>
+                <summary>
+                  Adjust<span class="state"
+                    ><span class="v-auto">All automatic</span
+                    ><span class="v-adj">1 change</span></span
+                  ><svg class="i chev" aria-hidden="true"><use href="#i-chev" /></svg>
+                </summary>
                 <div class="opts">
                   <div class="opt">
-                    <div class="opt-head"><span class="name">Format</span><span class="tag">Auto: MP4</span></div>
+                    <div class="opt-head">
+                      <span class="name">Format</span><span class="tag">Auto: MP4</span>
+                    </div>
                     <div class="seg" role="group" aria-label="Format">
                       <button type="button" aria-pressed="true">MP4</button>
                       <button type="button" aria-pressed="false">WebM</button>
                     </div>
                   </div>
                   <div class="opt">
-                    <div class="opt-head"><span class="name">Video</span><span class="tag">Auto: H.264</span></div>
+                    <div class="opt-head">
+                      <span class="name">Video</span><span class="tag">Auto: H.264</span>
+                    </div>
                     <div class="seg" role="group" aria-label="Video codec">
                       <button type="button" aria-pressed="true">H.264</button>
                       <button type="button" aria-pressed="false">HEVC</button>
@@ -1238,18 +1385,32 @@
                     <p class="why">AV1 encoding is not available in this browser.</p>
                   </div>
                   <div class="opt">
-                    <div class="opt-head"><span class="name">Resolution</span><span class="tag">Auto: 1080p</span></div>
-                    <div class="select"><span class="num">1080p (1920x1080)</span><svg class="i" aria-hidden="true"><use href="#i-chev" /></svg></div>
+                    <div class="opt-head">
+                      <span class="name">Resolution</span><span class="tag">Auto: 1080p</span>
+                    </div>
+                    <div class="select">
+                      <span class="num">1080p (1920x1080)</span
+                      ><svg class="i" aria-hidden="true"><use href="#i-chev" /></svg>
+                    </div>
                   </div>
                   <div class="opt">
-                    <div class="opt-head"><span class="name">Frame rate</span><span class="tag">Auto: 30 fps, half of 60</span></div>
-                    <div class="select"><span class="num">30 fps</span><svg class="i" aria-hidden="true"><use href="#i-chev" /></svg></div>
+                    <div class="opt-head">
+                      <span class="name">Frame rate</span
+                      ><span class="tag">Auto: 30 fps, half of 60</span>
+                    </div>
+                    <div class="select">
+                      <span class="num">30 fps</span
+                      ><svg class="i" aria-hidden="true"><use href="#i-chev" /></svg>
+                    </div>
                   </div>
                   <div class="opt quality">
                     <div class="opt-head">
                       <span class="name">Quality</span>
                       <span class="tag v-auto">Auto: Balanced</span>
-                      <button class="reset v-adj" type="button"><svg class="i" aria-hidden="true"><use href="#i-reset" /></svg>Reset to Balanced</button>
+                      <button class="reset v-adj" type="button">
+                        <svg class="i" aria-hidden="true"><use href="#i-reset" /></svg>Reset to
+                        Balanced
+                      </button>
                     </div>
                     <div class="seg" role="group" aria-label="Quality">
                       <button type="button" class="q-small" aria-pressed="false">Smaller</button>
@@ -1258,7 +1419,9 @@
                     </div>
                   </div>
                   <div class="opt">
-                    <div class="opt-head"><span class="name">Audio</span><span class="tag">Auto: AAC 128 kbps</span></div>
+                    <div class="opt-head">
+                      <span class="name">Audio</span><span class="tag">Auto: AAC 128 kbps</span>
+                    </div>
                     <div class="seg" role="group" aria-label="Audio">
                       <button type="button" aria-pressed="true">AAC</button>
                       <button type="button" aria-pressed="false">Opus</button>
@@ -1280,26 +1443,54 @@
     <!-- ===== Progress ===== -->
     <section class="screen" id="progress" aria-label="Exporting state">
       <header class="bar">
-        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
-        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+        <span class="mark"
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+        >
+        <span class="chip"
+          ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
+        >
       </header>
       <main>
         <div class="col">
-          <p class="file-line"><strong>Exporting IMG_4821-small.mp4</strong><span class="num">1080p · H.264/AAC MP4</span></p>
+          <p class="file-line">
+            <strong>Exporting IMG_4821-small.mp4</strong
+            ><span class="num">1080p · H.264/AAC MP4</span>
+          </p>
           <div class="stage">
-            <svg class="scene" aria-hidden="true" style="filter: hue-rotate(8deg) brightness(0.92)"><use href="#scene" /></svg>
+            <svg class="scene" aria-hidden="true" style="filter: hue-rotate(8deg) brightness(0.92)">
+              <use href="#scene" />
+            </svg>
             <span class="overlay-time num">Encoding 0:24.1 of 0:38.6</span>
           </div>
           <div class="card progress-card" role="status" aria-live="polite">
             <div class="pct num">62<small>%</small></div>
-            <div class="bar-track" role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-label="Export progress">
+            <div
+              class="bar-track"
+              role="progressbar"
+              aria-valuenow="62"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-label="Export progress"
+            >
               <div class="bar-fill" style="width: 62%"></div>
             </div>
             <dl class="facts">
-              <div><dt>Elapsed</dt><dd class="num">0:48</dd></div>
-              <div><dt>Remaining</dt><dd class="num">about 0:30</dd></div>
-              <div><dt>Written so far</dt><dd class="num">12.8 MB</dd></div>
-              <div><dt>Expected</dt><dd class="num">18-24 MB</dd></div>
+              <div>
+                <dt>Elapsed</dt>
+                <dd class="num">0:48</dd>
+              </div>
+              <div>
+                <dt>Remaining</dt>
+                <dd class="num">about 0:30</dd>
+              </div>
+              <div>
+                <dt>Written so far</dt>
+                <dd class="num">12.8 MB</dd>
+              </div>
+              <div>
+                <dt>Expected</dt>
+                <dd class="num">18-24 MB</dd>
+              </div>
             </dl>
             <div class="scale" aria-hidden="true">
               <div class="scale-row">
@@ -1311,9 +1502,14 @@
                 <div class="track"><span class="new" style="width: 6%"></span></div>
               </div>
             </div>
-            <button class="btn btn-block" type="button"><svg class="i" aria-hidden="true"><use href="#i-stop" /></svg>Cancel export</button>
+            <button class="btn btn-block" type="button">
+              <svg class="i" aria-hidden="true"><use href="#i-stop" /></svg>Cancel export
+            </button>
           </div>
-          <p class="note">Keep this tab open until it finishes. Your phone may get warm; that is normal for video work.</p>
+          <p class="note">
+            Keep this tab open until it finishes. Your phone may get warm; that is normal for video
+            work.
+          </p>
         </div>
       </main>
       <footer>
@@ -1325,8 +1521,12 @@
     <!-- ===== Result ===== -->
     <section class="screen" id="result" aria-label="Result state">
       <header class="bar">
-        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
-        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+        <span class="mark"
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+        >
+        <span class="chip"
+          ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
+        >
       </header>
       <main>
         <div class="split">
@@ -1338,11 +1538,17 @@
             </div>
             <div class="stage" aria-label="Compare original and new">
               <svg class="scene" aria-hidden="true"><use href="#scene" /></svg>
-              <div class="wipe-new"><svg aria-hidden="true" style="filter: saturate(0.96) contrast(0.98)"><use href="#scene" /></svg></div>
+              <div class="wipe-new">
+                <svg aria-hidden="true" style="filter: saturate(0.96) contrast(0.98)">
+                  <use href="#scene" />
+                </svg>
+              </div>
               <span class="side-tag l">Original · 2160p</span>
               <span class="side-tag r">New · 1080p</span>
               <span class="wipe-line"></span>
-              <span class="wipe-knob" role="slider" aria-label="Wipe position" aria-valuenow="50"><svg class="i" aria-hidden="true"><use href="#i-wipe" /></svg></span>
+              <span class="wipe-knob" role="slider" aria-label="Wipe position" aria-valuenow="50"
+                ><svg class="i" aria-hidden="true"><use href="#i-wipe" /></svg
+              ></span>
             </div>
             <div class="compare-bar">
               <div class="seg" role="group" aria-label="Compare mode">
@@ -1350,8 +1556,13 @@
                 <button type="button" aria-pressed="false">Frame</button>
               </div>
               <div class="scrub">
-                <button class="btn" type="button" aria-label="Pause"><svg class="i" aria-hidden="true"><use href="#i-pause" /></svg></button>
-                <div class="bar-track"><div class="bar-fill"></div><span class="dot"></span></div>
+                <button class="btn" type="button" aria-label="Pause">
+                  <svg class="i" aria-hidden="true"><use href="#i-pause" /></svg>
+                </button>
+                <div class="bar-track">
+                  <div class="bar-fill"></div>
+                  <span class="dot"></span>
+                </div>
                 <span class="num">0:12.4 / 0:38.6</span>
               </div>
             </div>
@@ -1370,25 +1581,69 @@
             <div class="card stats-card">
               <table class="stats">
                 <thead>
-                  <tr><th scope="col"><span class="sr">Property</span></th><th scope="col">Original</th><th scope="col">New</th></tr>
+                  <tr>
+                    <th scope="col"><span class="sr">Property</span></th>
+                    <th scope="col">Original</th>
+                    <th scope="col">New</th>
+                  </tr>
                 </thead>
                 <tbody class="num">
-                  <tr><th scope="row">Size</th><td>212 MB</td><td class="new">20.6 MB</td></tr>
-                  <tr><th scope="row">Resolution</th><td>3840x2160</td><td class="new">1920x1080</td></tr>
-                  <tr><th scope="row">Frame rate</th><td>60 fps</td><td class="new">30 fps</td></tr>
-                  <tr><th scope="row">Video</th><td>HEVC, MOV</td><td class="new">H.264, MP4</td></tr>
-                  <tr><th scope="row">Audio</th><td>AAC 192 kbps</td><td class="new">AAC 128 kbps</td></tr>
-                  <tr><th scope="row">Bitrate</th><td>20.0 Mbps</td><td class="new">4.3 Mbps</td></tr>
-                  <tr><th scope="row">Duration</th><td>1:24.6</td><td class="new">0:38.6<span class="delta">trimmed</span></td></tr>
-                  <tr class="total"><th scope="row">Reduction</th><td colspan="2">90% smaller</td></tr>
+                  <tr>
+                    <th scope="row">Size</th>
+                    <td>212 MB</td>
+                    <td class="new">20.6 MB</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Resolution</th>
+                    <td>3840x2160</td>
+                    <td class="new">1920x1080</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Frame rate</th>
+                    <td>60 fps</td>
+                    <td class="new">30 fps</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Video</th>
+                    <td>HEVC, MOV</td>
+                    <td class="new">H.264, MP4</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Audio</th>
+                    <td>AAC 192 kbps</td>
+                    <td class="new">AAC 128 kbps</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Bitrate</th>
+                    <td>20.0 Mbps</td>
+                    <td class="new">4.3 Mbps</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Duration</th>
+                    <td>1:24.6</td>
+                    <td class="new">0:38.6<span class="delta">trimmed</span></td>
+                  </tr>
+                  <tr class="total">
+                    <th scope="row">Reduction</th>
+                    <td colspan="2">90% smaller</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
             <div class="actions">
-              <button class="btn btn-primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-down" /></svg>Download <span class="file">IMG_4821-small.mp4</span></button>
-              <button class="btn btn-share" type="button"><svg class="i" aria-hidden="true"><use href="#i-share" /></svg>Share</button>
-              <button class="btn btn-quiet" type="button"><svg class="i" aria-hidden="true"><use href="#i-smaller" /></svg>Make it smaller</button>
-              <button class="btn btn-quiet" type="button"><svg class="i" aria-hidden="true"><use href="#i-restart" /></svg>Start over</button>
+              <button class="btn btn-primary" type="button">
+                <svg class="i" aria-hidden="true"><use href="#i-down" /></svg>Download
+                <span class="file">IMG_4821-small.mp4</span>
+              </button>
+              <button class="btn btn-share" type="button">
+                <svg class="i" aria-hidden="true"><use href="#i-share" /></svg>Share
+              </button>
+              <button class="btn btn-quiet" type="button">
+                <svg class="i" aria-hidden="true"><use href="#i-smaller" /></svg>Make it smaller
+              </button>
+              <button class="btn btn-quiet" type="button">
+                <svg class="i" aria-hidden="true"><use href="#i-restart" /></svg>Start over
+              </button>
             </div>
           </aside>
         </div>
@@ -1402,8 +1657,12 @@
     <!-- ===== Notices (errors and limits) ===== -->
     <section class="screen" id="notices" aria-label="Notices">
       <header class="bar">
-        <span class="mark"><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span>
-        <span class="chip"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span>
+        <span class="mark"
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+        >
+        <span class="chip"
+          ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
+        >
       </header>
       <main>
         <div class="col">
@@ -1412,8 +1671,14 @@
             <svg class="i" aria-hidden="true"><use href="#i-warn" /></svg>
             <div class="body">
               <h3>This video is 2.6 GB</h3>
-              <p>Files over 2 GB can run out of memory on phones and tablets, and the tab may reload. Close other tabs first, or trim it shorter.</p>
-              <div class="row"><button class="btn" type="button">Continue anyway</button><button class="btn btn-quiet" type="button">Choose another video</button></div>
+              <p>
+                Files over 2 GB can run out of memory on phones and tablets, and the tab may reload.
+                Close other tabs first, or trim it shorter.
+              </p>
+              <div class="row">
+                <button class="btn" type="button">Continue anyway</button
+                ><button class="btn btn-quiet" type="button">Choose another video</button>
+              </div>
             </div>
           </div>
 
@@ -1422,7 +1687,10 @@
             <svg class="i" aria-hidden="true"><use href="#i-stop" /></svg>
             <div class="body">
               <h3>This browser cannot read HEVC video</h3>
-              <p>IMG_4821.MOV uses HEVC (H.265). Open this page in Safari, or in Chrome or Edge on a device with HEVC support, and try again.</p>
+              <p>
+                IMG_4821.MOV uses HEVC (H.265). Open this page in Safari, or in Chrome or Edge on a
+                device with HEVC support, and try again.
+              </p>
               <div class="row"><button class="btn" type="button">Choose another video</button></div>
             </div>
           </div>
@@ -1432,7 +1700,10 @@
             <svg class="i" aria-hidden="true"><use href="#i-warn" /></svg>
             <div class="body">
               <h3>H.264 is not available in this browser</h3>
-              <p>The most compatible format cannot be made here. HEVC MP4 is the closest option; it may not play on older Android phones or on Windows without the HEVC extension.</p>
+              <p>
+                The most compatible format cannot be made here. HEVC MP4 is the closest option; it
+                may not play on older Android phones or on Windows without the HEVC extension.
+              </p>
               <div class="row"><button class="btn" type="button">Use HEVC MP4</button></div>
             </div>
           </div>
@@ -1442,7 +1713,11 @@
             <svg class="i" aria-hidden="true"><use href="#i-warn" /></svg>
             <div class="body">
               <h3>This export is held in memory</h3>
-              <p>This browser cannot write straight to a file, so the new video (est. 0.9-1.2 GB) stays in memory until you save it. Trim it or pick a lower resolution if the tab reloads.</p>
+              <p>
+                This browser cannot write straight to a file, so the new video (est. 0.9-1.2 GB)
+                stays in memory until you save it. Trim it or pick a lower resolution if the tab
+                reloads.
+              </p>
             </div>
           </div>
 
@@ -1451,8 +1726,14 @@
             <svg class="i" aria-hidden="true"><use href="#i-info" /></svg>
             <div class="body">
               <h3>This video is already small</h3>
-              <p>At 1080p the new file would be 31 MB, larger than the original 28 MB. 720p should come out smaller.</p>
-              <div class="row"><button class="btn" type="button">Try 720p</button><button class="btn btn-quiet" type="button">Keep the original</button></div>
+              <p>
+                At 1080p the new file would be 31 MB, larger than the original 28 MB. 720p should
+                come out smaller.
+              </p>
+              <div class="row">
+                <button class="btn" type="button">Try 720p</button
+                ><button class="btn btn-quiet" type="button">Keep the original</button>
+              </div>
             </div>
           </div>
 
@@ -1461,7 +1742,10 @@
             <svg class="i" aria-hidden="true"><use href="#i-stop" /></svg>
             <div class="body">
               <h3>Not enough space to save the new video</h3>
-              <p>It needs about 24 MB and this device reports 9 MB free for this site. Free up space, then try again.</p>
+              <p>
+                It needs about 24 MB and this device reports 9 MB free for this site. Free up space,
+                then try again.
+              </p>
             </div>
           </div>
         </div>

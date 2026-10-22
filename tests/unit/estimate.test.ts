@@ -13,13 +13,15 @@ const base: Settings = {
 describe('estimateBytes', () => {
   it('uses source track bitrates for a trimmed copy', () => {
     const source = {
-      video: { bitrate: 700_000 }, audio: { bitrate: 96_000 },
+      video: { bitrate: 700_000 },
+      audio: { bitrate: 96_000 },
     };
-    expect(estimateBytes({ ...base, passthrough: true }, source).mid)
-      .toBeCloseTo((796_000 * 10) / 8 * 1.01);
+    expect(estimateBytes({ ...base, passthrough: true }, source).mid).toBeCloseTo(
+      ((796_000 * 10) / 8) * 1.01,
+    );
   });
   it('computes mid with 1% overhead and a 15% band', () => {
-    const mid = ((4_000_000 + 128_000) * 10) / 8 * 1.01;
+    const mid = (((4_000_000 + 128_000) * 10) / 8) * 1.01;
     const e = estimateBytes(base);
     expect(e.mid).toBeCloseTo(mid);
     expect(e.low).toBeCloseTo(mid * 0.85);
@@ -27,10 +29,14 @@ describe('estimateBytes', () => {
   });
   it('excludes absent tracks', () => {
     const e = estimateBytes({ ...base, audio: null });
-    expect(e.mid).toBeCloseTo((4_000_000 * 10) / 8 * 1.01);
+    expect(e.mid).toBeCloseTo(((4_000_000 * 10) / 8) * 1.01);
     expect(estimateBytes({ ...base, video: null, audio: null }).mid).toBe(0);
   });
   it('returns 0 for a zero-length trim', () => {
-    expect(estimateBytes({ ...base, trim: { start: 5, end: 5 } })).toEqual({ low: 0, high: 0, mid: 0 });
+    expect(estimateBytes({ ...base, trim: { start: 5, end: 5 } })).toEqual({
+      low: 0,
+      high: 0,
+      mid: 0,
+    });
   });
 });

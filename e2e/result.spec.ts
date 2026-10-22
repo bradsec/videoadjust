@@ -21,24 +21,25 @@ async function fakeSavePicker(page: Page, opts: { pickerCancels?: boolean } = {}
   await page.addInitScript((pickerCancels) => {
     const calls = { picker: 0, close: 0, abort: 0, bytes: 0 };
     (window as unknown as { vrSink: typeof calls }).vrSink = calls;
-    (window as unknown as { showSaveFilePicker: () => Promise<unknown> }).showSaveFilePicker = async () => {
-      calls.picker++;
-      if (pickerCancels) throw new DOMException('The user aborted a request.', 'AbortError');
-      return {
-        createWritable: async () =>
-          new WritableStream<{ data: Uint8Array }>({
-            write(chunk) {
-              calls.bytes += chunk.data.byteLength;
-            },
-            close() {
-              calls.close++;
-            },
-            abort() {
-              calls.abort++;
-            },
-          }),
+    (window as unknown as { showSaveFilePicker: () => Promise<unknown> }).showSaveFilePicker =
+      async () => {
+        calls.picker++;
+        if (pickerCancels) throw new DOMException('The user aborted a request.', 'AbortError');
+        return {
+          createWritable: async () =>
+            new WritableStream<{ data: Uint8Array }>({
+              write(chunk) {
+                calls.bytes += chunk.data.byteLength;
+              },
+              close() {
+                calls.close++;
+              },
+              abort() {
+                calls.abort++;
+              },
+            }),
+        };
       };
-    };
   }, opts.pickerCancels ?? false);
 }
 
@@ -53,12 +54,16 @@ async function inflateEncoderBitrate(page: Page, factor: number) {
     if (typeof VideoEncoder === 'undefined') return;
     const configure = VideoEncoder.prototype.configure;
     VideoEncoder.prototype.configure = function (config: VideoEncoderConfig) {
-      return configure.call(this, config.bitrate ? { ...config, bitrate: Math.round(config.bitrate * f) } : config);
+      return configure.call(
+        this,
+        config.bitrate ? { ...config, bitrate: Math.round(config.bitrate * f) } : config,
+      );
     };
   }, factor);
 }
 
-const sinkCalls = (page: Page) => page.evaluate(() => (window as unknown as { vrSink: Record<string, number> }).vrSink);
+const sinkCalls = (page: Page) =>
+  page.evaluate(() => (window as unknown as { vrSink: Record<string, number> }).vrSink);
 
 async function open(page: Page, name: string) {
   await page.goto('/');
@@ -66,7 +71,10 @@ async function open(page: Page, name: string) {
   const card = page.getByRole('region', { name: 'Export summary' });
   await expect(card).toBeVisible();
   const caps = JSON.parse((await page.locator('html').getAttribute('data-caps'))!) as Capabilities;
-  test.skip(!Object.values(caps.video).some(Boolean), 'This browser has no WebCodecs video encoder');
+  test.skip(
+    !Object.values(caps.video).some(Boolean),
+    'This browser has no WebCodecs video encoder',
+  );
   return card;
 }
 
@@ -78,7 +86,9 @@ async function reencode(page: Page) {
 const exportButton = (page: Page) =>
   page.getByRole('region', { name: 'Export summary' }).getByRole('button', { name: /^Export/ });
 
-test('exports 1080p30 to a result with the reduction and two videos to compare', async ({ page }) => {
+test('exports 1080p30 to a result with the reduction and two videos to compare', async ({
+  page,
+}) => {
   await forceMemorySink(page);
   const card = await open(page, 'land-1080p30-aac.mp4');
   await reencode(page);
@@ -97,7 +107,9 @@ test('exports 1080p30 to a result with the reduction and two videos to compare',
   await expect(figure).toContainText(/\d+% smaller/, { timeout: 60_000 });
   await expect(page.locator('.stats')).toContainText('Reduction');
   await expect(page.locator('.stats tr.total')).toContainText('% smaller');
-  await expect(page.getByRole('link', { name: /Download land-1080p30-aac-small\.mp4/ })).toHaveAttribute('download', 'land-1080p30-aac-small.mp4');
+  await expect(
+    page.getByRole('link', { name: /Download land-1080p30-aac-small\.mp4/ }),
+  ).toHaveAttribute('download', 'land-1080p30-aac-small.mp4');
 
   const videos = page.locator('.compare-stage video');
   await expect(videos).toHaveCount(2);
@@ -119,7 +131,9 @@ test('exports 1080p30 to a result with the reduction and two videos to compare',
   await expect(frameMode).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeHidden();
   const newTime = () => videos.nth(1).evaluate((v) => (v as HTMLVideoElement).currentTime);
-  await expect.poll(() => videos.nth(1).evaluate((v) => (v as HTMLVideoElement).readyState)).toBeGreaterThan(0);
+  await expect
+    .poll(() => videos.nth(1).evaluate((v) => (v as HTMLVideoElement).readyState))
+    .toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Next frame' }).click();
   await page.getByRole('button', { name: 'Next frame' }).click();
   await expect.poll(newTime).toBeCloseTo(2 / 30, 2);
@@ -133,7 +147,9 @@ test('exports 1080p30 to a result with the reduction and two videos to compare',
   await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
 });
 
-test('shows the new video alone with a note when the original cannot play here', async ({ page }) => {
+test('shows the new video alone with a note when the original cannot play here', async ({
+  page,
+}) => {
   await forceMemorySink(page);
   // Stands in for e.g. HEVC on Chromium: the browser reports no player for the original.
   await page.addInitScript(() => {
@@ -144,7 +160,9 @@ test('shows the new video alone with a note when the original cannot play here',
   await card.locator('summary').click();
   await card.getByLabel('Resolution', { exact: true }).selectOption('854');
   await exportButton(page).click();
-  await expect(page.getByText('This browser cannot play the original for comparison')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('This browser cannot play the original for comparison')).toBeVisible({
+    timeout: 60_000,
+  });
   await expect(page.locator('.compare-stage video:visible')).toHaveCount(1);
   await expect(page.getByRole('slider', { name: 'Wipe position' })).toBeHidden();
   await expect(page.locator('.compare-new')).toHaveCSS('clip-path', 'none');
@@ -166,7 +184,9 @@ test('an output that is not smaller says so and offers Make it smaller', async (
     slider.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await exportButton(page).click();
-  await expect(page.getByText('The new file is not smaller than the original')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('The new file is not smaller than the original')).toBeVisible({
+    timeout: 60_000,
+  });
   await expect(page.locator('.verdict .figure')).toContainText('not smaller');
   const smaller = page.getByRole('button', { name: 'Make it smaller' });
   await expect(smaller).toHaveClass(/is-suggested/);
@@ -177,7 +197,9 @@ test('an output that is not smaller says so and offers Make it smaller', async (
   await expect(page.getByRole('alert')).toContainText('quality is lowered to 75% of auto');
 });
 
-test('Cancel returns to prepare with settings kept and discards the partial file', async ({ page }) => {
+test('Cancel returns to prepare with settings kept and discards the partial file', async ({
+  page,
+}) => {
   await fakeSavePicker(page);
   const card = await open(page, 'land-4k60-aac.mp4');
   await card.locator('summary').click();
@@ -187,7 +209,9 @@ test('Cancel returns to prepare with settings kept and discards the partial file
   await expect(cancel).toBeVisible();
   await cancel.click();
   await expect(page.getByRole('region', { name: 'Export summary' })).toBeVisible();
-  await expect(page.getByRole('alert')).toContainText('A partial file may remain at the location you chose');
+  await expect(page.getByRole('alert')).toContainText(
+    'A partial file may remain at the location you chose',
+  );
   await page.getByRole('region', { name: 'Export summary' }).locator('summary').click();
   await expect(page.getByLabel('Resolution', { exact: true })).toHaveValue('1280');
   expect(await sinkCalls(page)).toMatchObject({ picker: 1, abort: 1, close: 0 });
@@ -198,7 +222,9 @@ test('a file-stream export closes the file once and skips playback compare', asy
   await open(page, 'land-1080p30-aac.mp4');
   await reencode(page);
   await exportButton(page).click();
-  await expect(page.locator('.verdict')).toContainText('is saved where you chose', { timeout: 60_000 });
+  await expect(page.locator('.verdict')).toContainText('is saved where you chose', {
+    timeout: 60_000,
+  });
   await expect(page.locator('.compare-skipped')).toBeVisible();
   await expect(page.locator('.compare-stage video')).toHaveCount(0);
   await expect(page.getByRole('link', { name: /Download/ })).toHaveCount(0);

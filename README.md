@@ -1,5 +1,10 @@
 # videoresize
 
+[![Tests](https://github.com/bradsec/videoresize/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/bradsec/videoresize/actions/workflows/tests.yml)
+[![Version](https://img.shields.io/github/package-json/v/bradsec/videoresize)](package.json)
+[![License: MIT](https://img.shields.io/github/license/bradsec/videoresize)](LICENSE)
+[![Live site](https://img.shields.io/website?url=https%3A%2F%2Fbradsec.github.io%2Fvideoresize%2F&label=bradsec.github.io%2Fvideoresize)](https://bradsec.github.io/videoresize/)
+
 Shrink and trim phone videos in the browser so they are small enough to send. Pick a video, trim
 it, choose a size, export, then compare the original and the new file. Output defaults to MP4 with
 H.264 video and AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and
@@ -23,10 +28,10 @@ fallback AAC, save picker, file sharing). The app disables what a browser cannot
 this README does not claim any specific browser version works. What the e2e suite saw in this
 repository (Playwright's bundled Chromium and WebKit engines, 1280x720 probe):
 
-| Engine | H.264 | HEVC | AV1 | VP9 | AAC | Opus | Save picker |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Chromium (headless) | yes | no | yes | yes | yes, via the fallback chunk | yes | yes |
-| WebKit | yes | yes | yes | yes | yes, native | yes | no |
+| Engine              | H.264 | HEVC | AV1 | VP9 | AAC                         | Opus | Save picker |
+| ------------------- | ----- | ---- | --- | --- | --------------------------- | ---- | ----------- |
+| Chromium (headless) | yes   | no   | yes | yes | yes, via the fallback chunk | yes  | yes         |
+| WebKit              | yes   | yes  | yes | yes | yes, native                 | yes  | no          |
 
 Firefox and Chrome on Linux have no native WebCodecs AAC encoder, so the app lazy-loads the
 `@mediabunny/aac-encoder` chunk (about 1 MB) the first time it needs AAC. The service worker caches
@@ -55,6 +60,11 @@ Requires Node 22 and pnpm 10.
 pnpm install
 pnpm dev            # dev server
 pnpm build          # licence check, type check, production build into dist/, remote-URL check
+pnpm typecheck      # TypeScript check
+pnpm lint           # ESLint
+pnpm format:check   # Prettier check
+pnpm format         # format supported files
+pnpm check:size     # fail if any dist/ file exceeds 25 MiB
 pnpm check:remote   # alone: scan dist/ for remote request targets
 scripts/make-icons.sh   # regenerate public/ icons from scripts/icons/*.svg (needs inkscape, ImageMagick)
 pnpm test           # unit tests (vitest)
@@ -86,21 +96,22 @@ moves to the next smaller size, or lowers quality one step when no smaller size 
 ## Hosting
 
 Static output in `dist/`, with a relative base so it runs under a GitHub Pages repo subpath.
-`.github/workflows/pages.yml` deploys on push to `main`. `public/_headers` carries the same CSP
+`.github/workflows/tests.yml` runs checks, unit tests, browser tests and a build on pushes and pull
+requests. After a successful Tests run from a push to `main`, `.github/workflows/pages.yml` builds
+that commit and deploys it. `public/_headers` carries the same CSP
 for Cloudflare Pages: set the build command to `pnpm build` and the output directory to `dist`.
-No asset may exceed 25 MiB (Cloudflare Pages limit); check with `find dist -size +25M`, which
-should print nothing.
+No asset may exceed 25 MiB (Cloudflare Pages limit); `pnpm check:size` verifies every built file.
 
 ## Licences
 
 This project is MIT (see `LICENSE`). Production dependencies:
 
-| Package | Licence | Source |
-| --- | --- | --- |
-| mediabunny | MPL-2.0 (unmodified) | https://github.com/Vanilagy/mediabunny |
-| @mediabunny/aac-encoder | MPL-2.0 (unmodified), embeds FFmpeg AAC encoder under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder |
-| @types/dom-webcodecs | MIT (type declarations only, not shipped) | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs |
-| @types/dom-mediacapture-transform | MIT (type declarations only, not shipped) | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform |
+| Package                           | Licence                                                                 | Source                                                                                          |
+| --------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| mediabunny                        | MPL-2.0 (unmodified)                                                    | https://github.com/Vanilagy/mediabunny                                                          |
+| @mediabunny/aac-encoder           | MPL-2.0 (unmodified), embeds FFmpeg AAC encoder under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder                           |
+| @types/dom-webcodecs              | MIT (type declarations only, not shipped)                               | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs              |
+| @types/dom-mediacapture-transform | MIT (type declarations only, not shipped)                               | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform |
 
 ### AAC fallback encoder
 
@@ -133,7 +144,7 @@ Full notices, including the MPL-2.0 and LGPL-2.1 texts, are in `THIRD-PARTY-LICE
 copies it to `dist/THIRD-PARTY-LICENSES.txt` and the page footer links to it. `pnpm check:licenses` reads
 `pnpm licenses list --prod --json`, fails on any licence outside the allowlist (MIT, BSD-2/3-Clause,
 ISC, Apache-2.0, 0BSD, MPL-2.0, plus the per-package LGPL exception above) and fails if a production package has no entry in
-`THIRD-PARTY-LICENSES.txt`. It runs in `pnpm build` and in the Pages workflow.
+`THIRD-PARTY-LICENSES.txt`. It runs in `pnpm build` and in the Tests workflow.
 
 ## Manual device check
 

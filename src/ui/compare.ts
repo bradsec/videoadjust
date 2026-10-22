@@ -22,7 +22,8 @@ export interface CompareOptions {
 const KEY_STEP = 5;
 const PAGE_STEP = 10;
 
-const shortEdge = (info: SourceInfo) => (info.video ? `${Math.min(info.video.displayWidth, info.video.displayHeight)}p` : '');
+const shortEdge = (info: SourceInfo) =>
+  info.video ? `${Math.min(info.video.displayWidth, info.video.displayHeight)}p` : '';
 
 /**
  * Wipe comparison: the new video stacked over the original and clipped to the right of the
@@ -61,7 +62,11 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   knob.append(icon('i-wipe'));
   stage.append(original, output, tagOriginal, tagNew, line, knob);
 
-  const note = el('p', 'compare-note', 'This browser cannot play the original for comparison, so only the new video is shown. The table still compares both.');
+  const note = el(
+    'p',
+    'compare-note',
+    'This browser cannot play the original for comparison, so only the new video is shown. The table still compares both.',
+  );
   note.hidden = true;
 
   const bar = el('div', 'compare-bar');
@@ -99,7 +104,10 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
     line.style.left = `${position}%`;
     knob.style.left = `${position}%`;
     knob.setAttribute('aria-valuenow', String(Math.round(position)));
-    knob.setAttribute('aria-valuetext', `${Math.round(position)}% original, ${100 - Math.round(position)}% new`);
+    knob.setAttribute(
+      'aria-valuetext',
+      `${Math.round(position)}% original, ${100 - Math.round(position)}% new`,
+    );
   }
 
   function showOriginalUnplayable(): void {
@@ -124,7 +132,9 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   }
 
   function renderClock(): void {
-    const duration = Number.isFinite(output.duration) ? output.duration : opts.outputInfo.durationSec;
+    const duration = Number.isFinite(output.duration)
+      ? output.duration
+      : opts.outputInfo.durationSec;
     range.max = String(duration);
     range.value = String(output.currentTime);
     time.textContent = `${formatDuration(output.currentTime)} / ${formatDuration(duration)}`;
@@ -136,7 +146,8 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   function follow(exact: boolean): void {
     if (!originalPlayable || original.readyState === 0) return;
     const target = output.currentTime + offset;
-    if (exact ? original.currentTime !== target : needsResync(target, original.currentTime)) original.currentTime = target;
+    if (exact ? original.currentTime !== target : needsResync(target, original.currentTime))
+      original.currentTime = target;
     if (output.paused && !original.paused) original.pause();
     if (!output.paused && original.paused) void original.play().catch(() => {});
   }
@@ -153,7 +164,8 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
     renderClock();
   };
   // Older Safari and Firefox lack requestVideoFrameCallback even though the DOM types always declare it.
-  if (typeof HTMLVideoElement.prototype.requestVideoFrameCallback === 'function') frameHandle = output.requestVideoFrameCallback(onFrame);
+  if (typeof HTMLVideoElement.prototype.requestVideoFrameCallback === 'function')
+    frameHandle = output.requestVideoFrameCallback(onFrame);
   else output.addEventListener('timeupdate', onTimeUpdate);
 
   output.addEventListener('play', () => {
@@ -173,12 +185,15 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   original.addEventListener('error', showOriginalUnplayable);
 
   play.addEventListener('click', () => {
-    if (output.paused) void output.play().catch((err: unknown) => console.warn('playback did not start', err));
+    if (output.paused)
+      void output.play().catch((err: unknown) => console.warn('playback did not start', err));
     else output.pause();
   });
   const step = (frames: number) => {
     output.pause();
-    const duration = Number.isFinite(output.duration) ? output.duration : opts.outputInfo.durationSec;
+    const duration = Number.isFinite(output.duration)
+      ? output.duration
+      : opts.outputInfo.durationSec;
     output.currentTime = Math.min(duration, Math.max(0, output.currentTime + frames / fps));
   };
   prev.addEventListener('click', () => step(-1));
@@ -191,9 +206,14 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
 
   knob.addEventListener('keydown', (e) => {
     const moves: Record<string, number> = {
-      ArrowLeft: position - KEY_STEP, ArrowDown: position - KEY_STEP,
-      ArrowRight: position + KEY_STEP, ArrowUp: position + KEY_STEP,
-      PageDown: position - PAGE_STEP, PageUp: position + PAGE_STEP, Home: 0, End: 100,
+      ArrowLeft: position - KEY_STEP,
+      ArrowDown: position - KEY_STEP,
+      ArrowRight: position + KEY_STEP,
+      ArrowUp: position + KEY_STEP,
+      PageDown: position - PAGE_STEP,
+      PageUp: position + PAGE_STEP,
+      Home: 0,
+      End: 100,
     };
     const value = moves[e.key];
     if (value === undefined) return;

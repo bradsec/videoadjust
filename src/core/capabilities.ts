@@ -56,8 +56,12 @@ export async function probeCapabilities(deps?: ProbeDeps): Promise<Capabilities>
   const audioResults = await Promise.all(
     AUDIO_CODECS.map((codec) => probe(() => d.canEncodeAudio(codec), codec)),
   );
-  const video = Object.fromEntries(VIDEO_CODECS.map((c, i) => [c, videoResults[i]])) as Capabilities['video'];
-  const audio = Object.fromEntries(AUDIO_CODECS.map((c, i) => [c, audioResults[i]])) as Capabilities['audio'];
+  const video = Object.fromEntries(
+    VIDEO_CODECS.map((c, i) => [c, videoResults[i]]),
+  ) as Capabilities['video'];
+  const audio = Object.fromEntries(
+    AUDIO_CODECS.map((c, i) => [c, audioResults[i]]),
+  ) as Capabilities['audio'];
 
   let aacViaFallback = false;
   if (!audio.aac) {

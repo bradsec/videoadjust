@@ -17,7 +17,9 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE.map((path) => new Request(scoped(path), { cache: 'reload' }))))
+      .then((cache) =>
+        cache.addAll(PRECACHE.map((path) => new Request(scoped(path), { cache: 'reload' }))),
+      )
       .then(() => self.skipWaiting()),
   );
 });
@@ -39,7 +41,10 @@ self.addEventListener('activate', (event) => {
 // version may not have, and must never be served in its place.
 async function cachedPage(request) {
   const cache = await caches.open(CACHE);
-  return (await cache.match(request, { ignoreSearch: true })) || (await cache.match(scoped('./index.html')));
+  return (
+    (await cache.match(request, { ignoreSearch: true })) ||
+    (await cache.match(scoped('./index.html')))
+  );
 }
 
 async function networkFirst(request) {
@@ -62,7 +67,8 @@ async function cacheFirst(request) {
   const response = await fetch(request);
   // Cache only complete 200 responses (not 206 ranges) and never an HTML fallback page.
   const isHtml = (response.headers.get('content-type') || '').includes('text/html');
-  if (response.status === 200 && !isHtml) await (await caches.open(CACHE)).put(request, response.clone());
+  if (response.status === 200 && !isHtml)
+    await (await caches.open(CACHE)).put(request, response.clone());
   return response;
 }
 

@@ -18,7 +18,10 @@ function ok(r: ConvertResult): Extract<ConvertResult, { ok: true }> {
 }
 
 async function convert(page: Page, settings: Settings, cancelAt?: CancelAt) {
-  return page.evaluate(([s, c]) => window.vrHarness.convertToMemory(s, c), [settings, cancelAt] as const);
+  return page.evaluate(([s, c]) => window.vrHarness.convertToMemory(s, c), [
+    settings,
+    cancelAt,
+  ] as const);
 }
 
 test.beforeEach(async ({ page }) => {

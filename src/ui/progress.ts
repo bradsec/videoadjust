@@ -29,7 +29,10 @@ function fact(label: string): { node: HTMLElement; value: HTMLElement } {
   return { node, value };
 }
 
-export function scaleRow(label: string, kind: 'orig' | 'new'): { node: HTMLElement; value: HTMLElement; fill: HTMLElement } {
+export function scaleRow(
+  label: string,
+  kind: 'orig' | 'new',
+): { node: HTMLElement; value: HTMLElement; fill: HTMLElement } {
   const node = el('div', 'scale-row');
   const head = el('div', 'scale-label');
   const value = el('b', 'num');
@@ -42,7 +45,10 @@ export function scaleRow(label: string, kind: 'orig' | 'new'): { node: HTMLEleme
 }
 
 /** Progress card: percent, bar, elapsed, remaining, bytes written and Cancel. */
-export function mountProgress(host: HTMLElement, opts: ProgressOptions): { update(p: number, bytes: number, elapsedMs: number): void } {
+export function mountProgress(
+  host: HTMLElement,
+  opts: ProgressOptions,
+): { update(p: number, bytes: number, elapsedMs: number): void } {
   const card = el('section', 'card progress-card');
   card.setAttribute('aria-label', 'Export progress');
   const pct = el('div', 'pct num');
@@ -94,12 +100,16 @@ export function mountProgress(host: HTMLElement, opts: ProgressOptions): { updat
     fill.style.width = `${percent}%`;
     track.setAttribute('aria-valuenow', String(percent));
     elapsed.value.textContent = clock(elapsedMs);
-    remaining.value.textContent = p >= MIN_PROGRESS_FOR_ESTIMATE && p < 1
-      ? `about ${clock((elapsedMs * (1 - p)) / p)}`
-      : p >= 1 ? 'Finishing' : 'Estimating';
+    remaining.value.textContent =
+      p >= MIN_PROGRESS_FOR_ESTIMATE && p < 1
+        ? `about ${clock((elapsedMs * (1 - p)) / p)}`
+        : p >= 1
+          ? 'Finishing'
+          : 'Estimating';
     written.value.textContent = formatBytes(bytes);
     now.value.textContent = formatBytes(bytes);
-    if (opts.originalBytes) now.fill.style.width = `${Math.min(100, (bytes / opts.originalBytes) * 100)}%`;
+    if (opts.originalBytes)
+      now.fill.style.width = `${Math.min(100, (bytes / opts.originalBytes) * 100)}%`;
   }
 
   update(0, 0, 0);

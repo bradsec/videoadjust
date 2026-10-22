@@ -24,7 +24,10 @@ test('works offline after the first visit and converts a fixture', async ({ page
   const card = page.getByRole('region', { name: 'Export summary' });
   await expect(card).toBeVisible();
   const caps = JSON.parse((await page.locator('html').getAttribute('data-caps'))!) as Capabilities;
-  test.skip(!Object.values(caps.video).some(Boolean), 'This browser has no WebCodecs video encoder');
+  test.skip(
+    !Object.values(caps.video).some(Boolean),
+    'This browser has no WebCodecs video encoder',
+  );
   const reencode = page.getByRole('checkbox', { name: 'Re-encode anyway' });
   if (await reencode.isVisible()) await reencode.check();
   await card.getByRole('button', { name: /^Export/ }).click();
@@ -41,7 +44,10 @@ test('precache list covers the build and excludes the e2e harness', async ({ req
   expect(sw).toMatch(/aac-encoder[\w-]*\.js/);
 });
 
-test('offline navigation uses the current cache only, never an older version', async ({ page, context }) => {
+test('offline navigation uses the current cache only, never an older version', async ({
+  page,
+  context,
+}) => {
   await page.goto('/');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload();
@@ -49,8 +55,12 @@ test('offline navigation uses the current cache only, never an older version', a
   // An older version's cache sorts first in caches.match, so a lookup across caches would hit it.
   await page.evaluate(async () => {
     const stale = await caches.open('videoresize-0.0.0-old');
-    const body = () => new Response('<!doctype html><title>STALE</title>', { headers: { 'content-type': 'text/html' } });
-    for (const url of ['./', './index.html', location.href]) await stale.put(new URL(url, location.href).href, body());
+    const body = () =>
+      new Response('<!doctype html><title>STALE</title>', {
+        headers: { 'content-type': 'text/html' },
+      });
+    for (const url of ['./', './index.html', location.href])
+      await stale.put(new URL(url, location.href).href, body());
     const names = await caches.keys();
     // Put the stale cache first in creation order by recreating the current ones after it.
     for (const name of names.filter((n) => n !== 'videoresize-0.0.0-old')) {

@@ -1,5 +1,11 @@
 import type {
-  AudioCodecId, AutoResult, Capabilities, Container, Settings, SourceInfo, VideoCodecId,
+  AudioCodecId,
+  AutoResult,
+  Capabilities,
+  Container,
+  Settings,
+  SourceInfo,
+  VideoCodecId,
 } from './types';
 
 export const LONG_EDGE_CAP = 1920;
@@ -14,7 +20,11 @@ const MAX_FPS_KEPT = 50;
 const even = (n: number): number => Math.max(2, Math.floor(n / 2) * 2);
 
 /** Scale so the long edge is at most longEdge (never upscales); both sides end up even. */
-export function scaleToLongEdge(w: number, h: number, longEdge: number): { width: number; height: number } {
+export function scaleToLongEdge(
+  w: number,
+  h: number,
+  longEdge: number,
+): { width: number; height: number } {
   const scale = Math.min(1, longEdge / Math.max(w, h));
   return { width: even(Math.round(w * scale)), height: even(Math.round(h * scale)) };
 }
@@ -35,7 +45,8 @@ export function autoSettings(src: SourceInfo, caps: Capabilities): AutoResult {
     );
   }
   const container: Container = codec === 'vp9' ? 'webm' : 'mp4';
-  if (container === 'webm') notes.push('The output is a WebM file because this browser can only encode VP9 video.');
+  if (container === 'webm')
+    notes.push('The output is a WebM file because this browser can only encode VP9 video.');
 
   let video: Settings['video'] = null;
   let videoOptimal = true;
@@ -61,12 +72,15 @@ export function autoSettings(src: SourceInfo, caps: Capabilities): AutoResult {
     const sa = src.audio;
     const acodec: AudioCodecId = caps.audio.aac && container === 'mp4' ? 'aac' : 'opus';
     if (acodec === 'opus' && container === 'mp4') {
-      notes.push('AAC is not available here, so the audio uses Opus, which has limited player compatibility inside MP4 files.');
+      notes.push(
+        'AAC is not available here, so the audio uses Opus, which has limited player compatibility inside MP4 files.',
+      );
     }
     const channels = Math.min(sa.channels, 2);
     const target = channels === 1 ? AUDIO_MONO_BPS : AUDIO_STEREO_BPS;
     const capped = sa.bitrate !== null ? Math.min(target, sa.bitrate) : target;
-    const copy = acodec === 'aac' && sa.codec === 'aac' && sa.bitrate !== null && sa.bitrate <= target;
+    const copy =
+      acodec === 'aac' && sa.codec === 'aac' && sa.bitrate !== null && sa.bitrate <= target;
     audio = { codec: acodec, bitrate: copy ? (sa.bitrate as number) : capped, channels, copy };
     audioOptimal = sa.codec === 'aac';
   }
@@ -75,8 +89,18 @@ export function autoSettings(src: SourceInfo, caps: Capabilities): AutoResult {
   const sizeSteps = SIZE_STEPS.filter((s) => s <= longEdge);
 
   return {
-    settings: { container, passthrough: false, trim: { start: 0, end: src.durationSec }, video, audio },
-    alreadyOptimal: videoOptimal && audioOptimal && src.containerMime.split(';', 1)[0]?.trim().toLowerCase() === 'video/mp4' && container === 'mp4',
+    settings: {
+      container,
+      passthrough: false,
+      trim: { start: 0, end: src.durationSec },
+      video,
+      audio,
+    },
+    alreadyOptimal:
+      videoOptimal &&
+      audioOptimal &&
+      src.containerMime.split(';', 1)[0]?.trim().toLowerCase() === 'video/mp4' &&
+      container === 'mp4',
     sizeSteps,
     notes,
   };

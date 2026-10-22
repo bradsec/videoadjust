@@ -1,16 +1,20 @@
 import { describe, expect, test, vi } from 'vitest';
 import { probeCapabilities, type ProbeDeps } from '../../src/core/capabilities';
 
-function deps(overrides: {
-  video?: (codec: string) => boolean | Promise<boolean>;
-  aac?: boolean;
-  opus?: boolean;
-  fallback?: () => Promise<boolean>;
-  win?: object;
-} = {}): ProbeDeps {
+function deps(
+  overrides: {
+    video?: (codec: string) => boolean | Promise<boolean>;
+    aac?: boolean;
+    opus?: boolean;
+    fallback?: () => Promise<boolean>;
+    win?: object;
+  } = {},
+): ProbeDeps {
   const video = overrides.video ?? (() => true);
   return {
-    canEncodeVideo: vi.fn(async (codec: string) => video(codec)) as unknown as ProbeDeps['canEncodeVideo'],
+    canEncodeVideo: vi.fn(async (codec: string) =>
+      video(codec),
+    ) as unknown as ProbeDeps['canEncodeVideo'],
     canEncodeAudio: vi.fn(async (codec: string) =>
       codec === 'aac' ? (overrides.aac ?? true) : (overrides.opus ?? true),
     ) as unknown as ProbeDeps['canEncodeAudio'],
@@ -56,7 +60,11 @@ describe('probeCapabilities', () => {
     const caps = await probeCapabilities(d);
     expect(caps.video).toEqual({ avc: true, hevc: true, av1: true, vp9: true });
     for (const codec of ['avc', 'hevc', 'av1', 'vp9']) {
-      expect(d.canEncodeVideo).toHaveBeenCalledWith(codec, { width: 1280, height: 720, frameRate: 30 });
+      expect(d.canEncodeVideo).toHaveBeenCalledWith(codec, {
+        width: 1280,
+        height: 720,
+        frameRate: 30,
+      });
     }
   });
 
@@ -81,7 +89,9 @@ describe('probeCapabilities', () => {
   });
 
   test('fileStreamSave reflects showSaveFilePicker in window', async () => {
-    const withPicker = await probeCapabilities(deps({ win: { navigator: {}, showSaveFilePicker: () => {} } }));
+    const withPicker = await probeCapabilities(
+      deps({ win: { navigator: {}, showSaveFilePicker: () => {} } }),
+    );
     const without = await probeCapabilities(deps({ win: { navigator: {} } }));
     expect(withPicker.fileStreamSave).toBe(true);
     expect(without.fileStreamSave).toBe(false);

@@ -7,7 +7,8 @@ export type Trim = { start: number; end: number };
 export function clampTrim(t: Trim, duration: number, moved: 'start' | 'end'): Trim {
   if (!Number.isFinite(duration) || duration <= 0) return { start: 0, end: 0 };
   if (duration < MIN_TRIM_SPAN) return { start: 0, end: duration };
-  const bound = (n: number, low: number, high: number) => Math.min(high, Math.max(low, Number.isFinite(n) ? n : low));
+  const bound = (n: number, low: number, high: number) =>
+    Math.min(high, Math.max(low, Number.isFinite(n) ? n : low));
   if (moved === 'start') {
     const end = bound(t.end, MIN_TRIM_SPAN, duration);
     return { start: bound(t.start, 0, end - MIN_TRIM_SPAN), end };
@@ -24,7 +25,10 @@ export interface TrimBarOptions {
   onChange: (t: Trim) => void;
 }
 
-export function mountTrimBar(host: HTMLElement, opts: TrimBarOptions): { update(value: Trim): void; destroy(): void } {
+export function mountTrimBar(
+  host: HTMLElement,
+  opts: TrimBarOptions,
+): { update(value: Trim): void; destroy(): void } {
   const { duration, video } = opts;
   let value = opts.value;
   let destroyed = false;
@@ -46,12 +50,19 @@ export function mountTrimBar(host: HTMLElement, opts: TrimBarOptions): { update(
     handle.setAttribute('role', 'slider');
     handle.setAttribute('aria-label', side === 'start' ? 'Start' : 'End');
     handle.addEventListener('keydown', (event) => {
-      const direction = event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 :
-        event.key === 'ArrowRight' || event.key === 'ArrowUp' ? 1 : 0;
+      const direction =
+        event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+          ? -1
+          : event.key === 'ArrowRight' || event.key === 'ArrowUp'
+            ? 1
+            : 0;
       if (!direction) return;
       event.preventDefault();
       const step = event.shiftKey ? 1 : 0.1;
-      change(side, Math.round(((side === 'start' ? value.start : value.end) + direction * step) * 10) / 10);
+      change(
+        side,
+        Math.round(((side === 'start' ? value.start : value.end) + direction * step) * 10) / 10,
+      );
     });
     let activePointer: number | null = null;
     handle.addEventListener('pointerdown', (event) => {
@@ -63,8 +74,12 @@ export function mountTrimBar(host: HTMLElement, opts: TrimBarOptions): { update(
     handle.addEventListener('pointermove', (event) => {
       if (activePointer === event.pointerId) move(side, event);
     });
-    handle.addEventListener('pointerup', () => { activePointer = null; });
-    handle.addEventListener('pointercancel', () => { activePointer = null; });
+    handle.addEventListener('pointerup', () => {
+      activePointer = null;
+    });
+    handle.addEventListener('pointercancel', () => {
+      activePointer = null;
+    });
     return handle;
   });
   strip.append(thumbs, before, after, selection, ...handles, playhead);
@@ -87,14 +102,18 @@ export function mountTrimBar(host: HTMLElement, opts: TrimBarOptions): { update(
 
   function move(side: 'start' | 'end', event: PointerEvent): void {
     const rect = strip.getBoundingClientRect();
-    if (rect.width) change(side, (event.clientX - rect.left) / rect.width * duration);
+    if (rect.width) change(side, ((event.clientX - rect.left) / rect.width) * duration);
   }
   function change(side: 'start' | 'end', position: number): void {
     const next = clampTrim({ ...value, [side]: position }, duration, side);
     if (next.start !== value.start || next.end !== value.end) opts.onChange(next);
   }
-  function setPercent(node: HTMLElement, property: 'left' | 'right' | 'width', seconds: number): void {
-    node.style[property] = `${duration > 0 ? seconds / duration * 100 : 0}%`;
+  function setPercent(
+    node: HTMLElement,
+    property: 'left' | 'right' | 'width',
+    seconds: number,
+  ): void {
+    node.style[property] = `${duration > 0 ? (seconds / duration) * 100 : 0}%`;
   }
   function update(next: Trim): void {
     value = next;
@@ -109,15 +128,22 @@ export function mountTrimBar(host: HTMLElement, opts: TrimBarOptions): { update(
       const position = next[side];
       const handle = handles[index]!;
       setPercent(handle, 'left', position);
-      handle.setAttribute('aria-valuemin', String(side === 'start' ? 0 : Math.min(duration, next.start + MIN_TRIM_SPAN)));
-      handle.setAttribute('aria-valuemax', String(side === 'start' ? Math.max(0, next.end - MIN_TRIM_SPAN) : duration));
+      handle.setAttribute(
+        'aria-valuemin',
+        String(side === 'start' ? 0 : Math.min(duration, next.start + MIN_TRIM_SPAN)),
+      );
+      handle.setAttribute(
+        'aria-valuemax',
+        String(side === 'start' ? Math.max(0, next.end - MIN_TRIM_SPAN) : duration),
+      );
       handle.setAttribute('aria-valuenow', String(position));
       handle.setAttribute('aria-valuetext', formatDuration(position));
       handle.disabled = duration < MIN_TRIM_SPAN;
     }
   }
   function onTimeUpdate(): void {
-    if (!video.paused && (video.currentTime >= value.end || video.currentTime < value.start)) video.currentTime = value.start;
+    if (!video.paused && (video.currentTime >= value.end || video.currentTime < value.start))
+      video.currentTime = value.start;
     setPercent(playhead, 'left', video.currentTime);
   }
   video.addEventListener('timeupdate', onTimeUpdate);
@@ -126,12 +152,15 @@ export function mountTrimBar(host: HTMLElement, opts: TrimBarOptions): { update(
   update(value);
   onTimeUpdate();
   const count = window.matchMedia('(max-width: 719px)').matches ? 8 : 12;
-  void opts.thumbnails(count).then((canvases) => {
-    if (destroyed) return;
-    thumbs.replaceChildren(...canvases);
-  }).catch((error: unknown) => {
-    if (!destroyed) console.warn('Could not render video thumbnails', error);
-  });
+  void opts
+    .thumbnails(count)
+    .then((canvases) => {
+      if (destroyed) return;
+      thumbs.replaceChildren(...canvases);
+    })
+    .catch((error: unknown) => {
+      if (!destroyed) console.warn('Could not render video thumbnails', error);
+    });
   return {
     update,
     destroy() {

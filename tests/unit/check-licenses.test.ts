@@ -27,11 +27,15 @@ describe('checkLicenses', () => {
 
   test('accepts LGPL-2.1-or-later only for the listed WASM exception package', () => {
     const text = '## @mediabunny/aac-encoder\n\n## beta\n';
-    expect(checkLicenses({ 'LGPL-2.1-or-later': [{ name: '@mediabunny/aac-encoder' }] }, text)).toEqual([]);
+    expect(
+      checkLicenses({ 'LGPL-2.1-or-later': [{ name: '@mediabunny/aac-encoder' }] }, text),
+    ).toEqual([]);
     expect(checkLicenses({ 'LGPL-2.1-or-later': [{ name: 'beta' }] }, text)).toEqual([
       'beta: licence "LGPL-2.1-or-later" is not in the allowlist',
     ]);
-    expect(checkLicenses({ 'GPL-2.0-or-later': [{ name: '@mediabunny/aac-encoder' }] }, text)).toHaveLength(1);
+    expect(
+      checkLicenses({ 'GPL-2.0-or-later': [{ name: '@mediabunny/aac-encoder' }] }, text),
+    ).toHaveLength(1);
   });
 
   test('handles SPDX expressions', () => {
@@ -49,7 +53,13 @@ describe('check-licenses CLI', () => {
   const run = (json: string) =>
     spawnSync(
       process.execPath,
-      ['scripts/check-licenses.mjs', '--licenses', join(dir, json), '--third-party', join(dir, 'third-party.txt')],
+      [
+        'scripts/check-licenses.mjs',
+        '--licenses',
+        join(dir, json),
+        '--third-party',
+        join(dir, 'third-party.txt'),
+      ],
       { encoding: 'utf8' },
     );
 

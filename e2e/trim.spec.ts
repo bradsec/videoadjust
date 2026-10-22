@@ -25,9 +25,19 @@ test('pointer drag changes the start readout', async ({ page, isMobile }) => {
   const strip = page.locator('.trim-strip');
   const box = await strip.boundingBox();
   expect(box).not.toBeNull();
-  await start.dispatchEvent('pointerdown', { pointerId: 1, pointerType: isMobile ? 'touch' : 'mouse', clientX: box!.x + 1 });
-  await start.dispatchEvent('pointermove', { pointerId: 1, pointerType: isMobile ? 'touch' : 'mouse', clientX: box!.x + box!.width / 4 });
-  await expect.poll(async () => Number(await start.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+  await start.dispatchEvent('pointerdown', {
+    pointerId: 1,
+    pointerType: isMobile ? 'touch' : 'mouse',
+    clientX: box!.x + 1,
+  });
+  await start.dispatchEvent('pointermove', {
+    pointerId: 1,
+    pointerType: isMobile ? 'touch' : 'mouse',
+    clientX: box!.x + box!.width / 4,
+  });
+  await expect
+    .poll(async () => Number(await start.getAttribute('aria-valuenow')))
+    .toBeGreaterThan(0);
   await expect(page.locator('.trim-readout').first().locator('output')).not.toHaveText('0:00');
 });
 

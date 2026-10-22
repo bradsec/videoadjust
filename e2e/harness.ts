@@ -11,7 +11,13 @@ export type ReadResult =
   | { ok: false; error: { name: string; message: string; codec: string | null } };
 
 export type ConvertResult =
-  | { ok: true; output: SourceInfo; outputBytes: number; reportedBytes: number; lastProgress: number }
+  | {
+      ok: true;
+      output: SourceInfo;
+      outputBytes: number;
+      reportedBytes: number;
+      lastProgress: number;
+    }
   | { ok: false; error: { name: string; message: string } };
 
 export type CancelAt = 'never' | 'immediately' | 'at-start' | 'mid-run';
@@ -46,7 +52,11 @@ const harness = {
       const e = err as Error;
       return {
         ok: false,
-        error: { name: e.name, message: e.message, codec: err instanceof UnsupportedSourceError ? err.codec : null },
+        error: {
+          name: e.name,
+          message: e.message,
+          codec: err instanceof UnsupportedSourceError ? err.codec : null,
+        },
       };
     }
   },
@@ -75,7 +85,8 @@ const harness = {
         onProgress(p, bytes) {
           lastProgress = p;
           reportedBytes = bytes;
-          if ((cancelAt === 'at-start' && p === 0) || (cancelAt === 'mid-run' && p > 0 && p < 1)) void job.cancel();
+          if ((cancelAt === 'at-start' && p === 0) || (cancelAt === 'mid-run' && p > 0 && p < 1))
+            void job.cancel();
         },
       });
       if (cancelAt === 'immediately') void job.cancel();
@@ -128,7 +139,15 @@ const harness = {
       for (const c of chunks) bytes.set(c.data, c.position);
       const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
       const { info } = await readSource(new File([bytes], 'out', { type: mime }));
-      return { ok: true, output: info, outputBytes: size, reportedBytes, lastProgress, closeCalls, abortCalls };
+      return {
+        ok: true,
+        output: info,
+        outputBytes: size,
+        reportedBytes,
+        lastProgress,
+        closeCalls,
+        abortCalls,
+      };
     } catch (err) {
       return { ...failure(err), closeCalls, abortCalls };
     }

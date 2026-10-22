@@ -13,7 +13,9 @@ test.beforeEach(({}, testInfo) => {
   test.skip(!['iphone', 'ipad'].includes(testInfo.project.name), 'Phone and tablet projects only');
 });
 
-test('portrait phone video: full flow keeps portrait orientation, axe clean in each state', async ({ page }) => {
+test('portrait phone video: full flow keeps portrait orientation, axe clean in each state', async ({
+  page,
+}) => {
   test.setTimeout(90_000); // real encode plus four axe scans; slow when workers share the CPU
   // Memory sink, as on real iOS Safari: the result screen then compares both videos.
   await page.addInitScript(() => {
@@ -28,7 +30,10 @@ test('portrait phone video: full flow keeps portrait orientation, axe clean in e
   const card = page.getByRole('region', { name: 'Export summary' });
   await expect(card).toBeVisible();
   const caps = JSON.parse((await page.locator('html').getAttribute('data-caps'))!) as Capabilities;
-  test.skip(!Object.values(caps.video).some(Boolean), 'This browser has no WebCodecs video encoder');
+  test.skip(
+    !Object.values(caps.video).some(Boolean),
+    'This browser has no WebCodecs video encoder',
+  );
   await axeClean(page);
 
   const reencode = page.getByRole('checkbox', { name: 'Re-encode anyway' });
@@ -40,8 +45,12 @@ test('portrait phone video: full flow keeps portrait orientation, axe clean in e
   const videos = page.locator('.compare-stage video');
   const shown = videos.filter({ visible: true });
   await expect(shown.first()).toBeVisible();
-  await expect.poll(() => shown.first().evaluate((v) => (v as HTMLVideoElement).readyState)).toBeGreaterThan(0);
-  const dims = await videos.evaluateAll((all) => all.map((v) => [(v as HTMLVideoElement).videoWidth, (v as HTMLVideoElement).videoHeight]));
+  await expect
+    .poll(() => shown.first().evaluate((v) => (v as HTMLVideoElement).readyState))
+    .toBeGreaterThan(0);
+  const dims = await videos.evaluateAll((all) =>
+    all.map((v) => [(v as HTMLVideoElement).videoWidth, (v as HTMLVideoElement).videoHeight]),
+  );
   const decoded = dims.filter(([w, h]) => w > 0 && h > 0);
   expect(decoded.length).toBeGreaterThan(0);
   for (const [w, h] of decoded) expect(w).toBeLessThan(h);

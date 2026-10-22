@@ -34,10 +34,11 @@
 
   /* Type: rounded system face for display (SF Pro Rounded on Apple,
      falls back to the platform UI face), UI face for body, mono for numbers. */
-  --font-display: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Roboto Mono", monospace;
+  --font-display:
+    ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', monospace;
   --fs-1: 0.8125rem; /* 13 captions, labels */
   --fs-2: 0.9375rem; /* 15 secondary */
   --fs-3: 1.0625rem; /* 17 body (iOS body size) */

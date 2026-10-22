@@ -5,10 +5,9 @@
 name: deploy-pages
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
 
 permissions:
   contents: read
@@ -19,9 +18,12 @@ concurrency:
 
 jobs:
   build:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: setup pnpm
         uses: pnpm/action-setup@v4
@@ -29,7 +31,7 @@ jobs:
           version: 10
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'pnpm'
@@ -37,15 +39,12 @@ jobs:
       - name: install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: check licences
-        run: pnpm check:licenses
-
-      - name: run tests
-        run: pnpm test
-
       # The Vite base is relative ('./'), so the bundle works under /<repo>/.
       - name: build
         run: pnpm build
+
+      - name: check asset sizes
+        run: pnpm check:size
 
       - uses: actions/configure-pages@v5
 

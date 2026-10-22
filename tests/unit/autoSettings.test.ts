@@ -2,37 +2,55 @@ import { describe, expect, it } from 'vitest';
 import { autoSettings, scaleToLongEdge, targetVideoBitrate } from '../../src/core/autoSettings';
 import type { Capabilities, SourceInfo } from '../../src/core/types';
 
-function fakeSource(over: {
-  w?: number; h?: number; fps?: number; rotation?: 0 | 90 | 180 | 270;
-  vCodec?: string | null; vBitrate?: number | null;
-  channels?: number; aCodec?: string | null; aBitrate?: number | null;
-  video?: null; audio?: null; mime?: string;
-} = {}): SourceInfo {
+function fakeSource(
+  over: {
+    w?: number;
+    h?: number;
+    fps?: number;
+    rotation?: 0 | 90 | 180 | 270;
+    vCodec?: string | null;
+    vBitrate?: number | null;
+    channels?: number;
+    aCodec?: string | null;
+    aBitrate?: number | null;
+    video?: null;
+    audio?: null;
+    mime?: string;
+  } = {},
+): SourceInfo {
   return {
     name: 'clip.mp4',
     sizeBytes: 10_000_000,
     durationSec: 20,
     containerMime: over.mime ?? 'video/mp4',
-    video: over.video === null ? null : {
-      codec: over.vCodec === undefined ? 'avc' : over.vCodec,
-      decodable: true,
-      displayWidth: over.w ?? 3840,
-      displayHeight: over.h ?? 2160,
-      rotation: over.rotation ?? 0,
-      fps: over.fps ?? 60,
-      bitrate: over.vBitrate === undefined ? 40_000_000 : over.vBitrate,
-    },
-    audio: over.audio === null ? null : {
-      codec: over.aCodec === undefined ? 'aac' : over.aCodec,
-      decodable: true,
-      channels: over.channels ?? 2,
-      sampleRate: 48000,
-      bitrate: over.aBitrate === undefined ? 192_000 : over.aBitrate,
-    },
+    video:
+      over.video === null
+        ? null
+        : {
+            codec: over.vCodec === undefined ? 'avc' : over.vCodec,
+            decodable: true,
+            displayWidth: over.w ?? 3840,
+            displayHeight: over.h ?? 2160,
+            rotation: over.rotation ?? 0,
+            fps: over.fps ?? 60,
+            bitrate: over.vBitrate === undefined ? 40_000_000 : over.vBitrate,
+          },
+    audio:
+      over.audio === null
+        ? null
+        : {
+            codec: over.aCodec === undefined ? 'aac' : over.aCodec,
+            decodable: true,
+            channels: over.channels ?? 2,
+            sampleRate: 48000,
+            bitrate: over.aBitrate === undefined ? 192_000 : over.aBitrate,
+          },
   };
 }
 
-function allCaps(over: { video?: Partial<Capabilities['video']>; audio?: Partial<Capabilities['audio']> } = {}): Capabilities {
+function allCaps(
+  over: { video?: Partial<Capabilities['video']>; audio?: Partial<Capabilities['audio']> } = {},
+): Capabilities {
   return {
     video: { avc: true, hevc: true, av1: true, vp9: true, ...over.video },
     audio: { aac: true, opus: true, ...over.audio },
@@ -103,11 +121,23 @@ describe('autoSettings', () => {
   });
 
   it('flags small low-bitrate avc/aac mp4 as already optimal', () => {
-    const r = autoSettings(fakeSource({ w: 640, h: 360, fps: 30, vBitrate: 400_000, aBitrate: 64_000 }), allCaps());
+    const r = autoSettings(
+      fakeSource({ w: 640, h: 360, fps: 30, vBitrate: 400_000, aBitrate: 64_000 }),
+      allCaps(),
+    );
     expect(r.alreadyOptimal).toBe(true);
     expect(r.settings.video).toMatchObject({ codec: 'avc', width: 640, height: 360 });
-    const withCodecs = autoSettings(fakeSource({ w: 640, h: 360, fps: 30, vBitrate: 400_000,
-      aBitrate: 64_000, mime: 'video/mp4; codecs="avc1.64001e, mp4a.40.2"' }), allCaps());
+    const withCodecs = autoSettings(
+      fakeSource({
+        w: 640,
+        h: 360,
+        fps: 30,
+        vBitrate: 400_000,
+        aBitrate: 64_000,
+        mime: 'video/mp4; codecs="avc1.64001e, mp4a.40.2"',
+      }),
+      allCaps(),
+    );
     expect(withCodecs.alreadyOptimal).toBe(true);
   });
 

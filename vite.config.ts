@@ -24,10 +24,13 @@ function shipLicences(): Plugin {
   };
 }
 
-const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  version: string;
+};
 
 // Files the worker must not precache: itself, host config, and the e2e-only harness.
-const NOT_PRECACHED = (path: string) => path === 'sw.js' || path === '_headers' || path.startsWith('e2e/') || /harness/.test(path);
+const NOT_PRECACHED = (path: string) =>
+  path === 'sw.js' || path === '_headers' || path.startsWith('e2e/') || /harness/.test(path);
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -57,7 +60,9 @@ function precacheList(): Plugin {
       for (const path of files) hash.update(path).update(readFileSync(join(outDir, path)));
       const version = `${pkg.version}-${hash.digest('hex').slice(0, 10)}`;
       const swPath = join(outDir, 'sw.js');
-      const sw = readFileSync(swPath, 'utf8').replace('__VR_VERSION__', version).replace('__VR_PRECACHE__', urls.join('\\n'));
+      const sw = readFileSync(swPath, 'utf8')
+        .replace('__VR_VERSION__', version)
+        .replace('__VR_PRECACHE__', urls.join('\\n'));
       writeFileSync(swPath, sw);
     },
   };
@@ -71,7 +76,12 @@ export default defineConfig({
     // e2e-only second entry; absent from the deployed build.
     rollupOptions:
       process.env.VR_E2E === '1'
-        ? { input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), harness: fileURLToPath(new URL('./e2e/harness.html', import.meta.url)) } }
+        ? {
+            input: {
+              main: fileURLToPath(new URL('./index.html', import.meta.url)),
+              harness: fileURLToPath(new URL('./e2e/harness.html', import.meta.url)),
+            },
+          }
         : undefined,
   },
   plugins: [shipLicences(), precacheList()],

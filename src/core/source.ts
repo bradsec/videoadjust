@@ -2,7 +2,11 @@ import { ALL_FORMATS, BlobSource, Input } from 'mediabunny';
 import type { SourceInfo } from './types';
 
 export class UnsupportedSourceError extends Error {
-  constructor(public readonly codec: string | null, message: string, options?: ErrorOptions) {
+  constructor(
+    public readonly codec: string | null,
+    message: string,
+    options?: ErrorOptions,
+  ) {
     super(message, options);
     this.name = 'UnsupportedSourceError';
   }
@@ -25,10 +29,15 @@ export async function readSource(file: File): Promise<{ info: SourceInfo; input:
 async function describe(file: File, input: Input): Promise<SourceInfo> {
   let videoTrack, audioTrack;
   try {
-    [videoTrack, audioTrack] = await Promise.all([input.getPrimaryVideoTrack(), input.getPrimaryAudioTrack()]);
+    [videoTrack, audioTrack] = await Promise.all([
+      input.getPrimaryVideoTrack(),
+      input.getPrimaryAudioTrack(),
+    ]);
   } catch (err) {
     // Mediabunny throws when no known container matches the bytes.
-    throw new UnsupportedSourceError(null, 'This file is not a video this browser can read.', { cause: err });
+    throw new UnsupportedSourceError(null, 'This file is not a video this browser can read.', {
+      cause: err,
+    });
   }
 
   const video = videoTrack
@@ -62,7 +71,13 @@ async function describe(file: File, input: Input): Promise<SourceInfo> {
           audioTrack.getSampleRate(),
           audioTrack.computePacketStats(),
         ]);
-        return { codec, decodable, channels, sampleRate, bitrate: stats.averageBitrate > 0 ? stats.averageBitrate : null };
+        return {
+          codec,
+          decodable,
+          channels,
+          sampleRate,
+          bitrate: stats.averageBitrate > 0 ? stats.averageBitrate : null,
+        };
       })()
     : null;
 
@@ -76,6 +91,9 @@ async function describe(file: File, input: Input): Promise<SourceInfo> {
     );
   }
 
-  const [containerMime, durationSec] = await Promise.all([input.getMimeType(), input.computeDuration()]);
+  const [containerMime, durationSec] = await Promise.all([
+    input.getMimeType(),
+    input.computeDuration(),
+  ]);
   return { name: file.name, sizeBytes: file.size, durationSec, containerMime, video, audio };
 }

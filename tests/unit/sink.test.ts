@@ -12,14 +12,18 @@ describe('chooseSink', () => {
   });
 
   test('small output without file streaming stays in memory without a warning', () => {
-    expect(chooseSink({ estimateBytes: 100 * MB, fileStreamSave: false, deviceMemoryGB: 4 })).toEqual({
+    expect(
+      chooseSink({ estimateBytes: 100 * MB, fileStreamSave: false, deviceMemoryGB: 4 }),
+    ).toEqual({
       kind: 'memory',
       warn: false,
     });
   });
 
   test('large output without file streaming warns', () => {
-    expect(chooseSink({ estimateBytes: 1.5 * GB, fileStreamSave: false, deviceMemoryGB: 4 })).toEqual({
+    expect(
+      chooseSink({ estimateBytes: 1.5 * GB, fileStreamSave: false, deviceMemoryGB: 4 }),
+    ).toEqual({
       kind: 'memory',
       warn: true,
     });
@@ -27,8 +31,14 @@ describe('chooseSink', () => {
 
   test('unknown device memory is assumed to be 2 GB', () => {
     const limit = MEMORY_WARN_FRACTION * 2 * GB;
-    expect(chooseSink({ estimateBytes: limit - 1, fileStreamSave: false })).toEqual({ kind: 'memory', warn: false });
-    expect(chooseSink({ estimateBytes: limit + 1, fileStreamSave: false })).toEqual({ kind: 'memory', warn: true });
+    expect(chooseSink({ estimateBytes: limit - 1, fileStreamSave: false })).toEqual({
+      kind: 'memory',
+      warn: false,
+    });
+    expect(chooseSink({ estimateBytes: limit + 1, fileStreamSave: false })).toEqual({
+      kind: 'memory',
+      warn: true,
+    });
   });
 });
 

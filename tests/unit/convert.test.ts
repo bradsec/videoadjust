@@ -14,10 +14,16 @@ const base: Settings = {
 describe('toConversionOptions', () => {
   it('keeps trim and copies present tracks in passthrough mode', () => {
     expect(toConversionOptions({ ...base, passthrough: true })).toEqual({
-      trim: { start: 0.5, end: 2 }, video: {}, audio: {},
+      trim: { start: 0.5, end: 2 },
+      video: {},
+      audio: {},
     });
-    expect(toConversionOptions({ ...base, passthrough: true, audio: null }).audio).toEqual({ discard: true });
-    expect(toConversionOptions({ ...base, passthrough: true, video: null }).video).toEqual({ discard: true });
+    expect(toConversionOptions({ ...base, passthrough: true, audio: null }).audio).toEqual({
+      discard: true,
+    });
+    expect(toConversionOptions({ ...base, passthrough: true, video: null }).video).toEqual({
+      discard: true,
+    });
   });
   it('maps trim, video size, frame rate, codec and bitrate', () => {
     const o = toConversionOptions(base);
@@ -33,7 +39,12 @@ describe('toConversionOptions', () => {
   });
 
   it('transcodes audio to the chosen codec, bitrate and channel count', () => {
-    expect(toConversionOptions({ ...base, audio: { codec: 'opus', bitrate: 96_000, channels: 1, copy: false } }).audio).toEqual({
+    expect(
+      toConversionOptions({
+        ...base,
+        audio: { codec: 'opus', bitrate: 96_000, channels: 1, copy: false },
+      }).audio,
+    ).toEqual({
       codec: 'opus',
       quality: new Quality({ bitrate: 96_000 }),
       numberOfChannels: 1,
@@ -41,7 +52,12 @@ describe('toConversionOptions', () => {
   });
 
   it('copies audio packets when copy is set', () => {
-    expect(toConversionOptions({ ...base, audio: { codec: 'aac', bitrate: 64_000, channels: 2, copy: true } }).audio).toEqual({
+    expect(
+      toConversionOptions({
+        ...base,
+        audio: { codec: 'aac', bitrate: 64_000, channels: 2, copy: true },
+      }).audio,
+    ).toEqual({
       codec: 'aac',
       forceTranscode: false,
     });

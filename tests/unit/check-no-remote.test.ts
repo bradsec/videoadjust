@@ -14,7 +14,7 @@ describe('check-no-remote', () => {
     'protocol-relative IPv4': "fetch('//192.0.2.1/x')",
     'protocol-relative localhost with port': 'fetch("//localhost:8080/x")',
     'protocol-relative IPv6': 'fetch("//[::1]/x")',
-    'websocket': 'new WebSocket("wss://evil.example/s")',
+    websocket: 'new WebSocket("wss://evil.example/s")',
   };
   for (const [name, code] of Object.entries(bad)) {
     it(`fails on ${name}`, () => expect(js(code)).not.toEqual([]));
@@ -31,13 +31,19 @@ describe('check-no-remote', () => {
   });
 
   it('fails on remote and protocol-relative URLs in HTML and CSS', () => {
-    expect(checkRemote({ 'index.html': '<script src="https://evil.example/x.js"></script>' })).not.toEqual([]);
-    expect(checkRemote({ 'index.html': '<script src="//cdn.evil.example/x.js"></script>' })).not.toEqual([]);
+    expect(
+      checkRemote({ 'index.html': '<script src="https://evil.example/x.js"></script>' }),
+    ).not.toEqual([]);
+    expect(
+      checkRemote({ 'index.html': '<script src="//cdn.evil.example/x.js"></script>' }),
+    ).not.toEqual([]);
     expect(checkRemote({ 'a.css': '@import "//evil.example/a.css";' })).not.toEqual([]);
     expect(checkRemote({ 'a.css': '@import url(//evil.example/a.css);' })).not.toEqual([]);
     expect(checkRemote({ 'a.css': '@import url(//localhost:8080/a.css);' })).not.toEqual([]);
     expect(checkRemote({ 'a.css': '@import url(//192.0.2.1/a.css);' })).not.toEqual([]);
-    expect(checkRemote({ 'a.css': 'a{background:url(https://evil.example/i.png)}' })).not.toEqual([]);
+    expect(checkRemote({ 'a.css': 'a{background:url(https://evil.example/i.png)}' })).not.toEqual(
+      [],
+    );
   });
 
   it('allows the SVG namespace in markup and ignores the licences file', () => {

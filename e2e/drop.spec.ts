@@ -20,9 +20,11 @@ async function dropSyntheticFile(page: Page, name: string, size: number) {
       Object.defineProperty(file, 'size', { value: s });
       const dt = new DataTransfer();
       dt.items.add(file);
-      document.querySelector('.dropzone')!.dispatchEvent(
-        new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }),
-      );
+      document
+        .querySelector('.dropzone')!
+        .dispatchEvent(
+          new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }),
+        );
     },
     [name, size] as const,
   );
@@ -57,7 +59,9 @@ test('moves to the prepare state with the file name and summary', async ({ page 
   expect(results.violations).toEqual([]);
 });
 
-test('shows an error naming the problem for a non-video and stays on the drop screen', async ({ page }) => {
+test('shows an error naming the problem for a non-video and stays on the drop screen', async ({
+  page,
+}) => {
   await page.setInputFiles('#file', {
     name: 'notes.txt',
     mimeType: 'text/plain',

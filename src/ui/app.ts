@@ -1,7 +1,14 @@
 import { CanvasSink } from 'mediabunny';
 import type { Settings, SourceInfo } from '../core/types';
 import { mountCompare } from './compare';
-import { codecLabel, createController, type AppAction, type AppDeps, type AppState, type Notice } from './controller';
+import {
+  codecLabel,
+  createController,
+  type AppAction,
+  type AppDeps,
+  type AppState,
+  type Notice,
+} from './controller';
 import { el, icon } from './dom';
 import { mountDropZone } from './dropZone';
 import { formatBitrate, formatBytes, formatDuration } from './format';
@@ -31,7 +38,10 @@ export function summarySource(s: SourceInfo): string {
   return parts.join(' · ');
 }
 
-export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAction): void; getState(): AppState } {
+export function createApp(
+  root: HTMLElement,
+  deps: AppDeps,
+): { dispatch(a: AppAction): void; getState(): AppState } {
   const controller = createController(deps, () => render());
   const { dispatch } = controller;
   const state = () => controller.getState();
@@ -54,7 +64,12 @@ export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAc
   function render(): void {
     const s = state();
     renderNotice(s);
-    status.textContent = s.kind === 'drop' && s.reading ? `Reading ${s.reading}` : s.kind === 'result' ? 'Export finished' : '';
+    status.textContent =
+      s.kind === 'drop' && s.reading
+        ? `Reading ${s.reading}`
+        : s.kind === 'result'
+          ? 'Export finished'
+          : '';
     // The drop screen stays mounted across notice changes so the picker keeps focus.
     if (s.kind === mountedKind && s.kind === 'drop') return;
     if (s.kind === mountedKind && mounted) {
@@ -70,16 +85,20 @@ export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAc
         dropZone = mountDropZone(view, (file) => dispatch({ type: 'pick', file }));
         return;
       case 'prepare':
-        mounted = renderPrepare(view, s, () => dispatch({ type: 'reset' }),
+        mounted = renderPrepare(
+          view,
+          s,
+          () => dispatch({ type: 'reset' }),
           (value) => dispatch({ type: 'setTrim', value }),
-          (value) => dispatch({ type: 'setSettings', value }), () => dispatch({ type: 'export' }));
+          (value) => dispatch({ type: 'setSettings', value }),
+          () => dispatch({ type: 'export' }),
+        );
         return;
       case 'working':
         mounted = renderWorking(view, s, () => dispatch({ type: 'cancel' }));
         return;
       case 'result':
         mounted = renderResult(view, s, dispatch);
-        return;
     }
   }
 
@@ -95,7 +114,9 @@ export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAc
     // role=alert is an assertive live region: inserting the box announces it.
     const box = el('div', `notice ${notice.tone}`);
     box.setAttribute('role', 'alert');
-    box.append(icon(notice.tone === 'error' ? 'i-stop' : notice.tone === 'info' ? 'i-info' : 'i-warn'));
+    box.append(
+      icon(notice.tone === 'error' ? 'i-stop' : notice.tone === 'info' ? 'i-info' : 'i-warn'),
+    );
     const body = el('div', 'body');
     body.append(el('h2', undefined, notice.title), el('p', undefined, notice.message));
     const row = el('div', 'row');
@@ -106,7 +127,11 @@ export function createApp(root: HTMLElement, deps: AppDeps): { dispatch(a: AppAc
         go.addEventListener('click', () => dispatch({ type: 'export', confirmed: true }));
         row.append(go);
       }
-      const back = el('button', notice.confirm ? 'btn btn-quiet' : 'btn', notice.confirm ? 'Go back' : 'Dismiss');
+      const back = el(
+        'button',
+        notice.confirm ? 'btn btn-quiet' : 'btn',
+        notice.confirm ? 'Go back' : 'Dismiss',
+      );
       back.type = 'button';
       back.addEventListener('click', () => dispatch({ type: 'dismissNotice' }));
       row.append(back);
@@ -147,7 +172,10 @@ function renderPrepare(
   onExport: () => void,
 ): Mounted {
   const head = el('div', 'file-line');
-  head.append(el('h1', 'file-name', state.file.name), el('p', 'file-summary num', summarySource(state.source)));
+  head.append(
+    el('h1', 'file-name', state.file.name),
+    el('p', 'file-summary num', summarySource(state.source)),
+  );
   const stage = el('div', 'prepare-regions');
   stage.dataset.region = 'prepare';
   const video = el('video', 'preview-video');
@@ -160,14 +188,21 @@ function renderPrepare(
   const trimHost = el('div');
   const settingsHost = el('aside', 'settings-host');
   const settings = mountSettings(settingsHost, {
-    auto: state.auto, caps: state.caps, source: state.source, value: state.settings,
-    onChange: onSettings, onExport,
+    auto: state.auto,
+    caps: state.caps,
+    source: state.source,
+    value: state.settings,
+    onChange: onSettings,
+    onExport,
   });
   const thumbnails = async (count: number): Promise<HTMLCanvasElement[]> => {
     const track = await state.input.getPrimaryVideoTrack();
     if (!track) return [];
     const sink = new CanvasSink(track, { width: 160 });
-    const timestamps = Array.from({ length: count }, (_, i) => state.source.durationSec * (i + 0.5) / count);
+    const timestamps = Array.from(
+      { length: count },
+      (_, i) => (state.source.durationSec * (i + 0.5)) / count,
+    );
     const canvases: HTMLCanvasElement[] = [];
     for await (const frame of sink.canvasesAtTimestamps(timestamps)) {
       const canvas = document.createElement('canvas');
@@ -212,8 +247,12 @@ function renderPrepare(
 }
 
 const CONTAINER_LABELS: Record<string, string> = {
-  'video/mp4': 'MP4', 'video/quicktime': 'MOV', 'video/webm': 'WebM', 'video/x-matroska': 'MKV',
-  'audio/mp4': 'MP4', 'audio/webm': 'WebM',
+  'video/mp4': 'MP4',
+  'video/quicktime': 'MOV',
+  'video/webm': 'WebM',
+  'video/x-matroska': 'MKV',
+  'audio/mp4': 'MP4',
+  'audio/webm': 'WebM',
 };
 const containerLabel = (mime: string) => {
   const base = mime.split(';', 1)[0]?.trim().toLowerCase() ?? '';
@@ -228,8 +267,15 @@ function summaryOutput(settings: Settings): string {
   const container = settings.container === 'webm' ? 'WebM' : 'MP4';
   if (settings.passthrough) return `Trimmed copy · ${container}`;
   const v = settings.video;
-  const codecs = [v ? codecLabel(v.codec) : null, settings.audio ? audioLabel(settings.audio.codec) : null].filter(Boolean).join('/');
-  return [v ? `${Math.min(v.width, v.height)}p` : null, `${codecs} ${container}`].filter(Boolean).join(' · ');
+  const codecs = [
+    v ? codecLabel(v.codec) : null,
+    settings.audio ? audioLabel(settings.audio.codec) : null,
+  ]
+    .filter(Boolean)
+    .join('/');
+  return [v ? `${Math.min(v.width, v.height)}p` : null, `${codecs} ${container}`]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** A heading that takes focus when its screen appears, so the change is announced. */
@@ -240,7 +286,11 @@ function screenHeading(className: string): HTMLHeadingElement {
 }
 
 /** Working screen: what is being made, a still of the source near the encode position, and progress. */
-function renderWorking(container: HTMLElement, state: Of<'working'>, onCancel: () => void): Mounted {
+function renderWorking(
+  container: HTMLElement,
+  state: Of<'working'>,
+  onCancel: () => void,
+): Mounted {
   const head = el('div', 'file-line');
   const title = screenHeading('file-name');
   title.textContent = `Exporting ${state.outputName}`;
@@ -255,9 +305,13 @@ function renderWorking(container: HTMLElement, state: Of<'working'>, onCancel: (
   const url = URL.createObjectURL(state.file);
   video.src = url;
   // Seeking once makes the browser decode and show a frame; preload alone may leave it black.
-  video.addEventListener('loadedmetadata', () => {
-    video.currentTime = state.settings.trim.start;
-  }, { once: true });
+  video.addEventListener(
+    'loadedmetadata',
+    () => {
+      video.currentTime = state.settings.trim.start;
+    },
+    { once: true },
+  );
   const overlay = el('span', 'overlay-time num');
   stage.append(video, overlay);
 
@@ -267,7 +321,11 @@ function renderWorking(container: HTMLElement, state: Of<'working'>, onCancel: (
     originalBytes: state.source.sizeBytes,
     expected: state.estimate,
   });
-  const note = el('p', 'note', 'Keep this tab open until it finishes. Your phone may get warm; that is normal for video work.');
+  const note = el(
+    'p',
+    'note',
+    'Keep this tab open until it finishes. Your phone may get warm; that is normal for video work.',
+  );
   const col = el('div', 'col');
   col.append(head, stage, progressHost, note);
   container.replaceChildren(col);
@@ -300,7 +358,12 @@ function renderWorking(container: HTMLElement, state: Of<'working'>, onCancel: (
   };
 }
 
-function statsTable(source: SourceInfo, output: SourceInfo, settings: Settings, notSmaller: boolean): HTMLTableElement {
+function statsTable(
+  source: SourceInfo,
+  output: SourceInfo,
+  settings: Settings,
+  notSmaller: boolean,
+): HTMLTableElement {
   const table = el('table', 'stats');
   const caption = el('caption', 'sr', 'Original and new video compared');
   const thead = el('thead');
@@ -316,13 +379,19 @@ function statsTable(source: SourceInfo, output: SourceInfo, settings: Settings, 
   thead.append(headRow);
   const tbody = el('tbody', 'num');
 
-  const resolution = (i: SourceInfo) => (i.video ? `${i.video.displayWidth}x${i.video.displayHeight}` : 'No video');
+  const resolution = (i: SourceInfo) =>
+    i.video ? `${i.video.displayWidth}x${i.video.displayHeight}` : 'No video';
   const fps = (i: SourceInfo) => (i.video ? `${Number(i.video.fps.toFixed(2))} fps` : '-');
-  const video = (i: SourceInfo) => `${i.video ? codecLabel(i.video.codec) : 'No video'}, ${containerLabel(i.containerMime)}`;
-  const audio = (i: SourceInfo) => (i.audio
-    ? [audioLabel(i.audio.codec), i.audio.bitrate ? formatBitrate(i.audio.bitrate) : null].filter(Boolean).join(' ')
-    : 'None');
-  const bitrate = (i: SourceInfo) => (i.durationSec > 0 ? formatBitrate((i.sizeBytes * 8) / i.durationSec) : '-');
+  const video = (i: SourceInfo) =>
+    `${i.video ? codecLabel(i.video.codec) : 'No video'}, ${containerLabel(i.containerMime)}`;
+  const audio = (i: SourceInfo) =>
+    i.audio
+      ? [audioLabel(i.audio.codec), i.audio.bitrate ? formatBitrate(i.audio.bitrate) : null]
+          .filter(Boolean)
+          .join(' ')
+      : 'None';
+  const bitrate = (i: SourceInfo) =>
+    i.durationSec > 0 ? formatBitrate((i.sizeBytes * 8) / i.durationSec) : '-';
   const row = (label: string, a: string, b: string | (string | Node)[]) => {
     const tr = el('tr');
     const th = el('th', undefined, label);
@@ -341,8 +410,13 @@ function statsTable(source: SourceInfo, output: SourceInfo, settings: Settings, 
   row('Audio', audio(source), audio(output));
   row('Bitrate', bitrate(source), bitrate(output));
   const trimmed = settings.trim.end - settings.trim.start < source.durationSec - 0.05;
-  row('Duration', formatDuration(source.durationSec),
-    trimmed ? [formatDuration(output.durationSec), el('span', 'delta', 'trimmed')] : formatDuration(output.durationSec));
+  row(
+    'Duration',
+    formatDuration(source.durationSec),
+    trimmed
+      ? [formatDuration(output.durationSec), el('span', 'delta', 'trimmed')]
+      : formatDuration(output.durationSec),
+  );
 
   const total = el('tr', 'total');
   const th = el('th', undefined, notSmaller ? 'Change' : 'Reduction');
@@ -365,7 +439,11 @@ function reductionText(before: number, after: number): string {
 }
 
 /** Result screen: verdict, wipe comparison, stats and the next actions. */
-function renderResult(container: HTMLElement, state: Of<'result'>, dispatch: (a: AppAction) => void): Mounted {
+function renderResult(
+  container: HTMLElement,
+  state: Of<'result'>,
+  dispatch: (a: AppAction) => void,
+): Mounted {
   const { output, source } = state;
   const split = el('div', 'split');
   const main = el('div', 'main-col');
@@ -374,11 +452,24 @@ function renderResult(container: HTMLElement, state: Of<'result'>, dispatch: (a:
 
   const verdict = el('div', 'verdict');
   const figure = screenHeading('figure num');
-  figure.append(`${formatBytes(output.sizeBytes)}, `, el('em', undefined, state.notSmaller ? 'not smaller' : reductionText(source.sizeBytes, output.sizeBytes)));
+  figure.append(
+    `${formatBytes(output.sizeBytes)}, `,
+    el(
+      'em',
+      undefined,
+      state.notSmaller ? 'not smaller' : reductionText(source.sizeBytes, output.sizeBytes),
+    ),
+  );
   verdict.append(
     el('span', 'eyebrow', `Done in ${clock(state.elapsedMs)}`),
     figure,
-    el('p', undefined, output.blob ? `${state.outputName} is ready to send.` : `${state.outputName} is saved where you chose.`),
+    el(
+      'p',
+      undefined,
+      output.blob
+        ? `${state.outputName} is ready to send.`
+        : `${state.outputName} is saved where you chose.`,
+    ),
   );
   main.append(verdict);
 
@@ -389,7 +480,11 @@ function renderResult(container: HTMLElement, state: Of<'result'>, dispatch: (a:
     const body = el('div', 'body');
     body.append(
       el('h2', undefined, 'The new file is not smaller than the original'),
-      el('p', undefined, 'This video was already compressed well. Make it smaller tries the next smaller size, or lower quality if no smaller size is left.'),
+      el(
+        'p',
+        undefined,
+        'This video was already compressed well. Make it smaller tries the next smaller size, or lower quality if no smaller size is left.',
+      ),
     );
     notice.append(icon('i-warn'), body);
     main.append(notice);
@@ -409,8 +504,13 @@ function renderResult(container: HTMLElement, state: Of<'result'>, dispatch: (a:
     });
     main.append(host);
   } else if (!output.blob) {
-    main.append(el('p', 'note compare-skipped',
-      'The new file went straight to the place you chose, so there is no side-by-side preview here. Open it from there to watch it.'));
+    main.append(
+      el(
+        'p',
+        'note compare-skipped',
+        'The new file went straight to the place you chose, so there is no side-by-side preview here. Open it from there to watch it.',
+      ),
+    );
   }
 
   const scale = el('div', 'scale');

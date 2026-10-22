@@ -39,7 +39,8 @@ export function checkRemote(files) {
     const isJs = /\.m?js$/.test(rel);
     for (const raw of text.match(ABSOLUTE) ?? []) {
       const url = normalise(raw);
-      if (isJs ? !JS_URL_ALLOWLIST.has(url) : !MARKUP_NS.has(url)) problems.push(`${rel}: remote URL ${url}`);
+      if (isJs ? !JS_URL_ALLOWLIST.has(url) : !MARKUP_NS.has(url))
+        problems.push(`${rel}: remote URL ${url}`);
     }
     for (const m of text.match(isJs ? PROTO_REL_STRING : PROTO_REL_MARKUP) ?? []) {
       problems.push(`${rel}: protocol-relative URL ${m.trim()}`);
@@ -60,12 +61,15 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const files = {};
   for (const file of walk(dist)) {
     const rel = relative(dist, file);
-    if (/\.(?:js|mjs|html|css|webmanifest|json|svg|txt)$/.test(rel)) files[rel] = readFileSync(file, 'utf8');
+    if (/\.(?:js|mjs|html|css|webmanifest|json|svg|txt)$/.test(rel))
+      files[rel] = readFileSync(file, 'utf8');
   }
   const problems = checkRemote(files);
   if (problems.length) {
     console.error('check:remote failed:\n' + problems.map((p) => `  ${p}`).join('\n'));
     process.exit(1);
   }
-  console.log(`check:remote ok: no URL outside the allowlist in ${Object.keys(files).length} built files`);
+  console.log(
+    `check:remote ok: no URL outside the allowlist in ${Object.keys(files).length} built files`,
+  );
 }

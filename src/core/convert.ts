@@ -26,21 +26,33 @@ export class ConversionInvalidError extends Error {
 // Quality rejects non-integer bitrates; source bitrates come from packet statistics and can be fractional.
 const quality = (bitrate: number) => new Quality({ bitrate: Math.round(bitrate) });
 
-export function toConversionOptions(s: Settings): Pick<ConversionOptions, 'video' | 'audio' | 'trim'> {
+export function toConversionOptions(
+  s: Settings,
+): Pick<ConversionOptions, 'video' | 'audio' | 'trim'> {
   const v = s.video;
   const a = s.audio;
   return {
     trim: { start: s.trim.start, end: s.trim.end },
     video: v
-      ? s.passthrough ? {} : { width: v.width, height: v.height, fit: 'contain', frameRate: v.fps, codec: v.codec, quality: quality(v.bitrate) }
+      ? s.passthrough
+        ? {}
+        : {
+            width: v.width,
+            height: v.height,
+            fit: 'contain',
+            frameRate: v.fps,
+            codec: v.codec,
+            quality: quality(v.bitrate),
+          }
       : { discard: true },
     audio: !a
       ? { discard: true }
-      : s.passthrough ? {}
-      : a.copy
-        ? // Any bitrate or channel option would force a transcode, so copy names only the codec.
-          { codec: a.codec, forceTranscode: false }
-        : { codec: a.codec, quality: quality(a.bitrate), numberOfChannels: a.channels },
+      : s.passthrough
+        ? {}
+        : a.copy
+          ? // Any bitrate or channel option would force a transcode, so copy names only the codec.
+            { codec: a.codec, forceTranscode: false }
+          : { codec: a.codec, quality: quality(a.bitrate), numberOfChannels: a.channels },
   };
 }
 
@@ -88,7 +100,8 @@ export function startConversion(args: {
     } catch (err) {
       // A cancel that lands before the output starts surfaces from Mediabunny as a plain
       // "Output has been canceled." Error; callers get one error type for every cancel.
-      if (canceled && !(err instanceof ConversionCanceledError)) throw new ConversionCanceledError();
+      if (canceled && !(err instanceof ConversionCanceledError))
+        throw new ConversionCanceledError();
       throw err;
     } finally {
       stopListening();

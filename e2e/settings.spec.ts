@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 const fixture = new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname;
-const optimalFixture = new URL('../tests/fixtures/small-h264-lowbitrate.mp4', import.meta.url).pathname;
+const optimalFixture = new URL('../tests/fixtures/small-h264-lowbitrate.mp4', import.meta.url)
+  .pathname;
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -63,7 +64,9 @@ test('unavailable codecs have a visible reason', async ({ page }) => {
   await card.locator('summary').click();
   const unavailable = card.getByLabel('Video codec', { exact: true }).locator('option:disabled');
   test.skip(!(await unavailable.count()), 'All video codecs are available');
-  const codecSetting = card.locator('.setting').filter({ has: page.getByLabel('Video codec', { exact: true }) });
+  const codecSetting = card
+    .locator('.setting')
+    .filter({ has: page.getByLabel('Video codec', { exact: true }) });
   const reason = codecSetting.locator('.setting-reason');
   await expect(reason).toBeVisible();
   await expect(reason).toContainText((await unavailable.first().textContent())!);
@@ -72,10 +75,14 @@ test('unavailable codecs have a visible reason', async ({ page }) => {
 test('other codecs show a compatibility warning', async ({ page }) => {
   const card = page.getByRole('region', { name: 'Export summary' });
   await card.locator('summary').click();
-  const otherCodec = card.getByLabel('Video codec', { exact: true })
-    .locator('option:not([disabled]):not([value="avc"])').first();
+  const otherCodec = card
+    .getByLabel('Video codec', { exact: true })
+    .locator('option:not([disabled]):not([value="avc"])')
+    .first();
   test.skip(!(await otherCodec.count()), 'No alternative video codec is available');
-  await card.getByLabel('Video codec', { exact: true }).selectOption((await otherCodec.getAttribute('value'))!);
+  await card
+    .getByLabel('Video codec', { exact: true })
+    .selectOption((await otherCodec.getAttribute('value'))!);
   await expect(card.locator('.export-warning')).toBeVisible();
 });
 
