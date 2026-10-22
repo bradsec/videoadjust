@@ -1288,3 +1288,126 @@ table.stats {
     top: var(--sp-4);
   }
 }
+
+/* Audio result player: round play button, waveform you can scrub, times. */
+.audio-player {
+  display: grid;
+  gap: var(--sp-3);
+}
+.audio-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.audio-text {
+  display: grid;
+  min-width: 0;
+}
+.audio-name {
+  font-size: var(--fs-4);
+  overflow-wrap: anywhere;
+}
+.audio-detail {
+  font-size: var(--fs-2);
+  color: var(--c-ink-2);
+}
+.play-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--c-accent);
+  color: var(--c-accent-ink);
+  cursor: pointer;
+}
+.play-btn:hover {
+  background: var(--c-accent-hover);
+}
+.play-btn:focus-visible,
+.wave:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 3px;
+}
+.play-btn svg.i {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+.wave {
+  position: relative;
+  padding-block: var(--sp-2);
+  cursor: pointer;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wave-shape {
+  position: relative;
+  height: 56px;
+  display: grid;
+  align-items: center;
+}
+.wave-track {
+  position: relative;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(
+    to right,
+    var(--c-accent) var(--played, 0%),
+    var(--c-surface-2) var(--played, 0%)
+  );
+}
+.wave-track.has-peaks {
+  height: 100%;
+  background: none;
+}
+.wave-bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+}
+.wave-bars span {
+  flex: 1 1 0;
+  max-width: 5px;
+  border-radius: var(--r-pill);
+  background: var(--c-line-strong);
+  opacity: 0.6;
+}
+.wave-played {
+  clip-path: inset(0 calc(100% - var(--played, 0%)) 0 0);
+}
+.wave-played span {
+  background: var(--c-accent);
+  opacity: 1;
+}
+.wave-head {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--played, 0%);
+  width: 2px;
+  margin-left: -1px;
+  background: var(--c-ink);
+}
+.wave-head::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--c-ink);
+}
+.audio-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-1);
+  color: var(--c-ink-2);
+}

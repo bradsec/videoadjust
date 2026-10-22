@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import type { Capabilities } from '../src/core/types';
 
 const fixture = (name: string) => new URL(`../tests/fixtures/${name}`, import.meta.url).pathname;
@@ -60,6 +61,11 @@ async function inflateEncoderBitrate(page: Page, factor: number) {
       );
     };
   }, factor);
+}
+
+async function axeClean(page: Page) {
+  const axe = await new AxeBuilder({ page }).analyze();
+  expect(axe.violations).toEqual([]);
 }
 
 const sinkCalls = (page: Page) =>
@@ -249,4 +255,110 @@ test('a cancelled save picker returns to prepare without a notice', async ({ pag
   await expect.poll(async () => (await sinkCalls(page)).picker).toBe(1);
   await expect(page.getByRole('region', { name: 'Export summary' })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+async function extractAudio(page: Page, name: string, format?: RegExp) {
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture(name));
+  await page.getByRole('tab', { name: 'Extract audio' }).click();
+  const panel = page.getByRole('region', { name: 'Audio summary' });
+  if (format) {
+    await panel.locator('summary').click();
+    await panel.getByRole('radio', { name: format }).check();
+  }
+  await panel.getByRole('button', { name: 'Extract audio' }).click();
+}
+
+async function extractAudioToMemory(page: Page, name: string, format?: RegExp) {
+  await forceMemorySink(page);
+  await extractAudio(page, name, format);
+  await expect(page.locator('.verdict')).toContainText('is ready to save or share', {
+    timeout: 60_000,
+  });
+}
+
+test('an MP3 extract shows the audio result with a working player', async ({ page, baseURL }) => {
+  if (!baseURL) throw new Error('Playwright baseURL is required');
+  const crossOriginRequests: string[] = [];
+  const origin = new URL(baseURL).origin;
+  page.on('request', (request) => {
+    if (new URL(request.url()).origin !== origin) crossOriginRequests.push(request.url());
+  });
+  await extractAudioToMemory(page, 'land-1080p30-aac.mp4');
+
+  const stats = page.locator('.stats');
+  await expect(stats).toContainText('Audio file');
+  await expect(stats).toContainText('Original video');
+  await expect(stats.locator('tbody tr', { hasText: 'Codec' })).toContainText('MP3');
+  await expect(page.getByRole('link', { name: /Download/ })).toHaveAttribute(
+    'download',
+    /-audio\.mp3$/,
+  );
+  await expect(page.getByRole('button', { name: 'Lower bitrate' })).toBeVisible();
+
+  const audio = page.locator('audio');
+  await expect(audio).toHaveCount(1);
+  const bytes = [...readFileSync(fixture('land-1080p30-aac.mp4'))];
+  const sourceSpan = await page.evaluate(async (data) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.src = URL.createObjectURL(new Blob([new Uint8Array(data)], { type: 'video/mp4' }));
+    await new Promise((resolve) =>
+      video.addEventListener('loadedmetadata', resolve, { once: true }),
+    );
+    return video.duration;
+  }, bytes);
+  await expect
+    .poll(() => audio.evaluate((a) => (a as HTMLAudioElement).duration))
+    .toBeCloseTo(sourceSpan, 0);
+  const duration = await audio.evaluate((a) => (a as HTMLAudioElement).duration);
+  expect(Math.abs(duration - sourceSpan)).toBeLessThan(0.1);
+
+  const play = page.getByRole('button', { name: 'Play', exact: true });
+  await play.click();
+  const pause = page.getByRole('button', { name: 'Pause', exact: true });
+  await expect(pause).toBeVisible();
+  await pause.click();
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+
+  const scrub = page.getByRole('slider', { name: 'Seek' });
+  await scrub.focus();
+  await page.keyboard.press('End');
+  await expect(scrub).toHaveAttribute('aria-valuenow', String(Math.round(duration)));
+  await page.keyboard.press('Home');
+  await expect(scrub).toHaveAttribute('aria-valuenow', '0');
+  await page.keyboard.press('ArrowRight');
+  // The fixture is shorter than one 5 s step, so the seek clamps to the end.
+  await expect(scrub).toHaveAttribute('aria-valuenow', String(Math.round(Math.min(5, duration))));
+
+  await axeClean(page);
+  expect(crossOriginRequests).toEqual([]);
+});
+
+test('Lower bitrate returns to the audio settings at 96 kbps', async ({ page }) => {
+  await extractAudioToMemory(page, 'land-1080p30-aac.mp4');
+  await page.getByRole('button', { name: 'Lower bitrate' }).click();
+  const panel = page.getByRole('region', { name: 'Audio summary' });
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('h2')).toContainText('96 kbps');
+});
+
+test('a WAV extract reports PCM 16-bit and lossless', async ({ page }) => {
+  await extractAudioToMemory(page, 'land-1080p30-aac.mp4', /WAV/);
+  const stats = page.locator('.stats');
+  await expect(stats.locator('tbody tr', { hasText: 'Codec' })).toContainText('PCM 16-bit');
+  await expect(stats.locator('tbody tr', { hasText: 'Bitrate' })).toContainText('Lossless');
+  await axeClean(page);
+});
+
+test('a file-stream audio result has no player and says where the file is', async ({ page }) => {
+  await fakeSavePicker(page);
+  await extractAudio(page, 'land-1080p30-aac.mp4');
+  await expect(page.locator('.verdict')).toContainText('is saved where you chose', {
+    timeout: 60_000,
+  });
+  await expect(page.getByText('Saved where you chose. Open it from there to play.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toHaveCount(0);
+  await expect(page.locator('audio')).toHaveCount(0);
+  await axeClean(page);
 });

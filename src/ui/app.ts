@@ -1,7 +1,8 @@
 import { CanvasSink } from 'mediabunny';
-import { audioUnavailable } from '../core/audioExtract';
+import { AUDIO_FORMATS, audioUnavailable, type AudioExtractSettings } from '../core/audioExtract';
 import type { Settings, SourceInfo } from '../core/types';
 import { mountAudioPanel } from './audioPanel';
+import { mountAudioPlayer } from './audioPlayer';
 import { canPlaySource, mountCompare } from './compare';
 import {
   codecLabel,
@@ -19,6 +20,7 @@ import { mountProgress, scaleRow } from './progress';
 import { mountSettings } from './settingsPanel';
 import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
 import { mountTrimBar } from './trimBar';
+import { computePeaks } from './waveform';
 
 type Of<K extends AppState['kind']> = Extract<AppState, { kind: K }>;
 interface Mounted {
@@ -336,7 +338,12 @@ const containerLabel = (mime: string) => {
   const base = mime.split(';', 1)[0]?.trim().toLowerCase() ?? '';
   return CONTAINER_LABELS[base] ?? (base.split('/')[1]?.toUpperCase() || 'unknown');
 };
-const audioLabels: Record<string, string> = { aac: 'AAC', opus: 'Opus', mp3: 'MP3' };
+const audioLabels: Record<string, string> = {
+  aac: 'AAC',
+  opus: 'Opus',
+  mp3: 'MP3',
+  'pcm-s16': 'PCM 16-bit',
+};
 const audioLabel = (c: string | null) => (c ? (audioLabels[c] ?? c.toUpperCase()) : 'unknown');
 const clock = (ms: number) => formatDuration(Math.round(ms / 1000));
 
@@ -356,6 +363,15 @@ function summaryOutput(settings: Settings): string {
     .join(' · ');
 }
 
+/** "MP3 · 128 kbps stereo" */
+function summaryAudio(a: AudioExtractSettings): string {
+  const { label } = AUDIO_FORMATS[a.format];
+  const channels = a.channels === 1 ? 'mono' : 'stereo';
+  return a.format === 'wav'
+    ? `${label} · PCM 16-bit ${channels}`
+    : `${label} · ${formatBitrate(a.bitrate)} ${channels}`;
+}
+
 /** A heading that takes focus when its screen appears, so the change is announced. */
 function screenHeading(className: string): HTMLHeadingElement {
   const h = el('h1', className);
@@ -371,8 +387,17 @@ function renderWorking(
 ): Mounted {
   const head = el('div', 'file-line');
   const title = screenHeading('file-name');
-  title.textContent = `Exporting ${state.outputName}`;
-  head.append(title, el('p', 'file-summary num', summaryOutput(state.settings)));
+  title.textContent = `${state.tool === 'audio' ? 'Extracting audio' : 'Exporting'} ${state.outputName}`;
+  head.append(
+    title,
+    el(
+      'p',
+      'file-summary num',
+      state.tool === 'audio' && state.audioSettings
+        ? summaryAudio(state.audioSettings)
+        : summaryOutput(state.settings),
+    ),
+  );
 
   const stage = el('div', 'stage working-stage');
   const video = el('video', 'stage-video');
@@ -439,19 +464,24 @@ function renderWorking(
 function statsTable(
   source: SourceInfo,
   output: SourceInfo,
-  settings: Settings,
+  trim: Settings['trim'],
   notSmaller: boolean,
+  audioOnly: boolean,
 ): HTMLTableElement {
   const table = el('table', 'stats');
-  const caption = el('caption', 'sr', 'Original and new video compared');
+  const caption = el(
+    'caption',
+    'sr',
+    audioOnly ? 'Original video and audio file compared' : 'Original and new video compared',
+  );
   const thead = el('thead');
   const headRow = el('tr');
   const prop = el('th');
   prop.scope = 'col';
   prop.append(el('span', 'sr', 'Property'));
-  const colOrig = el('th', undefined, 'Original');
+  const colOrig = el('th', undefined, audioOnly ? 'Original video' : 'Original');
   colOrig.scope = 'col';
-  const colNew = el('th', undefined, 'New');
+  const colNew = el('th', undefined, audioOnly ? 'Audio file' : 'New');
   colNew.scope = 'col';
   headRow.append(prop, colOrig, colNew);
   thead.append(headRow);
@@ -470,6 +500,16 @@ function statsTable(
       : 'None';
   const bitrate = (i: SourceInfo) =>
     i.durationSec > 0 ? formatBitrate((i.sizeBytes * 8) / i.durationSec) : '-';
+  const sourceCodecs = (i: SourceInfo) =>
+    `${[i.video ? codecLabel(i.video.codec) : null, i.audio ? audioLabel(i.audio.codec) : null]
+      .filter(Boolean)
+      .join('/')} ${containerLabel(i.containerMime)}`;
+  const audioBitrate = (i: SourceInfo) =>
+    i.audio?.codec?.startsWith('pcm')
+      ? 'Lossless'
+      : i.audio?.bitrate
+        ? formatBitrate(i.audio.bitrate)
+        : bitrate(i);
   const row = (label: string, a: string, b: string | (string | Node)[]) => {
     const tr = el('tr');
     const th = el('th', undefined, label);
@@ -480,21 +520,29 @@ function statsTable(
     tbody.append(tr);
   };
   row('Size', formatBytes(source.sizeBytes), formatBytes(output.sizeBytes));
-  if (source.video || output.video) {
-    row('Resolution', resolution(source), resolution(output));
-    row('Frame rate', fps(source), fps(output));
-    row('Video', video(source), video(output));
+  const trimmed = trim.end - trim.start < source.durationSec - 0.05;
+  const durationRow = () =>
+    row(
+      'Duration',
+      formatDuration(source.durationSec),
+      trimmed
+        ? [formatDuration(output.durationSec), el('span', 'delta', 'trimmed')]
+        : formatDuration(output.durationSec),
+    );
+  if (audioOnly) {
+    durationRow();
+    row('Codec', sourceCodecs(source), audioLabel(output.audio?.codec ?? null));
+    row('Bitrate', bitrate(source), audioBitrate(output));
+  } else {
+    if (source.video || output.video) {
+      row('Resolution', resolution(source), resolution(output));
+      row('Frame rate', fps(source), fps(output));
+      row('Video', video(source), video(output));
+    }
+    row('Audio', audio(source), audio(output));
+    row('Bitrate', bitrate(source), bitrate(output));
+    durationRow();
   }
-  row('Audio', audio(source), audio(output));
-  row('Bitrate', bitrate(source), bitrate(output));
-  const trimmed = settings.trim.end - settings.trim.start < source.durationSec - 0.05;
-  row(
-    'Duration',
-    formatDuration(source.durationSec),
-    trimmed
-      ? [formatDuration(output.durationSec), el('span', 'delta', 'trimmed')]
-      : formatDuration(output.durationSec),
-  );
 
   const total = el('tr', 'total');
   const th = el('th', undefined, notSmaller ? 'Change' : 'Reduction');
@@ -523,6 +571,7 @@ function renderResult(
   dispatch: (a: AppAction) => void,
 ): Mounted {
   const { output, source } = state;
+  const audioOnly = state.tool === 'audio';
   const split = el('div', 'split');
   const main = el('div', 'main-col');
   const side = el('aside', 'side-col');
@@ -570,7 +619,26 @@ function renderResult(
 
   let compare: { destroy(): void } | undefined;
   let originalUrl: string | undefined;
-  if (output.url && output.info.video && source.video) {
+  const peaksAbort = new AbortController();
+  if (audioOnly && state.audioSettings) {
+    const host = el('div');
+    const a = output.info.audio;
+    compare = mountAudioPlayer(host, {
+      url: output.url,
+      name: state.outputName,
+      detail: [
+        a ? audioLabel(a.codec) : AUDIO_FORMATS[state.audioSettings.format].label,
+        a?.codec?.startsWith('pcm') || !a?.bitrate ? null : formatBitrate(a.bitrate),
+        a?.channels === 1 ? 'mono' : 'stereo',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      peaks: output.url
+        ? computePeaks(state.input, state.audioSettings.trim, 64, peaksAbort.signal)
+        : Promise.resolve(null),
+    });
+    main.append(host);
+  } else if (output.url && output.info.video && source.video) {
     const host = el('div', 'compare');
     originalUrl = URL.createObjectURL(state.file);
     compare = mountCompare(host, {
@@ -593,16 +661,24 @@ function renderResult(
 
   const scale = el('div', 'scale');
   scale.setAttribute('aria-hidden', 'true');
-  const orig = scaleRow('Original', 'orig');
+  const orig = scaleRow(audioOnly ? 'Original video' : 'Original', 'orig');
   orig.value.textContent = formatBytes(source.sizeBytes);
-  const now = scaleRow('New', 'new');
+  const now = scaleRow(audioOnly ? 'Audio file' : 'New', 'new');
   now.value.textContent = formatBytes(output.sizeBytes);
   now.fill.style.width = `${Math.min(100, source.sizeBytes > 0 ? (output.sizeBytes / source.sizeBytes) * 100 : 100)}%`;
   scale.append(orig.node, now.node);
   main.append(scale);
 
   const stats = el('div', 'card stats-card');
-  stats.append(statsTable(source, output.info, state.settings, state.notSmaller));
+  stats.append(
+    statsTable(
+      source,
+      output.info,
+      audioOnly && state.audioSettings ? state.audioSettings.trim : state.settings.trim,
+      state.notSmaller,
+      audioOnly,
+    ),
+  );
 
   const actions = el('div', 'actions');
   if (output.url) {
@@ -632,7 +708,7 @@ function renderResult(
   }
   const smaller = el('button', state.notSmaller ? 'btn btn-quiet is-suggested' : 'btn btn-quiet');
   smaller.type = 'button';
-  smaller.append(icon('i-smaller'), 'Make it smaller');
+  smaller.append(icon('i-smaller'), audioOnly ? 'Lower bitrate' : 'Make it smaller');
   smaller.addEventListener('click', () => dispatch({ type: 'smaller' }));
   const restart = el('button', 'btn btn-quiet');
   restart.type = 'button';
@@ -648,6 +724,7 @@ function renderResult(
   return {
     update() {},
     destroy() {
+      peaksAbort.abort();
       compare?.destroy();
       if (originalUrl) URL.revokeObjectURL(originalUrl);
     },
