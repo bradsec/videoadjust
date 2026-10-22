@@ -1,10 +1,20 @@
-import { Mp4OutputFormat, Quality, WebMOutputFormat } from 'mediabunny';
+import {
+  Mp3OutputFormat,
+  Mp4OutputFormat,
+  Quality,
+  WavOutputFormat,
+  WebMOutputFormat,
+} from 'mediabunny';
 import { describe, expect, it } from 'vitest';
 import {
+  audioExtractJob,
+  createAudioOutputFormat,
   createOutputFormat,
   discardedPrimaryTracks,
+  shrinkJob,
   toConversionOptions,
 } from '../../src/core/convert';
+import type { AudioExtractSettings } from '../../src/core/audioExtract';
 import type { Settings } from '../../src/core/types';
 
 const base: Settings = {
@@ -14,6 +24,57 @@ const base: Settings = {
   video: { codec: 'avc', width: 1920, height: 1080, fps: 30, bitrate: 4_000_000 },
   audio: { codec: 'aac', bitrate: 128_000, channels: 2, copy: false },
 };
+
+const audio: AudioExtractSettings = {
+  format: 'mp3',
+  trim: { start: 0.5, end: 2 },
+  bitrate: 128_000,
+  channels: 2,
+  copy: false,
+};
+
+describe('conversion jobs', () => {
+  it('keeps shrink options and requested tracks', () => {
+    expect(shrinkJob(base)).toEqual({
+      options: toConversionOptions(base),
+      keeps: { video: true, audio: true },
+    });
+    expect(shrinkJob({ ...base, audio: null }).keeps).toEqual({ video: true, audio: false });
+  });
+
+  it('extracts MP3 with the chosen bitrate and channels', () => {
+    expect(audioExtractJob(audio)).toEqual({
+      options: {
+        trim: audio.trim,
+        video: { discard: true },
+        audio: { codec: 'mp3', quality: new Quality({ bitrate: 128_000 }), numberOfChannels: 2 },
+      },
+      keeps: { video: false, audio: true },
+    });
+  });
+
+  it('transcodes AAC for M4A', () => {
+    expect(audioExtractJob({ ...audio, format: 'm4a', channels: 1 }).options.audio).toEqual({
+      codec: 'aac',
+      quality: new Quality({ bitrate: 128_000 }),
+      numberOfChannels: 1,
+    });
+  });
+
+  it('copies AAC for M4A when requested', () => {
+    expect(audioExtractJob({ ...audio, format: 'm4a', copy: true }).options.audio).toEqual({
+      codec: 'aac',
+      forceTranscode: false,
+    });
+  });
+
+  it('extracts 16-bit PCM for WAV', () => {
+    expect(audioExtractJob({ ...audio, format: 'wav', channels: 1 }).options.audio).toEqual({
+      codec: 'pcm-s16',
+      numberOfChannels: 1,
+    });
+  });
+});
 
 describe('toConversionOptions', () => {
   it('keeps trim and copies present tracks in passthrough mode', () => {
@@ -98,7 +159,7 @@ describe('discardedPrimaryTracks', () => {
       { track: video, reason: 'no_encodable_target_codec' },
       { track: audio, reason: 'discarded_by_user' },
     ] as const;
-    expect(discardedPrimaryTracks(base, video, audio, discarded)).toEqual([
+    expect(discardedPrimaryTracks({ video: true, audio: true }, video, audio, discarded)).toEqual([
       { track: 'video', reason: 'no_encodable_target_codec' },
     ]);
   });
@@ -107,7 +168,7 @@ describe('discardedPrimaryTracks', () => {
     const video = { type: 'video' };
     const secondary = { type: 'video' };
     expect(
-      discardedPrimaryTracks(base, video, null, [
+      discardedPrimaryTracks({ video: true, audio: true }, video, null, [
         { track: secondary, reason: 'max_track_count_of_type_reached' },
         { track: video, reason: 'discarded_by_user' },
       ]),
@@ -118,11 +179,48 @@ describe('discardedPrimaryTracks', () => {
     const audio = { type: 'audio' };
     const secondary = { type: 'audio' };
     expect(
-      discardedPrimaryTracks(base, null, audio, [
+      discardedPrimaryTracks({ video: true, audio: true }, null, audio, [
         { track: secondary, reason: 'max_track_count_reached' },
         { track: audio, reason: 'undecodable_source_codec' },
       ]),
     ).toEqual([{ track: 'audio', reason: 'undecodable_source_codec' }]);
+  });
+
+  it('reports only tracks the job keeps', () => {
+    const video = { type: 'video' };
+    const audio = { type: 'audio' };
+    expect(
+      discardedPrimaryTracks({ video: false, audio: true }, video, audio, [
+        { track: video, reason: 'no_encodable_target_codec' },
+        { track: audio, reason: 'undecodable_source_codec' },
+      ]),
+    ).toEqual([{ track: 'audio', reason: 'undecodable_source_codec' }]);
+  });
+});
+
+describe('createAudioOutputFormat', () => {
+  it('uses MP3 without a Xing header for a file stream', () => {
+    expect(createAudioOutputFormat('mp3', 'memory')).toBeInstanceOf(Mp3OutputFormat);
+    const format = createAudioOutputFormat('mp3', 'file-stream');
+    expect(format).toEqual(new Mp3OutputFormat({ xingHeader: false }));
+    expect(format.fileExtension).toBe('.mp3');
+  });
+
+  it('uses MP4 with sink-specific metadata placement for M4A', () => {
+    expect(createAudioOutputFormat('m4a', 'memory')).toEqual(
+      new Mp4OutputFormat({ fastStart: 'in-memory' }),
+    );
+    const format = createAudioOutputFormat('m4a', 'file-stream');
+    expect(format).toEqual(new Mp4OutputFormat({ fastStart: false }));
+    expect(format.fileExtension).toBe('.mp4');
+  });
+
+  it('uses WAV for both sinks', () => {
+    for (const sink of ['memory', 'file-stream'] as const) {
+      const format = createAudioOutputFormat('wav', sink);
+      expect(format).toBeInstanceOf(WavOutputFormat);
+      expect(format.fileExtension).toBe('.wav');
+    }
   });
 });
 

@@ -25,7 +25,13 @@ export interface OpenSink {
   abort(): Promise<void>;
 }
 
-const EXTENSIONS: Record<string, string> = { 'video/mp4': '.mp4', 'video/webm': '.webm' };
+const EXTENSIONS: Record<string, string> = {
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+  'audio/mpeg': '.mp3',
+  'audio/mp4': '.m4a',
+  'audio/wav': '.wav',
+};
 
 export async function openSink(
   plan: SinkPlan,

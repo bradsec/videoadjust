@@ -1,9 +1,11 @@
 import {
   Conversion,
   ConversionCanceledError,
+  Mp3OutputFormat,
   Mp4OutputFormat,
   Output,
   Quality,
+  WavOutputFormat,
   WebMOutputFormat,
   type ConversionOptions,
   type DiscardedTrack,
@@ -12,6 +14,7 @@ import {
   type Target,
   type TrackType,
 } from 'mediabunny';
+import type { AudioExtractSettings, AudioFormat } from './audioExtract';
 import type { SinkPlan } from './sink';
 import type { Container, Settings } from './types';
 
@@ -22,6 +25,11 @@ export class ConversionInvalidError extends Error {
     this.name = 'ConversionInvalidError';
   }
 }
+
+export type ConversionJob = {
+  options: Pick<ConversionOptions, 'video' | 'audio' | 'trim'>;
+  keeps: { video: boolean; audio: boolean };
+};
 
 // Quality rejects non-integer bitrates; source bitrates come from packet statistics and can be fractional.
 const quality = (bitrate: number) => new Quality({ bitrate: Math.round(bitrate) });
@@ -56,8 +64,35 @@ export function toConversionOptions(
   };
 }
 
+export function shrinkJob(s: Settings): ConversionJob {
+  return {
+    options: toConversionOptions(s),
+    keeps: { video: !!s.video, audio: !!s.audio },
+  };
+}
+
+export function audioExtractJob(s: AudioExtractSettings): ConversionJob {
+  return {
+    options: {
+      trim: { start: s.trim.start, end: s.trim.end },
+      video: { discard: true },
+      audio:
+        s.format === 'wav'
+          ? { codec: 'pcm-s16', numberOfChannels: s.channels }
+          : s.format === 'm4a' && s.copy
+            ? { codec: 'aac', forceTranscode: false }
+            : {
+                codec: s.format === 'mp3' ? 'mp3' : 'aac',
+                quality: quality(s.bitrate),
+                numberOfChannels: s.channels,
+              },
+    },
+    keeps: { video: false, audio: true },
+  };
+}
+
 export function discardedPrimaryTracks(
-  settings: Settings,
+  keeps: ConversionJob['keeps'],
   primaryVideo: unknown,
   primaryAudio: unknown,
   discarded: readonly { track: unknown; reason: DiscardedTrack['reason'] }[],
@@ -65,8 +100,8 @@ export function discardedPrimaryTracks(
   const lost: { track: TrackType; reason: DiscardedTrack['reason'] }[] = [];
   for (const { track, reason } of discarded) {
     if (reason === 'discarded_by_user') continue;
-    if (settings.video && track === primaryVideo) lost.push({ track: 'video', reason });
-    if (settings.audio && track === primaryAudio) lost.push({ track: 'audio', reason });
+    if (keeps.video && track === primaryVideo) lost.push({ track: 'video', reason });
+    if (keeps.audio && track === primaryAudio) lost.push({ track: 'audio', reason });
   }
   return lost;
 }
@@ -77,9 +112,18 @@ export function createOutputFormat(container: Container, sinkKind: SinkPlan['kin
   return new Mp4OutputFormat({ fastStart: sinkKind === 'memory' ? 'in-memory' : false });
 }
 
+export function createAudioOutputFormat(
+  format: AudioFormat,
+  sinkKind: SinkPlan['kind'],
+): OutputFormat {
+  if (format === 'mp3') return new Mp3OutputFormat({ xingHeader: sinkKind === 'memory' });
+  if (format === 'wav') return new WavOutputFormat();
+  return new Mp4OutputFormat({ fastStart: sinkKind === 'memory' ? 'in-memory' : false });
+}
+
 export function startConversion(args: {
   input: Input;
-  settings: Settings;
+  job: ConversionJob;
   format: OutputFormat;
   target: Target;
   onProgress(p: number, bytesWritten: number): void;
@@ -97,7 +141,7 @@ export function startConversion(args: {
       conversion = await Conversion.init({
         input: args.input,
         output,
-        ...toConversionOptions(args.settings),
+        ...args.job.options,
         showWarnings: false,
       });
       if (canceled) {
@@ -109,7 +153,7 @@ export function startConversion(args: {
         args.input.getPrimaryAudioTrack(),
       ]);
       const lostPrimary = discardedPrimaryTracks(
-        args.settings,
+        args.job.keeps,
         primaryVideo,
         primaryAudio,
         conversion.discardedTracks,

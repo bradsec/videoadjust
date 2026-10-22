@@ -1,7 +1,14 @@
 // Test-only page. vite.config.ts builds it only when VM_E2E=1, so the deployed site has no harness.
 import { canEncodeAudio, canEncodeVideo, StreamTarget, type StreamTargetChunk } from 'mediabunny';
-import { registerAacFallback } from '../src/core/capabilities';
-import { createOutputFormat, startConversion } from '../src/core/convert';
+import { AUDIO_FORMATS, type AudioExtractSettings } from '../src/core/audioExtract';
+import { ensureMp3Encoder, registerAacFallback } from '../src/core/capabilities';
+import {
+  audioExtractJob,
+  createAudioOutputFormat,
+  createOutputFormat,
+  shrinkJob,
+  startConversion,
+} from '../src/core/convert';
 import { chooseSink, openSink } from '../src/core/sink';
 import { readSource, UnsupportedSourceError } from '../src/core/source';
 import type { Settings, SourceInfo, VideoCodecId } from '../src/core/types';
@@ -79,7 +86,7 @@ const harness = {
       let lastProgress = 0;
       const job = startConversion({
         input,
-        settings,
+        job: shrinkJob(settings),
         format: createOutputFormat(settings.container, 'memory'),
         target: sink.target,
         onProgress(p, bytes) {
@@ -124,7 +131,7 @@ const harness = {
       let lastProgress = 0;
       const job = startConversion({
         input,
-        settings,
+        job: shrinkJob(settings),
         format: createOutputFormat(settings.container, 'file-stream'),
         target: new StreamTarget(writable, { chunked: true }),
         onProgress(p, bytes) {
@@ -143,6 +150,72 @@ const harness = {
         ok: true,
         output: info,
         outputBytes: size,
+        reportedBytes,
+        lastProgress,
+        closeCalls,
+        abortCalls,
+      };
+    } catch (err) {
+      return { ...failure(err), closeCalls, abortCalls };
+    }
+  },
+
+  async extractAudio(
+    fixture: File,
+    settings: AudioExtractSettings,
+    sinkKind: 'memory' | 'file-stream',
+  ): Promise<StreamResult> {
+    let closeCalls = 0;
+    let abortCalls = 0;
+    try {
+      if (settings.format === 'mp3') await ensureMp3Encoder();
+      if (settings.format === 'm4a' && !settings.copy && !(await canEncodeAudio('aac')))
+        await registerAacFallback();
+      const { input } = await readSource(fixture);
+      const mime = AUDIO_FORMATS[settings.format].mime;
+      const chunks: StreamTargetChunk[] = [];
+      const writable = new WritableStream<StreamTargetChunk>({
+        write(chunk) {
+          chunks.push(chunk);
+        },
+        close() {
+          closeCalls++;
+        },
+        abort() {
+          abortCalls++;
+        },
+      });
+      const sink =
+        sinkKind === 'memory' ? await openSink({ kind: 'memory', warn: false }, 'out', mime) : null;
+      let reportedBytes = 0;
+      let lastProgress = 0;
+      const job = startConversion({
+        input,
+        job: audioExtractJob(settings),
+        format: createAudioOutputFormat(settings.format, sinkKind),
+        target: sink?.target ?? new StreamTarget(writable, { chunked: true }),
+        onProgress(p, bytes) {
+          lastProgress = p;
+          reportedBytes = bytes;
+        },
+      });
+      await job.done;
+      const blob = sink
+        ? await sink.finish()
+        : (() => {
+            const size = Math.max(0, ...chunks.map((c) => c.position + c.data.byteLength));
+            const bytes = new Uint8Array(size);
+            for (const chunk of chunks) bytes.set(chunk.data, chunk.position);
+            return new Blob([bytes], { type: mime });
+          })();
+      if (!blob) throw new Error('Memory sink returned no blob');
+      const { info } = await readSource(
+        new File([blob], `out${AUDIO_FORMATS[settings.format].ext}`, { type: mime }),
+      );
+      return {
+        ok: true,
+        output: info,
+        outputBytes: blob.size,
         reportedBytes,
         lastProgress,
         closeCalls,

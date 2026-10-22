@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ConversionCanceledError, Quality, type Input } from 'mediabunny';
-import { ConversionInvalidError, toConversionOptions } from '../../src/core/convert';
+import { ConversionInvalidError } from '../../src/core/convert';
 import { autoSettings, targetVideoBitrate } from '../../src/core/autoSettings';
 import type { Capabilities, Settings, SourceInfo } from '../../src/core/types';
 import { createController, LARGE_FILE_BYTES, type AppDeps } from '../../src/ui/controller';
@@ -427,15 +427,18 @@ describe('export flow', () => {
     t.ctl.dispatch({ type: 'export' });
     await flush();
     const args = t.startConversion.mock.calls[0]?.[0] as Parameters<AppDeps['startConversion']>[0];
-    expect(args.settings.video).toMatchObject({
+    expect(args.job.options.video).toMatchObject({
       codec: 'avc',
       width: 854,
       height: 480,
-      fps: 30,
-      bitrate: 88_327,
+      frameRate: 30,
+      quality: new Quality({ bitrate: 88_327 }),
     });
-    expect(args.settings.audio).toMatchObject({ codec: 'aac', bitrate: 64_000, copy: false });
-    expect(toConversionOptions(args.settings).video).toEqual({
+    expect(args.job.options.audio).toMatchObject({
+      codec: 'aac',
+      quality: new Quality({ bitrate: 64_000 }),
+    });
+    expect(args.job.options.video).toEqual({
       width: 854,
       height: 480,
       fit: 'contain',

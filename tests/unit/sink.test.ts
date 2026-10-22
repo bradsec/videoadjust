@@ -84,4 +84,23 @@ describe('openSink abort', () => {
     const sink = await openSink({ kind: 'memory', warn: false }, 'a-small.mp4', 'video/mp4');
     await expect(sink.abort()).resolves.toBeUndefined();
   });
+
+  test.each([
+    ['audio/mpeg', '.mp3'],
+    ['audio/mp4', '.m4a'],
+    ['audio/wav', '.wav'],
+  ])('offers %s with extension %s', async (mime, extension) => {
+    let pickerOptions: unknown;
+    (globalThis as { window?: unknown }).window = {
+      showSaveFilePicker: async (options: unknown) => {
+        pickerOptions = options;
+        return { createWritable: async () => new WritableStream() };
+      },
+    };
+    await openSink({ kind: 'file-stream' }, `out${extension}`, mime);
+    expect(pickerOptions).toEqual({
+      suggestedName: `out${extension}`,
+      types: [{ accept: { [mime]: [extension] } }],
+    });
+  });
 });

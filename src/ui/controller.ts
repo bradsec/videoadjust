@@ -4,6 +4,7 @@ import { autoSettings, scaleToLongEdge, targetVideoBitrate } from '../core/autoS
 import {
   ConversionInvalidError,
   createOutputFormat,
+  shrinkJob,
   type startConversion as startConversionFn,
 } from '../core/convert';
 import { estimateBytes } from '../core/estimate';
@@ -650,7 +651,7 @@ export function createController(
     try {
       const job = deps.startConversion({
         input: base.input,
-        settings,
+        job: shrinkJob(settings),
         format: createOutputFormat(settings.container, plan.kind),
         target: sink.target,
         onProgress(p, written) {
