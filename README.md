@@ -13,7 +13,7 @@ Live site: https://bradsec.github.io/videoresize/
 No video is uploaded and nothing is sent anywhere. The page is static, has no analytics, web fonts or
 CDN assets, and makes no requests to other origins. Its CSP only allows `'self'`, `blob:` and
 workers. `scripts/check-no-remote.mjs` (`pnpm check:remote`, part of `pnpm build`) fails the build if
-the output contains a remote request target. It does not need `SharedArrayBuffer` or COOP/COEP
+any built file contains a URL outside a short, commented allowlist (spec links in bundled comments). It does not need `SharedArrayBuffer` or COOP/COEP
 headers.
 
 ## Browser support
@@ -42,8 +42,9 @@ large estimate asks before it starts.
 ## Offline
 
 A service worker (`public/sw.js`, registered only in production builds) precaches every built file,
-including the lazy AAC chunk. Navigations are network-first with a cache fallback, so an update is
-picked up on the next online load; hashed assets are cache-first. The build fills in the file list and
+including the lazy AAC chunk. Navigations are network-first, revalidated with the server (so the host's max-age cannot serve an
+old page), with the cache used when offline or after 4 s; hashed assets are cache-first. The previous
+version's cache is kept until the next update so an open tab can still load the AAC chunk. The build fills in the file list and
 a cache version at build time.
 
 ## Development

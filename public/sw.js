@@ -1,11 +1,15 @@
 // videoresize service worker. The app is static and client-side, so offline is caching.
 // The two tokens below are replaced at build time by the precache plugin in vite.config.ts.
-// Navigations are network-first (a new deploy lands on the next online load, and an old
-// index.html is never served while online); hashed build assets are cache-first.
+// Navigations are network-first and revalidate with the server (cache: 'no-cache'), so the
+// host's max-age cannot hand back an old index.html after a deploy; if the network is down or
+// slower than NAV_TIMEOUT_MS the cached page is used. Hashed build assets are cache-first.
+// On activate the previous version's cache is kept (only older ones are deleted) and lookups
+// search every cache, so a tab opened before a deploy can still import its lazy AAC chunk.
 const VERSION = '__VR_VERSION__';
 const PRECACHE = '__VR_PRECACHE__'.split('\n');
 const PREFIX = 'videoresize-';
 const CACHE = PREFIX + VERSION;
+const NAV_TIMEOUT_MS = 4000;
 
 const scoped = (path) => new URL(path, self.registration.scope).href;
 
@@ -22,32 +26,39 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key.startsWith(PREFIX) && key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) => {
+        // keys() is in creation order: the last other entry is the previous version.
+        const others = keys.filter((key) => key.startsWith(PREFIX) && key !== CACHE);
+        return Promise.all(others.slice(0, -1).map((key) => caches.delete(key)));
+      })
       .then(() => self.clients.claim()),
   );
 });
 
+async function cachedPage(request) {
+  return (await caches.match(request, { ignoreSearch: true })) || (await caches.match(scoped('./index.html')));
+}
+
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
-  try {
-    const response = await fetch(request);
+  const network = fetch(request, { cache: 'no-cache' }).then(async (response) => {
     if (response.ok) await cache.put(request, response.clone());
     return response;
-  } catch (err) {
-    const hit = (await cache.match(request, { ignoreSearch: true })) || (await cache.match(scoped('./index.html')));
-    if (hit) return hit;
-    throw err;
-  }
+  });
+  const fallback = await cachedPage(request);
+  if (!fallback) return network;
+  const timeout = new Promise((resolve) => setTimeout(() => resolve(fallback), NAV_TIMEOUT_MS));
+  // A network error or a timeout both end in the cached page.
+  return Promise.race([network.catch(() => fallback), timeout]);
 }
 
 async function cacheFirst(request) {
-  const cache = await caches.open(CACHE);
-  const hit = await cache.match(request);
+  const hit = await caches.match(request);
   if (hit) return hit;
   const response = await fetch(request);
-  // Never pin an HTML fallback page under an asset URL.
+  // Cache only complete 200 responses (not 206 ranges) and never an HTML fallback page.
   const isHtml = (response.headers.get('content-type') || '').includes('text/html');
-  if (response.ok && !isHtml) await cache.put(request, response.clone());
+  if (response.status === 200 && !isHtml) await (await caches.open(CACHE)).put(request, response.clone());
   return response;
 }
 

@@ -1,26 +1,49 @@
-// Fails if the built site could contact another origin. Absolute http(s) URLs are only
-// allowed in THIRD-PARTY-LICENSES.txt and as text inside bundled JavaScript (licence headers,
-// comments, strings such as spec links). Markup and CSS must carry none, and neither may
-// JavaScript use one as a request target.
+// Fails if the built site could contact another origin. Rather than guess how JavaScript
+// makes a request, it collects every absolute or protocol-relative URL string in the built JS
+// and fails on any that is not in JS_URL_ALLOWLIST. Markup, CSS and the manifest must carry
+// no remote URL at all (apart from the SVG/XLink namespace names).
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const dist = new URL('../dist', import.meta.url).pathname;
-const ABSOLUTE = /https?:\/\/[^\s"'`)<>\\]+/g;
-// A literal URL (or protocol-relative one) handed to something that fetches or loads it.
-const JS_REQUEST = [
-  /\bfetch\(\s*["'`]\s*(?:https?:)?\/\//,
-  /\bXMLHttpRequest[\s\S]{0,80}\.open\([^)]*["'`]https?:\/\//,
-  /\bnew\s+(?:Worker|SharedWorker|WebSocket|EventSource)\(\s*["'`]\s*(?:https?|wss?):\/\//,
-  /\bimportScripts\(\s*["'`]https?:\/\//,
-  /\bimport\(\s*["'`]https?:\/\//,
-  /\bnavigator\.sendBeacon\(\s*["'`]https?:\/\//,
-  /\.src\s*=\s*["'`]https?:\/\//,
-  /\.href\s*=\s*["'`]https?:\/\//,
-];
-const MARKUP = /\b(?:src|href|action|poster|data|srcset)\s*=\s*["']\s*(?:https?:)?\/\//i;
-const CSS_URL = /url\(\s*["']?\s*(?:https?:)?\/\//i;
-const MARKUP_ALLOWED = /^(?:http:\/\/www\.w3\.org\/(?:2000\/svg|1999\/xlink))$/;
+// Every URL that appears in the bundled JavaScript today, and why it is safe. They are
+// specification links and error-message text inside comments or strings; none is ever passed to
+// a loader. Adding an entry needs the same justification.
+export const JS_URL_ALLOWLIST = new Set([
+  'http://www.w3.org/2000/svg', // SVG namespace name for createElementNS, not fetched
+  'https://aomediacodec.github.io/av1-isobmff/', // Mediabunny comment: AV1 ISOBMFF spec link
+  'https://www.w3.org/TR/webcodecs-aac-codec-registration/', // Mediabunny comment: spec link
+  'https://www.w3.org/TR/webcodecs-flac-codec-registration/', // Mediabunny comment: spec link
+  'https://www.w3.org/TR/webcodecs-vorbis-codec-registration/', // Mediabunny comment: spec link
+  'https://www.webmproject.org/vp9/mp4/', // Mediabunny comment: VP9 in MP4 spec link
+  'https://rolldown.rs/in-depth/bundling-cjs#require-external-modules', // bundler message text
+]);
+
+const MARKUP_NS = new Set(['http://www.w3.org/2000/svg', 'http://www.w3.org/1999/xlink']);
+// Absolute http(s)/ws(s) URLs anywhere, and protocol-relative ones at the start of a string
+// literal or after url( / @import / = in markup and CSS.
+const ABSOLUTE = /(?:https?|wss?):\/\/[^\s"'`)<>\\]+/g;
+const PROTO_REL_STRING = /["'`]\/\/[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}[^"'`\s]*/g;
+const PROTO_REL_MARKUP = /(?:["'(=]|@import\s+)\s*\/\/[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}/g;
+
+const normalise = (url) => url.replace(/[.,;:]+$/, '');
+
+/** @param {Record<string, string>} files built text files by path relative to dist */
+export function checkRemote(files) {
+  const problems = [];
+  for (const [rel, text] of Object.entries(files)) {
+    if (rel === 'THIRD-PARTY-LICENSES.txt') continue;
+    const isJs = /\.m?js$/.test(rel);
+    for (const raw of text.match(ABSOLUTE) ?? []) {
+      const url = normalise(raw);
+      if (isJs ? !JS_URL_ALLOWLIST.has(url) : !MARKUP_NS.has(url)) problems.push(`${rel}: remote URL ${url}`);
+    }
+    for (const m of text.match(isJs ? PROTO_REL_STRING : PROTO_REL_MARKUP) ?? []) {
+      problems.push(`${rel}: protocol-relative URL ${m.trim()}`);
+    }
+  }
+  return problems;
+}
 
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -29,25 +52,17 @@ function walk(dir) {
   });
 }
 
-const problems = [];
-const seen = new Map();
-for (const file of walk(dist)) {
-  const rel = relative(dist, file);
-  if (rel === 'THIRD-PARTY-LICENSES.txt') continue;
-  if (!/\.(?:js|mjs|html|css|webmanifest|json|svg|txt)$/.test(rel)) continue;
-  const text = readFileSync(file, 'utf8');
-  const isJs = /\.m?js$/.test(rel);
-  for (const m of text.match(ABSOLUTE) ?? []) {
-    if (isJs) seen.set(m, (seen.get(m) ?? 0) + 1);
-    else if (!MARKUP_ALLOWED.test(m)) problems.push(`${rel}: absolute URL ${m}`);
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const dist = fileURLToPath(new URL('../dist', import.meta.url));
+  const files = {};
+  for (const file of walk(dist)) {
+    const rel = relative(dist, file);
+    if (/\.(?:js|mjs|html|css|webmanifest|json|svg|txt)$/.test(rel)) files[rel] = readFileSync(file, 'utf8');
   }
-  if (isJs) for (const re of JS_REQUEST) if (re.test(text)) problems.push(`${rel}: request to a literal remote URL (${re})`);
-  if (rel.endsWith('.html') && MARKUP.test(text)) problems.push(`${rel}: remote src/href`);
-  if (rel.endsWith('.css') && CSS_URL.test(text)) problems.push(`${rel}: remote url()`);
+  const problems = checkRemote(files);
+  if (problems.length) {
+    console.error('check:remote failed:\n' + problems.map((p) => `  ${p}`).join('\n'));
+    process.exit(1);
+  }
+  console.log(`check:remote ok: no URL outside the allowlist in ${Object.keys(files).length} built files`);
 }
-
-if (problems.length) {
-  console.error('check:remote failed:\n' + problems.map((p) => `  ${p}`).join('\n'));
-  process.exit(1);
-}
-console.log(`check:remote ok: no remote request targets in dist (${seen.size} URL strings in JS, all text only)`);

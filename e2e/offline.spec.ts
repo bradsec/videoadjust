@@ -36,6 +36,7 @@ test('precache list covers the build and excludes the e2e harness', async ({ req
   expect(sw).not.toContain('__VR_');
   expect(sw).not.toContain('harness');
   expect(sw).toContain('index.html');
+  expect(sw).toContain("cache: 'no-cache'");
   expect(sw).toMatch(/assets\/(?:index|main)-[\w-]+\.js/);
   expect(sw).toMatch(/aac-encoder[\w-]*\.js/);
 });
