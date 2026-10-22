@@ -1,6 +1,8 @@
-import { GIFEncoder, applyPalette, quantize } from 'gifenc';
+import { GIFEncoder } from 'gifenc';
+import { createDeltaEncoder, type GifFrame } from './gifDelta';
 
 const gif = GIFEncoder();
+let encode: ((rgba: Uint8ClampedArray) => GifFrame) | undefined;
 
 self.onmessage = (
   event: MessageEvent<
@@ -10,6 +12,7 @@ self.onmessage = (
         width: number;
         height: number;
         colors: number;
+        threshold: number | null;
         delay: number;
         repeat: number;
       }
@@ -23,10 +26,18 @@ self.onmessage = (
       self.postMessage({ type: 'done', bytes }, { transfer: [bytes.buffer] });
       return;
     }
-    const { rgba, width, height, colors, delay, repeat } = event.data;
-    const palette = quantize(rgba, colors);
-    const index = applyPalette(rgba, palette);
-    gif.writeFrame(index, width, height, { palette, delay, repeat, dispose: 2 });
+    const { rgba, width, height, colors, threshold, delay, repeat } = event.data;
+    encode ??= createDeltaEncoder(colors, threshold);
+    const { index, palette, transparentIndex } = encode(rgba);
+    // Dispose 1 keeps the previous image, which the transparent pixels let show through.
+    gif.writeFrame(index, width, height, {
+      palette,
+      delay,
+      repeat,
+      dispose: 1,
+      transparent: transparentIndex !== null,
+      transparentIndex: transparentIndex ?? 0,
+    });
     self.postMessage({ type: 'frame' });
   } catch (error) {
     self.postMessage({

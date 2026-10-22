@@ -8,7 +8,19 @@ export interface GifSettings {
   fps: number;
   loop: 'forever' | 'once';
   colors: 256 | 128 | 64;
+  compression: GifCompression;
 }
+
+export type GifCompression = 'quality' | 'balanced' | 'small';
+
+// Per-channel difference from the shown image below which a pixel is left unchanged.
+// 'quality' writes full frames: an exact match leaves camera noise scattered through the
+// transparency, which made files larger than full frames.
+export const GIF_CHANGE_THRESHOLD: Record<GifCompression, number | null> = {
+  quality: null,
+  balanced: 6,
+  small: 16,
+};
 
 export const GIF_PIXEL_BUDGET = 80_000_000;
 export const GIF_MAX_FRAMES = 300;
@@ -41,6 +53,7 @@ export function autoGifSettings(source: SourceInfo): GifSettings | null {
     fps: Math.min(10, source.video.fps),
     loop: 'forever',
     colors: 256,
+    compression: 'balanced',
   };
 }
 
@@ -63,6 +76,10 @@ export function validateGifSettings(
     fps: Math.min(fps, sourceFps),
     loop: value.loop === 'once' ? 'once' : 'forever',
     colors: value.colors === 64 || value.colors === 128 ? value.colors : 256,
+    compression:
+      value.compression === 'quality' || value.compression === 'small'
+        ? value.compression
+        : 'balanced',
   };
 }
 
@@ -241,6 +258,7 @@ export async function exportGif(
           width,
           height,
           colors: settings.colors,
+          threshold: GIF_CHANGE_THRESHOLD[settings.compression],
           delay: delaysMs[i],
           repeat: settings.loop === 'once' ? -1 : 0,
         },

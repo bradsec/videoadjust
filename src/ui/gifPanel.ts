@@ -90,6 +90,24 @@ export function mountGifPanel(
     ],
     (n) => opts.onChange({ ...value, colors: Number(n) as GifSettings['colors'] }),
   );
+  const compression = select(
+    'File size',
+    [
+      { value: 'quality', label: 'Best quality' },
+      { value: 'balanced', label: 'Balanced' },
+      { value: 'small', label: 'Smallest file' },
+    ],
+    (next) => opts.onChange({ ...value, compression: next }),
+  );
+  compression
+    .closest('.setting')
+    ?.append(
+      el(
+        'p',
+        'setting-help',
+        'Smaller files reuse more of the previous frame, which can leave faint trails in fast motion.',
+      ),
+    );
   const warning = el('p', 'setting-reason');
   warning.setAttribute('role', 'status');
   controls.append(warning);
@@ -131,6 +149,7 @@ export function mountGifPanel(
     fps.value = String(next.fps);
     loop.value = next.loop;
     colors.value = String(next.colors);
+    compression.value = next.compression;
     const dimensions = gifDimensions(next, opts.source, transform);
     const frames = gifFrameCount(next.trim, next.fps);
     heading.textContent = `${dimensions.width}x${dimensions.height} GIF`;

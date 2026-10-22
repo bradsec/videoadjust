@@ -15,6 +15,8 @@ declare module 'gifenc' {
         delay: number;
         repeat: number;
         dispose: number;
+        transparent?: boolean;
+        transparentIndex?: number;
       },
     ): void;
     finish(): void;

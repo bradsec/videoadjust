@@ -20,6 +20,7 @@ test('encodes a cropped GIF with the requested size, frames, and centre colour',
     fps: 5,
     loop: 'forever',
     colors: 256,
+    compression: 'balanced',
   };
   const result = ok(
     await page.evaluate(
