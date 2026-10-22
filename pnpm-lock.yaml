@@ -11,6 +11,9 @@ importers:
       '@mediabunny/aac-encoder':
         specifier: 1.62.0
         version: 1.62.0(mediabunny@1.62.0)
+      '@mediabunny/mp3-encoder':
+        specifier: 1.62.0
+        version: 1.62.0(mediabunny@1.62.0)
       mediabunny:
         specifier: 1.62.0
         version: 1.62.0
@@ -128,6 +131,11 @@ packages:
 
   '@mediabunny/aac-encoder@1.62.0':
     resolution: {integrity: sha512-BtGaX3GVGgfQzbqeuqeKAOvHF2lhV70FO3T2orAr4Lr6YklRBOaggfRsKEp93cd6Y7DQab9GFYAuURa1DksCYw==}
+    peerDependencies:
+      mediabunny: ^1.0.0
+
+  '@mediabunny/mp3-encoder@1.62.0':
+    resolution: {integrity: sha512-72yrJXFO+qkFurWzVpkTu7e5yVF6qFB0mmyaMcg7Ztwz5a+bSvuitkaIY82FBk5vM7euCKzFuqVwOzH0YUCcLg==}
     peerDependencies:
       mediabunny: ^1.0.0
 
@@ -920,6 +928,10 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.6.0
 
   '@mediabunny/aac-encoder@1.62.0(mediabunny@1.62.0)':
+    dependencies:
+      mediabunny: 1.62.0
+
+  '@mediabunny/mp3-encoder@1.62.0(mediabunny@1.62.0)':
     dependencies:
       mediabunny: 1.62.0
 

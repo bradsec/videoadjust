@@ -33,6 +33,34 @@ export function registerAacFallback(): Promise<boolean> {
   return aacRegistration;
 }
 
+// The encoder package embeds LAME 3.100 (LGPL-2.0-or-later) as WASM. It is loaded on the
+// first MP3 export only, never by probeCapabilities, and shares the retry rule above.
+let mp3Registration: Promise<boolean> | undefined;
+
+export function registerMp3Fallback(): Promise<boolean> {
+  mp3Registration ??= import('@mediabunny/mp3-encoder').then(
+    ({ registerMp3Encoder }) => {
+      registerMp3Encoder();
+      return true;
+    },
+    (err: unknown) => {
+      mp3Registration = undefined;
+      throw err;
+    },
+  );
+  return mp3Registration;
+}
+
+export async function ensureMp3Encoder(
+  deps: { canEncodeAudio: typeof canEncodeAudio; register: () => Promise<boolean> } = {
+    canEncodeAudio,
+    register: registerMp3Fallback,
+  },
+): Promise<void> {
+  if (await deps.canEncodeAudio('mp3')) return;
+  if (!(await deps.register())) throw new Error('No MP3 encoder is available in this browser');
+}
+
 async function probe(check: () => Promise<boolean>, label: string): Promise<boolean> {
   try {
     return (await check()) === true;

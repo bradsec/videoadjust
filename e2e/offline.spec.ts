@@ -42,6 +42,7 @@ test('precache list covers the build and excludes the e2e harness', async ({ req
   expect(sw).toContain("cache: 'no-cache'");
   expect(sw).toMatch(/assets\/(?:index|main)-[\w-]+\.js/);
   expect(sw).toMatch(/aac-encoder[\w-]*\.js/);
+  expect(sw).toMatch(/mp3-encoder[\w-]*\.js/);
 });
 
 test('offline navigation uses the current cache only, never an older version', async ({

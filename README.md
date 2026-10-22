@@ -115,6 +115,7 @@ This project is MIT (see `LICENSE`). Production dependencies:
 | --------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | mediabunny                        | MPL-2.0 (unmodified)                                                    | https://github.com/Vanilagy/mediabunny                                                          |
 | @mediabunny/aac-encoder           | MPL-2.0 (unmodified), embeds FFmpeg AAC encoder under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder                           |
+| @mediabunny/mp3-encoder           | MPL-2.0 (unmodified), embeds LAME 3.100 under LGPL-2.0-or-later         | https://github.com/Vanilagy/mediabunny/tree/main/packages/mp3-encoder                           |
 | @types/dom-webcodecs              | MIT (type declarations only, not shipped)                               | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs              |
 | @types/dom-mediacapture-transform | MIT (type declarations only, not shipped)                               | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform |
 
@@ -145,7 +146,25 @@ The npm metadata reports MPL-2.0, so the embedded LGPL code is not visible to `p
 LGPL-2.1-or-later is accepted for `@mediabunny/aac-encoder` only, and for no other package. The
 dependency is pinned to the audited version; re-run the audit before upgrading it.
 
-Full notices, including the MPL-2.0 and LGPL-2.1 texts, are in `THIRD-PARTY-LICENSES.txt`. The build
+### MP3 fallback encoder
+
+Browsers without a native WebCodecs MP3 encoder (all current ones) get `@mediabunny/mp3-encoder`,
+registered with its documented `registerMp3Encoder()` call. The app loads it with a dynamic
+`import()` on the first MP3 export, after `canEncodeAudio('mp3')` returns false, so it ships as a
+separate same-origin chunk that the capability probe never loads. The WASM and the encode worker
+(a `blob:` worker, allowed by the CSP) are embedded in that chunk.
+
+Licence audit (version 1.62.0, 2026-10-22):
+
+- The npm package declares MPL-2.0. Its WASM is LAME 3.100, whose source headers grant the GNU
+  Library General Public License version 2 or any later version (LGPL-2.0-or-later).
+- The build uses `--disable-decoder --disable-frontend`, so LAME's GPL mpglib decoder is absent.
+- `scripts/check-licenses.mjs` lists `@mediabunny/mp3-encoder` in `LGPL_WASM_EXCEPTIONS`, so
+  LGPL is accepted for it and for `@mediabunny/aac-encoder` only. Re-run the audit before upgrading.
+- LAME asks for acknowledgement and a link to https://lame.sourceforge.io/, given here and in
+  `THIRD-PARTY-LICENSES.txt`.
+
+Full notices, including the MPL-2.0, LGPL-2.1 and LGPL-2.0 texts, are in `THIRD-PARTY-LICENSES.txt`. The build
 copies it to `dist/THIRD-PARTY-LICENSES.txt` and the page footer links to it. `pnpm check:licenses` reads
 `pnpm licenses list --prod --json`, fails on any licence outside the allowlist (MIT, BSD-2/3-Clause,
 ISC, Apache-2.0, 0BSD, MPL-2.0, plus the per-package LGPL exception above) and fails if a production package has no entry in
