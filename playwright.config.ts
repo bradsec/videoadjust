@@ -2,7 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  use: { baseURL: 'http://127.0.0.1:4317' },
+  reporter: [['list'], ['html', { open: 'never' }]],
+  use: { baseURL: 'http://127.0.0.1:4317', trace: 'retain-on-failure' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
