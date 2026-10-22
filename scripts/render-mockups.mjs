@@ -14,21 +14,27 @@ const devices = {
   desktop: { width: 1440, height: 900, scale: 1 },
 };
 
-// Desktop shows Prepare with Adjust open and one override, so the owner
-// sees the override and reset pattern; narrower screens keep it collapsed.
+// Desktop shows each Prepare screen with Adjust open and one override, so
+// the owner sees the override and reset pattern; narrower screens keep it
+// collapsed. The no-audio variant shows the Extract audio tab disabled.
 const shots = [
   ...['phone', 'tablet', 'desktop'].flatMap((device) =>
-    ['drop', 'prepare', 'result'].map((screen) => ({ device, screen })),
+    ['drop', 'prepare', 'result', 'prepare-audio', 'result-audio'].map((screen) => ({
+      device,
+      screen,
+    })),
   ),
   { device: 'phone', screen: 'prepare', theme: 'dark' },
   { device: 'desktop', screen: 'prepare', theme: 'dark' },
+  { device: 'phone', screen: 'prepare-audio', theme: 'dark' },
+  { device: 'phone', screen: 'prepare', variant: 'no-audio' },
   { device: 'phone', screen: 'progress' },
   { device: 'phone', screen: 'notices' },
 ];
 
 const browser = await chromium.launch();
 try {
-  for (const { device, screen, theme = 'light' } of shots) {
+  for (const { device, screen, theme = 'light', variant } of shots) {
     const d = devices[device];
     const context = await browser.newContext({
       viewport: { width: d.width, height: d.height },
@@ -37,18 +43,19 @@ try {
     });
     const page = await context.newPage();
     await page.goto(pageUrl);
-    const adjusted = device === 'desktop' && screen === 'prepare';
+    const adjusted = device === 'desktop' && screen.startsWith('prepare');
     await page.evaluate(
-      ({ screen, adjusted }) => {
+      ({ screen, adjusted, variant }) => {
         document.documentElement.dataset.screen = screen;
+        if (variant) document.documentElement.dataset.variant = variant;
         if (adjusted) {
           document.documentElement.dataset.variant = 'adjusted';
-          document.querySelector('#prepare details.adjust').open = true;
+          document.querySelector(`#${screen} details.adjust`).open = true;
         }
       },
-      { screen, adjusted },
+      { screen, adjusted, variant },
     );
-    const name = `${device}-${screen}${theme === 'dark' ? '-dark' : ''}.png`;
+    const name = `${device}-${screen}${variant ? `-${variant}` : ''}${theme === 'dark' ? '-dark' : ''}.png`;
     await page.screenshot({ path: path.join(outDir, name), fullPage: true });
     console.log(name);
     await context.close();

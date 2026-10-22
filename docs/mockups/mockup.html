@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>videoresize mockups</title>
+    <title>videomate mockups</title>
     <link rel="stylesheet" href="../../src/styles/tokens.css" />
     <style>
       /* Mockup layout. Real UI tasks reuse tokens.css; these rules are a
@@ -68,7 +68,9 @@
       html[data-screen='prepare'] #prepare,
       html[data-screen='progress'] #progress,
       html[data-screen='result'] #result,
-      html[data-screen='notices'] #notices {
+      html[data-screen='notices'] #notices,
+      html[data-screen='prepare-audio'] #prepare-audio,
+      html[data-screen='result-audio'] #result-audio {
         display: block;
       }
 
@@ -440,6 +442,11 @@
       .thumb:last-child {
         border-radius: 0 var(--r-md) var(--r-md) 0;
       }
+      /* :last-child above is the playhead, not a thumb. Untrimmed strips show
+         the last thumb's corner, so round it to match the end handle. */
+      #prepare-audio .thumb:last-of-type {
+        border-radius: 0 var(--r-md) var(--r-md) 0;
+      }
       .strip .out {
         position: absolute;
         top: 0;
@@ -675,6 +682,147 @@
         font-size: var(--fs-1);
         color: var(--c-ink-3);
       }
+      /* Tool switcher: first row of the summary card. Tabs share the width
+         equally, so a third tool drops in as one more button. */
+      .tools {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        gap: 4px;
+        padding: 4px;
+        border-radius: var(--r-md);
+        background: var(--c-surface-2);
+      }
+      .tools [role='tab'] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 0;
+        min-height: var(--tap);
+        padding: 0 var(--sp-2);
+        border: 0;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--c-ink-2);
+        font: inherit;
+        font-size: var(--fs-2);
+        font-weight: var(--fw-medium);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .tools [role='tab'] svg.i {
+        width: 18px;
+        height: 18px;
+      }
+      .tools [role='tab'][aria-selected='true'] {
+        background: var(--c-raised);
+        color: var(--c-accent-text);
+        font-weight: var(--fw-bold);
+        box-shadow: var(--shadow-lift);
+      }
+      .tools [role='tab']:focus-visible {
+        outline: none;
+        box-shadow: var(--ring);
+      }
+      /* Faded and struck through, like disabled segments, so it does not read
+         as an unselected but available tab. */
+      .tools [role='tab'][aria-disabled='true'] {
+        color: var(--c-ink-3);
+        opacity: 0.7;
+        text-decoration: line-through;
+        text-decoration-thickness: 1px;
+        cursor: not-allowed;
+      }
+      .tools-why {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: calc(var(--sp-2) * -1);
+        font-size: var(--fs-1);
+        color: var(--c-ink-3);
+      }
+      .tools-why svg.i {
+        width: 16px;
+        height: 16px;
+      }
+      /* data-variant="no-audio": the Extract audio tab is disabled. */
+      html:not([data-variant='no-audio']) .v-na,
+      html[data-variant='no-audio'] .v-a {
+        display: none;
+      }
+
+      /* Radio list for options that need a hint under each choice. */
+      .choices {
+        display: grid;
+        gap: 3px;
+        padding: 3px;
+        border-radius: var(--r-md);
+        background: var(--c-surface-2);
+      }
+      .choice {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 2px var(--sp-3);
+        min-height: var(--tap);
+        padding: 10px var(--sp-3);
+        border: 0;
+        border-radius: 11px;
+        background: transparent;
+        color: var(--c-ink-2);
+        font: inherit;
+        font-size: var(--fs-2);
+        font-weight: var(--fw-medium);
+        text-align: left;
+      }
+      .choice::before {
+        content: '';
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid var(--c-line-strong);
+        box-sizing: border-box;
+      }
+      .choice .hint {
+        grid-column: 2;
+        font-size: var(--fs-1);
+        font-weight: var(--fw-regular);
+        color: var(--c-ink-3);
+      }
+      .choice[aria-checked='true'] {
+        background: var(--c-raised);
+        color: var(--c-ink);
+        font-weight: var(--fw-bold);
+        box-shadow: var(--shadow-lift);
+      }
+      .choice[aria-checked='true']::before {
+        border: 5px solid var(--c-accent);
+      }
+      html[data-variant='adjusted'] .bitrate .b-192 {
+        background: var(--c-raised);
+        color: var(--c-ink);
+        font-weight: var(--fw-bold);
+        box-shadow: var(--shadow-lift);
+      }
+      html[data-variant='adjusted'] .bitrate .b-128 {
+        background: transparent;
+        color: var(--c-ink-2);
+        font-weight: var(--fw-medium);
+        box-shadow: none;
+      }
+      html[data-variant='adjusted'] .opt.bitrate .opt-head .name::after {
+        content: '';
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-left: 8px;
+        border-radius: 50%;
+        background: var(--c-signal);
+        vertical-align: 1px;
+        box-shadow: 0 0 0 1px rgb(0 0 0 / 25%);
+      }
+
       /* Variant switch for the mockup: data-variant="adjusted" shows the
          Prepare screen with one override (Quality: Smaller). */
       html:not([data-variant='adjusted']) .v-adj,
@@ -949,6 +1097,96 @@
         font-weight: var(--fw-bold);
       }
 
+      /* Audio player on the audio result, in place of the video wipe. */
+      .player {
+        display: grid;
+        gap: var(--sp-4);
+      }
+      .player-top {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-4);
+        min-width: 0;
+      }
+      .player-play {
+        flex: none;
+        width: var(--tap-lg);
+        height: var(--tap-lg);
+        border: 0;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--c-accent);
+        color: var(--c-accent-ink);
+        box-shadow: var(--shadow-lift);
+      }
+      .player-play svg.i {
+        width: 24px;
+        height: 24px;
+        fill: currentColor;
+        stroke: none;
+        margin-left: 3px;
+      }
+      .player-meta {
+        display: grid;
+        min-width: 0;
+      }
+      .player-meta strong {
+        font-size: var(--fs-3);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .player-meta span {
+        font-size: var(--fs-2);
+        color: var(--c-ink-2);
+      }
+      .wave {
+        position: relative;
+        height: 72px;
+      }
+      .wave svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        fill: currentColor;
+      }
+      .wave .base {
+        color: var(--c-line-strong);
+        opacity: 0.7;
+      }
+      .wave .played {
+        color: var(--c-accent);
+      }
+      .wave .head {
+        position: absolute;
+        top: -4px;
+        bottom: -4px;
+        width: 3px;
+        margin-left: -1.5px;
+        border-radius: 2px;
+        background: var(--c-ink);
+      }
+      .wave .head::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        width: 14px;
+        height: 14px;
+        transform: translateX(-50%);
+        border-radius: 50%;
+        background: var(--c-ink);
+        box-shadow: 0 0 0 2px var(--c-surface);
+      }
+      .player-time {
+        display: flex;
+        justify-content: space-between;
+        font-size: var(--fs-1);
+        color: var(--c-ink-2);
+      }
+
       /* Notices */
       .notice {
         display: grid;
@@ -1162,6 +1400,76 @@
         <circle cx="12" cy="12" r="9" />
         <path d="M12 11v5M12 8h.01" />
       </symbol>
+      <symbol id="i-audio" viewBox="0 0 24 24">
+        <path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" />
+      </symbol>
+      <!-- Placeholder waveform, 64 bars. -->
+      <symbol id="wave" viewBox="0 0 256 48" preserveAspectRatio="none">
+        <rect x="0" y="13" width="2.4" height="22" rx="1.2" />
+        <rect x="4" y="11.5" width="2.4" height="25" rx="1.2" />
+        <rect x="8" y="13.5" width="2.4" height="21" rx="1.2" />
+        <rect x="12" y="12" width="2.4" height="24" rx="1.2" />
+        <rect x="16" y="10" width="2.4" height="28" rx="1.2" />
+        <rect x="20" y="9.5" width="2.4" height="29" rx="1.2" />
+        <rect x="24" y="11.5" width="2.4" height="25" rx="1.2" />
+        <rect x="28" y="7" width="2.4" height="34" rx="1.2" />
+        <rect x="32" y="9" width="2.4" height="30" rx="1.2" />
+        <rect x="36" y="10.5" width="2.4" height="27" rx="1.2" />
+        <rect x="40" y="12" width="2.4" height="24" rx="1.2" />
+        <rect x="44" y="10" width="2.4" height="28" rx="1.2" />
+        <rect x="48" y="11.5" width="2.4" height="25" rx="1.2" />
+        <rect x="52" y="15.5" width="2.4" height="17" rx="1.2" />
+        <rect x="56" y="14" width="2.4" height="20" rx="1.2" />
+        <rect x="60" y="16" width="2.4" height="16" rx="1.2" />
+        <rect x="64" y="13.5" width="2.4" height="21" rx="1.2" />
+        <rect x="68" y="16.5" width="2.4" height="15" rx="1.2" />
+        <rect x="72" y="14" width="2.4" height="20" rx="1.2" />
+        <rect x="76" y="14" width="2.4" height="20" rx="1.2" />
+        <rect x="80" y="15.5" width="2.4" height="17" rx="1.2" />
+        <rect x="84" y="15.5" width="2.4" height="17" rx="1.2" />
+        <rect x="88" y="9" width="2.4" height="30" rx="1.2" />
+        <rect x="92" y="8" width="2.4" height="32" rx="1.2" />
+        <rect x="96" y="12.5" width="2.4" height="23" rx="1.2" />
+        <rect x="100" y="10" width="2.4" height="28" rx="1.2" />
+        <rect x="104" y="6.5" width="2.4" height="35" rx="1.2" />
+        <rect x="108" y="11" width="2.4" height="26" rx="1.2" />
+        <rect x="112" y="9.5" width="2.4" height="29" rx="1.2" />
+        <rect x="116" y="9.5" width="2.4" height="29" rx="1.2" />
+        <rect x="120" y="9" width="2.4" height="30" rx="1.2" />
+        <rect x="124" y="12" width="2.4" height="24" rx="1.2" />
+        <rect x="128" y="13.5" width="2.4" height="21" rx="1.2" />
+        <rect x="132" y="9.5" width="2.4" height="29" rx="1.2" />
+        <rect x="136" y="13.5" width="2.4" height="21" rx="1.2" />
+        <rect x="140" y="15.5" width="2.4" height="17" rx="1.2" />
+        <rect x="144" y="14" width="2.4" height="20" rx="1.2" />
+        <rect x="148" y="15.5" width="2.4" height="17" rx="1.2" />
+        <rect x="152" y="16.5" width="2.4" height="15" rx="1.2" />
+        <rect x="156" y="12.5" width="2.4" height="23" rx="1.2" />
+        <rect x="160" y="14.5" width="2.4" height="19" rx="1.2" />
+        <rect x="164" y="14" width="2.4" height="20" rx="1.2" />
+        <rect x="168" y="15" width="2.4" height="18" rx="1.2" />
+        <rect x="172" y="9" width="2.4" height="30" rx="1.2" />
+        <rect x="176" y="12" width="2.4" height="24" rx="1.2" />
+        <rect x="180" y="7.5" width="2.4" height="33" rx="1.2" />
+        <rect x="184" y="9.5" width="2.4" height="29" rx="1.2" />
+        <rect x="188" y="10.5" width="2.4" height="27" rx="1.2" />
+        <rect x="192" y="8.5" width="2.4" height="31" rx="1.2" />
+        <rect x="196" y="10" width="2.4" height="28" rx="1.2" />
+        <rect x="200" y="8" width="2.4" height="32" rx="1.2" />
+        <rect x="204" y="9.5" width="2.4" height="29" rx="1.2" />
+        <rect x="208" y="13.5" width="2.4" height="21" rx="1.2" />
+        <rect x="212" y="13.5" width="2.4" height="21" rx="1.2" />
+        <rect x="216" y="13" width="2.4" height="22" rx="1.2" />
+        <rect x="220" y="16" width="2.4" height="16" rx="1.2" />
+        <rect x="224" y="17" width="2.4" height="14" rx="1.2" />
+        <rect x="228" y="15" width="2.4" height="18" rx="1.2" />
+        <rect x="232" y="13.5" width="2.4" height="21" rx="1.2" />
+        <rect x="236" y="13.5" width="2.4" height="21" rx="1.2" />
+        <rect x="240" y="11.5" width="2.4" height="25" rx="1.2" />
+        <rect x="244" y="14.5" width="2.4" height="19" rx="1.2" />
+        <rect x="248" y="13" width="2.4" height="22" rx="1.2" />
+        <rect x="252" y="12" width="2.4" height="24" rx="1.2" />
+      </symbol>
       <symbol id="i-wifi-off" viewBox="0 0 24 24">
         <path
           d="M4 4l16 16M8.5 16.5a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 4-2.4M14.5 10a10 10 0 0 1 4.5 2.5M12 20h.01"
@@ -1173,7 +1481,7 @@
     <section class="screen" id="drop" aria-label="Drop state">
       <header class="bar">
         <span class="mark"
-          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videomate</span
         >
         <span class="chip"
           ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
@@ -1213,7 +1521,7 @@
     <section class="screen" id="prepare" aria-label="Prepare state">
       <header class="bar">
         <span class="mark"
-          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videomate</span
         >
         <span class="chip"
           ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
@@ -1321,10 +1629,36 @@
 
           <aside class="side-col">
             <div class="card summary">
+              <div class="tools" role="tablist" aria-label="Tool">
+                <button type="button" role="tab" aria-selected="true">
+                  <svg class="i" aria-hidden="true"><use href="#i-smaller" /></svg>Shrink video
+                </button>
+                <button type="button" role="tab" aria-selected="false" class="v-a" tabindex="-1">
+                  <svg class="i" aria-hidden="true"><use href="#i-audio" /></svg>Extract audio
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                  aria-disabled="true"
+                  aria-describedby="no-audio-why"
+                  class="v-na"
+                  tabindex="-1"
+                >
+                  <svg class="i" aria-hidden="true"><use href="#i-audio" /></svg>Extract audio
+                </button>
+              </div>
+              <p class="tools-why v-na" id="no-audio-why">
+                <svg class="i" aria-hidden="true"><use href="#i-info" /></svg>This video has no
+                audio track
+              </p>
               <span class="eyebrow">Ready to export</span>
               <div>
-                <h2>1080p, H.264/AAC MP4</h2>
-                <p class="sub num prep-sub">30 fps · AAC 128 kbps stereo</p>
+                <h2>1080p, H.264<span class="v-a">/AAC</span> MP4</h2>
+                <p class="sub num prep-sub">
+                  30 fps · <span class="v-a">AAC 128 kbps stereo</span
+                  ><span class="v-na">No audio</span>
+                </p>
               </div>
               <div class="estimate">
                 <span class="big num"
@@ -1440,11 +1774,240 @@
       </footer>
     </section>
 
+    <!-- ===== Prepare: Extract audio ===== -->
+    <section class="screen" id="prepare-audio" aria-label="Prepare state, extract audio">
+      <header class="bar">
+        <span class="mark"
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videomate</span
+        >
+        <span class="chip"
+          ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
+        >
+      </header>
+      <main>
+        <div class="split">
+          <div class="main-col">
+            <p class="file-line">
+              <strong>IMG_4907.MP4</strong
+              ><span class="num">212 MB · 1920x1080 · 30 fps · H.264/AAC · 3:12.0</span>
+            </p>
+            <div class="stage">
+              <svg class="scene" aria-hidden="true"><use href="#scene" /></svg>
+              <button class="play" type="button" aria-label="Play">
+                <svg class="i" aria-hidden="true"><use href="#i-play" /></svg>
+              </button>
+              <span class="overlay-time num">0:41.0 / 3:12.0</span>
+            </div>
+            <div class="trim">
+              <div class="trim-head">
+                <h2>Trim</h2>
+                <span class="num">3:12.0 of 3:12.0 kept</span>
+              </div>
+              <div class="strip" aria-label="Trim range">
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(-12deg) brightness(0.9)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(-6deg)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true"><use href="#scene" /></svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(6deg) brightness(1.05)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(10deg) brightness(0.95)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(14deg) brightness(0.85)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(18deg) brightness(0.75)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <div class="thumb">
+                  <svg aria-hidden="true" style="filter: hue-rotate(22deg) brightness(0.65)">
+                    <use href="#scene" />
+                  </svg>
+                </div>
+                <!-- Untrimmed: handles at both ends, rounded to the strip corners; playhead 0:41.0 = 21.4% of 3:12.0 -->
+                <span class="sel" style="left: 11px; right: 11px"></span>
+                <span
+                  class="handle start"
+                  style="left: 0; border-radius: var(--r-md) 0 0 var(--r-md)"
+                  role="slider"
+                  aria-label="Start"
+                  aria-valuetext="0:00.0"
+                ></span>
+                <span
+                  class="handle end"
+                  style="
+                    left: auto;
+                    right: 0;
+                    transform: none;
+                    border-radius: 0 var(--r-md) var(--r-md) 0;
+                  "
+                  role="slider"
+                  aria-label="End"
+                  aria-valuetext="3:12.0"
+                ></span>
+                <span class="playhead" style="left: 21.4%"></span>
+              </div>
+              <div class="trim-readouts">
+                <div class="readout">
+                  <span class="lbl">Start</span>
+                  <span class="val num">0:00.0</span>
+                  <button class="btn" type="button">
+                    <svg class="i" aria-hidden="true"><use href="#i-start" /></svg>Start here
+                  </button>
+                </div>
+                <div class="readout">
+                  <span class="lbl">End</span>
+                  <span class="val num">3:12.0</span>
+                  <button class="btn" type="button">
+                    <svg class="i" aria-hidden="true"><use href="#i-end" /></svg>End here
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="side-col">
+            <div class="card summary">
+              <div class="tools" role="tablist" aria-label="Tool">
+                <button type="button" role="tab" aria-selected="false" tabindex="-1">
+                  <svg class="i" aria-hidden="true"><use href="#i-smaller" /></svg>Shrink video
+                </button>
+                <button type="button" role="tab" aria-selected="true">
+                  <svg class="i" aria-hidden="true"><use href="#i-audio" /></svg>Extract audio
+                </button>
+              </div>
+              <span class="eyebrow">Ready to extract</span>
+              <div>
+                <h2 class="num">
+                  MP3 · <span class="v-auto">128</span><span class="v-adj">192</span> kbps stereo
+                </h2>
+                <p class="sub num">Audio 3:12 of 3:12</p>
+              </div>
+              <div class="estimate">
+                <span class="big num"
+                  ><span class="v-auto">est. 2.9-3.3 MB</span
+                  ><span class="v-adj">est. 4.4-4.9 MB</span></span
+                >
+                <span class="from">from 212 MB video</span>
+              </div>
+              <div class="scale" aria-hidden="true">
+                <div class="scale-row">
+                  <div class="scale-label">
+                    <span>Original video</span><b class="num">212 MB</b>
+                  </div>
+                  <div class="track"><span class="orig"></span></div>
+                </div>
+                <div class="scale-row">
+                  <div class="scale-label">
+                    <span>Audio, estimated</span
+                    ><b class="num"
+                      ><span class="v-auto">2.9-3.3 MB</span
+                      ><span class="v-adj">4.4-4.9 MB</span></b
+                    >
+                  </div>
+                  <div class="track v-auto">
+                    <span class="new" style="width: 1.4%"></span
+                    ><span class="range" style="left: 1.4%; width: 0.2%"></span>
+                  </div>
+                  <div class="track v-adj">
+                    <span class="new" style="width: 2.1%"></span
+                    ><span class="range" style="left: 2.1%; width: 0.2%"></span>
+                  </div>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-block" type="button">Extract audio</button>
+              <details class="adjust">
+                <summary>
+                  Adjust<span class="state"
+                    ><span class="v-auto">All automatic</span
+                    ><span class="v-adj">1 change</span></span
+                  ><svg class="i chev" aria-hidden="true"><use href="#i-chev" /></svg>
+                </summary>
+                <div class="opts">
+                  <div class="opt">
+                    <div class="opt-head">
+                      <span class="name">Format</span><span class="tag">Auto: MP3</span>
+                    </div>
+                    <div class="choices" role="radiogroup" aria-label="Format">
+                      <button type="button" role="radio" class="choice" aria-checked="true">
+                        MP3
+                      </button>
+                      <!-- Hint shown only when the source audio is AAC. -->
+                      <button type="button" role="radio" class="choice" aria-checked="false">
+                        M4A (AAC)<span class="hint"
+                          >Copies the original audio without re-encoding</span
+                        >
+                      </button>
+                      <button type="button" role="radio" class="choice" aria-checked="false">
+                        WAV<span class="hint num">Uncompressed, about 34 MB</span>
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Bitrate is hidden when WAV is chosen. -->
+                  <div class="opt bitrate">
+                    <div class="opt-head">
+                      <span class="name">Bitrate</span>
+                      <span class="tag v-auto">Auto: 128 kbps</span>
+                      <button class="reset v-adj" type="button">
+                        <svg class="i" aria-hidden="true"><use href="#i-reset" /></svg>Reset to 128
+                        kbps
+                      </button>
+                    </div>
+                    <div class="seg num" role="group" aria-label="Bitrate in kbps">
+                      <button type="button" aria-pressed="false">64</button>
+                      <button type="button" aria-pressed="false">96</button>
+                      <button type="button" class="b-128" aria-pressed="true">128</button>
+                      <button type="button" aria-pressed="false">160</button>
+                      <button type="button" class="b-192" aria-pressed="false">192</button>
+                      <button type="button" aria-pressed="false">320</button>
+                    </div>
+                    <p class="why">kbps. Higher keeps more detail and makes a bigger file.</p>
+                  </div>
+                  <div class="opt">
+                    <div class="opt-head">
+                      <span class="name">Channels</span
+                      ><span class="tag">Auto: Stereo, as source</span>
+                    </div>
+                    <div class="seg" role="group" aria-label="Channels">
+                      <button type="button" aria-pressed="true">Stereo</button>
+                      <button type="button" aria-pressed="false">Mono</button>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </aside>
+        </div>
+      </main>
+      <footer>
+        <span>Free. Works offline after your first visit.</span>
+        <a href="#">Licences</a>
+      </footer>
+    </section>
+
     <!-- ===== Progress ===== -->
     <section class="screen" id="progress" aria-label="Exporting state">
       <header class="bar">
         <span class="mark"
-          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videomate</span
         >
         <span class="chip"
           ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
@@ -1522,7 +2085,7 @@
     <section class="screen" id="result" aria-label="Result state">
       <header class="bar">
         <span class="mark"
-          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videomate</span
         >
         <span class="chip"
           ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
@@ -1654,11 +2217,122 @@
       </footer>
     </section>
 
+    <!-- ===== Result: Extract audio ===== -->
+    <section class="screen" id="result-audio" aria-label="Result state, extract audio">
+      <header class="bar">
+        <span class="mark"
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videomate</span
+        >
+        <span class="chip"
+          ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
+        >
+      </header>
+      <main>
+        <div class="split">
+          <div class="main-col">
+            <div class="verdict">
+              <span class="eyebrow">Done in 0:09</span>
+              <p class="figure num">3.1 MB, <em>99% smaller</em></p>
+              <p>IMG_4907.mp3 is ready to send.</p>
+            </div>
+            <div class="card player" aria-label="Play the audio file">
+              <div class="player-top">
+                <button class="player-play" type="button" aria-label="Play">
+                  <svg class="i" aria-hidden="true"><use href="#i-play" /></svg>
+                </button>
+                <div class="player-meta">
+                  <strong>IMG_4907.mp3</strong>
+                  <span class="num">MP3 · 128 kbps stereo</span>
+                </div>
+              </div>
+              <!-- Playhead 0:41 = 21.4% of 3:12 -->
+              <div class="wave" role="slider" aria-label="Position" aria-valuetext="0:41 of 3:12">
+                <svg class="base" aria-hidden="true"><use href="#wave" /></svg>
+                <svg class="played" aria-hidden="true" style="clip-path: inset(0 78.6% 0 0)">
+                  <use href="#wave" />
+                </svg>
+                <span class="head" style="left: 21.4%"></span>
+              </div>
+              <div class="player-time num"><span>0:41</span><span>3:12</span></div>
+            </div>
+            <div class="scale" aria-hidden="true">
+              <div class="scale-row">
+                <div class="scale-label"><span>Original video</span><b class="num">212 MB</b></div>
+                <div class="track"><span class="orig"></span></div>
+              </div>
+              <div class="scale-row">
+                <div class="scale-label"><span>Audio file</span><b class="num">3.1 MB</b></div>
+                <div class="track"><span class="new" style="width: 1.5%"></span></div>
+              </div>
+            </div>
+          </div>
+          <aside class="side-col">
+            <div class="card stats-card">
+              <table class="stats">
+                <thead>
+                  <tr>
+                    <th scope="col"><span class="sr">Property</span></th>
+                    <th scope="col">Original video</th>
+                    <th scope="col">Audio file</th>
+                  </tr>
+                </thead>
+                <tbody class="num">
+                  <tr>
+                    <th scope="row">Size</th>
+                    <td>212 MB</td>
+                    <td class="new">3.1 MB</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Duration</th>
+                    <td>3:12.0</td>
+                    <td class="new">3:12.0</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Codec</th>
+                    <td>H.264/AAC MP4</td>
+                    <td class="new">MP3</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Bitrate</th>
+                    <td>8.8 Mbps</td>
+                    <td class="new">128 kbps</td>
+                  </tr>
+                  <tr class="total">
+                    <th scope="row">Reduction</th>
+                    <td colspan="2">99% smaller</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="actions">
+              <button class="btn btn-primary" type="button">
+                <svg class="i" aria-hidden="true"><use href="#i-down" /></svg>Download
+                <span class="file">IMG_4907.mp3</span>
+              </button>
+              <button class="btn btn-share" type="button">
+                <svg class="i" aria-hidden="true"><use href="#i-share" /></svg>Share
+              </button>
+              <button class="btn btn-quiet" type="button">
+                <svg class="i" aria-hidden="true"><use href="#i-smaller" /></svg>Lower bitrate
+              </button>
+              <button class="btn btn-quiet" type="button">
+                <svg class="i" aria-hidden="true"><use href="#i-restart" /></svg>Start over
+              </button>
+            </div>
+          </aside>
+        </div>
+      </main>
+      <footer>
+        <span>Free. Works offline after your first visit.</span>
+        <a href="#">Licences</a>
+      </footer>
+    </section>
+
     <!-- ===== Notices (errors and limits) ===== -->
     <section class="screen" id="notices" aria-label="Notices">
       <header class="bar">
         <span class="mark"
-          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videoresize</span
+          ><svg aria-hidden="true"><use href="#i-logo" /></svg>videomate</span
         >
         <span class="chip"
           ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
