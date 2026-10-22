@@ -56,6 +56,21 @@ export function toConversionOptions(
   };
 }
 
+export function discardedPrimaryTracks(
+  settings: Settings,
+  primaryVideo: unknown,
+  primaryAudio: unknown,
+  discarded: readonly { track: unknown; reason: DiscardedTrack['reason'] }[],
+): { track: TrackType; reason: DiscardedTrack['reason'] }[] {
+  const lost: { track: TrackType; reason: DiscardedTrack['reason'] }[] = [];
+  for (const { track, reason } of discarded) {
+    if (reason === 'discarded_by_user') continue;
+    if (settings.video && track === primaryVideo) lost.push({ track: 'video', reason });
+    if (settings.audio && track === primaryAudio) lost.push({ track: 'audio', reason });
+  }
+  return lost;
+}
+
 export function createOutputFormat(container: Container, sinkKind: SinkPlan['kind']): OutputFormat {
   if (container === 'webm') return new WebMOutputFormat();
   // A file stream cannot seek back to the start cheaply, so metadata goes at the end there.
@@ -89,9 +104,21 @@ export function startConversion(args: {
         await conversion.cancel();
         throw new ConversionCanceledError();
       }
-      if (!conversion.isValid) {
+      const [primaryVideo, primaryAudio] = await Promise.all([
+        args.input.getPrimaryVideoTrack(),
+        args.input.getPrimaryAudioTrack(),
+      ]);
+      const lostPrimary = discardedPrimaryTracks(
+        args.settings,
+        primaryVideo,
+        primaryAudio,
+        conversion.discardedTracks,
+      );
+      if (!conversion.isValid || lostPrimary.length) {
         throw new ConversionInvalidError(
-          conversion.discardedTracks.map((d) => ({ track: d.track.type, reason: d.reason })),
+          lostPrimary.length
+            ? lostPrimary
+            : conversion.discardedTracks.map((d) => ({ track: d.track.type, reason: d.reason })),
         );
       }
       conversion.onProgress = (p) => args.onProgress(p, bytesWritten);

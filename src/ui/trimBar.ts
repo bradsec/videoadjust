@@ -21,17 +21,20 @@ export interface TrimBarOptions {
   duration: number;
   value: Trim;
   video: HTMLVideoElement;
-  thumbnails: (count: number) => Promise<HTMLCanvasElement[]>;
+  thumbnails: (count: number, signal: AbortSignal) => Promise<HTMLCanvasElement[]>;
+  previewPlayable?: boolean;
   onChange: (t: Trim) => void;
 }
 
 export function mountTrimBar(
   host: HTMLElement,
   opts: TrimBarOptions,
-): { update(value: Trim): void; destroy(): void } {
+): { update(value: Trim): void; setPreviewPlayable(value: boolean): void; destroy(): void } {
   const { duration, video } = opts;
   let value = opts.value;
   let destroyed = false;
+  let previewPlayable = opts.previewPlayable ?? true;
+  const thumbnailAbort = new AbortController();
   const section = el('section', 'trim');
   section.setAttribute('aria-label', 'Trim');
   const head = el('div', 'trim-head');
@@ -86,6 +89,7 @@ export function mountTrimBar(
 
   const readouts = el('div', 'trim-readouts');
   const values: HTMLElement[] = [];
+  const playheadButtons: HTMLButtonElement[] = [];
   for (const side of ['start', 'end'] as const) {
     const group = el('div', 'trim-readout');
     const label = el('span', 'trim-label', side === 'start' ? 'Start' : 'End');
@@ -96,6 +100,7 @@ export function mountTrimBar(
     group.append(label, output, button);
     readouts.append(group);
     values.push(output);
+    playheadButtons.push(button);
   }
   section.append(head, strip, readouts);
   host.replaceChildren(section);
@@ -141,6 +146,13 @@ export function mountTrimBar(
       handle.disabled = duration < MIN_TRIM_SPAN;
     }
   }
+  function setPreviewPlayable(next: boolean): void {
+    previewPlayable = next;
+    for (const button of playheadButtons) {
+      button.disabled = !previewPlayable;
+      button.title = previewPlayable ? '' : 'Requires a playable preview';
+    }
+  }
   function onTimeUpdate(): void {
     if (!video.paused && (video.currentTime >= value.end || video.currentTime < value.start))
       video.currentTime = value.start;
@@ -150,10 +162,11 @@ export function mountTrimBar(
   video.addEventListener('seeked', onTimeUpdate);
   video.addEventListener('play', onTimeUpdate);
   update(value);
+  setPreviewPlayable(previewPlayable);
   onTimeUpdate();
   const count = window.matchMedia('(max-width: 719px)').matches ? 8 : 12;
   void opts
-    .thumbnails(count)
+    .thumbnails(count, thumbnailAbort.signal)
     .then((canvases) => {
       if (destroyed) return;
       thumbs.replaceChildren(...canvases);
@@ -163,8 +176,10 @@ export function mountTrimBar(
     });
   return {
     update,
+    setPreviewPlayable,
     destroy() {
       destroyed = true;
+      thumbnailAbort.abort();
       video.removeEventListener('timeupdate', onTimeUpdate);
       video.removeEventListener('seeked', onTimeUpdate);
       video.removeEventListener('play', onTimeUpdate);

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ConversionCanceledError, type Input } from 'mediabunny';
-import { ConversionInvalidError } from '../../src/core/convert';
-import { autoSettings } from '../../src/core/autoSettings';
-import type { Capabilities, SourceInfo } from '../../src/core/types';
+import { ConversionCanceledError, Quality, type Input } from 'mediabunny';
+import { ConversionInvalidError, toConversionOptions } from '../../src/core/convert';
+import { autoSettings, targetVideoBitrate } from '../../src/core/autoSettings';
+import type { Capabilities, Settings, SourceInfo } from '../../src/core/types';
 import { createController, LARGE_FILE_BYTES, type AppDeps } from '../../src/ui/controller';
 
 const caps: Capabilities = {
@@ -56,6 +56,7 @@ function setup(probe: AppDeps['probeCapabilities'] = () => Promise.resolve(caps)
   // openSink never settles here, standing in for a save picker left open.
   const deps = {
     probeCapabilities: probe,
+    canEncodeVideo: vi.fn(async () => true),
     readSource,
     startConversion: vi.fn(),
     openSink: vi.fn(() => new Promise(() => {})),
@@ -223,6 +224,45 @@ describe('prepare settings', () => {
       },
     });
   });
+
+  it('preserves quality percent when codec, size, or frame rate changes', () => {
+    const { ctl } = setup();
+    const source = { ...info('clip.mp4'), video: { ...info('clip.mp4').video!, bitrate: 12e6 } };
+    const available = { ...caps, video: { ...caps.video, hevc: true } };
+    ctl.dispatch({
+      type: 'loaded',
+      file: fakeFile('clip.mp4'),
+      source,
+      input: fakeInput(),
+      auto: autoSettings(source, available),
+      caps: available,
+    });
+    const initial = ctl.getState();
+    if (initial.kind !== 'prepare') throw new Error('Expected prepare state');
+    const baseline = initial.settings.video!.bitrate;
+    ctl.dispatch({
+      type: 'setSettings',
+      value: {
+        ...initial.settings,
+        video: { ...initial.settings.video!, bitrate: Math.round(baseline * 0.75) },
+      },
+    });
+    for (const change of [{ codec: 'hevc' as const }, { width: 1280, height: 720 }, { fps: 24 }]) {
+      const before = ctl.getState();
+      if (before.kind !== 'prepare') throw new Error('Expected prepare state');
+      ctl.dispatch({
+        type: 'setSettings',
+        value: { ...before.settings, video: { ...before.settings.video!, ...change } },
+      });
+      const after = ctl.getState();
+      if (after.kind !== 'prepare') throw new Error('Expected prepare state');
+      const v = after.settings.video!;
+      expect(v.bitrate).toBeCloseTo(
+        targetVideoBitrate(v.codec, v.width, v.height, v.fps) * 0.75,
+        -1,
+      );
+    }
+  });
 });
 
 describe('export flow', () => {
@@ -269,8 +309,10 @@ describe('export flow', () => {
       info: { ...src, name: file.name, sizeBytes: file.size, containerMime: 'video/mp4' },
       input: outInput,
     }));
+    const canEncodeVideo = vi.fn(async () => true);
     const deps = {
       probeCapabilities: () => Promise.resolve(capabilities),
+      canEncodeVideo,
       readSource,
       startConversion,
       openSink,
@@ -292,6 +334,7 @@ describe('export flow', () => {
       job,
       openSink,
       startConversion,
+      canEncodeVideo,
       readSource,
       outInput,
       input,
@@ -334,6 +377,72 @@ describe('export flow', () => {
     expect(state.output.url).toMatch(/^blob:/);
     expect(t.outInput.dispose).toHaveBeenCalledTimes(1);
     expect(t.input.dispose).not.toHaveBeenCalled();
+  });
+
+  it('stops before opening a sink when the chosen encoder settings are unavailable', async () => {
+    const t = exportSetup();
+    t.canEncodeVideo.mockResolvedValue(false);
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    expect(t.openSink).not.toHaveBeenCalled();
+    expect(t.ctl.getState()).toMatchObject({
+      kind: 'prepare',
+      notice: { tone: 'error', message: expect.stringContaining('H.264') },
+    });
+    expect(t.canEncodeVideo).toHaveBeenCalledWith('avc', {
+      width: 1920,
+      height: 1080,
+      frameRate: 30,
+    });
+  });
+
+  it('passes 30 fps and the lowest quality after re-encode, 854 size, quality, and 64 kbps audio', async () => {
+    const src = source({
+      name: 'land-1080p30-aac.mp4',
+      sizeBytes: 185_500,
+      video: { ...info('clip.mov').video!, bitrate: 353_309.3333333333 },
+      audio: { codec: 'aac', decodable: true, channels: 2, sampleRate: 48_000, bitrate: 128_000 },
+    });
+    const t = exportSetup({ src });
+    const change = (update: (settings: Settings) => Settings) => {
+      const state = t.ctl.getState();
+      if (state.kind !== 'prepare') throw new Error('Expected prepare state');
+      t.ctl.dispatch({ type: 'setSettings', value: update(state.settings) });
+    };
+
+    change((settings) => ({ ...settings, passthrough: false }));
+    change((settings) => ({
+      ...settings,
+      video: { ...settings.video!, width: 854, height: 480 },
+    }));
+    change((settings) => ({
+      ...settings,
+      video: { ...settings.video!, bitrate: Math.round((src.video!.bitrate! * 25) / 100) },
+    }));
+    change((settings) => ({
+      ...settings,
+      audio: { ...settings.audio!, bitrate: 64_000, copy: false },
+    }));
+
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    const args = t.startConversion.mock.calls[0]?.[0] as Parameters<AppDeps['startConversion']>[0];
+    expect(args.settings.video).toMatchObject({
+      codec: 'avc',
+      width: 854,
+      height: 480,
+      fps: 30,
+      bitrate: 88_327,
+    });
+    expect(args.settings.audio).toMatchObject({ codec: 'aac', bitrate: 64_000, copy: false });
+    expect(toConversionOptions(args.settings).video).toEqual({
+      width: 854,
+      height: 480,
+      fit: 'contain',
+      frameRate: 30,
+      codec: 'avc',
+      quality: new Quality({ bitrate: 88_327 }),
+    });
   });
 
   it('flags an output that is not smaller than the source', async () => {

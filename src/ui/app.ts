@@ -1,6 +1,6 @@
 import { CanvasSink } from 'mediabunny';
 import type { Settings, SourceInfo } from '../core/types';
-import { mountCompare } from './compare';
+import { canPlaySource, mountCompare } from './compare';
 import {
   codecLabel,
   createController,
@@ -184,7 +184,12 @@ function renderPrepare(
   video.loop = true;
   video.preload = 'metadata';
   const url = URL.createObjectURL(state.file);
-  video.src = url;
+  const previewNote = el(
+    'p',
+    'note preview-note',
+    'This browser cannot play the preview. Trimming still works with the handles and thumbnails. Start here and End here require a playable preview.',
+  );
+  previewNote.hidden = true;
   const trimHost = el('div');
   const settingsHost = el('aside', 'settings-host');
   const settings = mountSettings(settingsHost, {
@@ -195,35 +200,66 @@ function renderPrepare(
     onChange: onSettings,
     onExport,
   });
-  const thumbnails = async (count: number): Promise<HTMLCanvasElement[]> => {
+  const thumbnails = async (count: number, signal: AbortSignal): Promise<HTMLCanvasElement[]> => {
     const track = await state.input.getPrimaryVideoTrack();
-    if (!track) return [];
+    if (!track || signal.aborted) return [];
     const sink = new CanvasSink(track, { width: 160 });
     const timestamps = Array.from(
       { length: count },
       (_, i) => (state.source.durationSec * (i + 0.5)) / count,
     );
     const canvases: HTMLCanvasElement[] = [];
-    for await (const frame of sink.canvasesAtTimestamps(timestamps)) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 160;
-      canvas.height = 90;
-      if (frame) {
-        canvas.height = frame.canvas.height;
-        canvas.getContext('2d')?.drawImage(frame.canvas, 0, 0);
+    const frames = sink.canvasesAtTimestamps(timestamps);
+    const stop = () => {
+      void frames
+        .return()
+        .catch((error: unknown) => console.warn('Could not stop video thumbnails', error));
+    };
+    signal.addEventListener('abort', stop, { once: true });
+    try {
+      for await (const frame of frames) {
+        if (signal.aborted) break;
+        const canvas = document.createElement('canvas');
+        canvas.width = 160;
+        canvas.height = 90;
+        if (frame) {
+          canvas.height = frame.canvas.height;
+          canvas.getContext('2d')?.drawImage(frame.canvas, 0, 0);
+        }
+        canvases.push(canvas);
       }
-      canvases.push(canvas);
+    } finally {
+      signal.removeEventListener('abort', stop);
     }
     return canvases;
   };
+  let previewPlayable = canPlaySource(video, state.source.containerMime);
   const trim = mountTrimBar(trimHost, {
     duration: state.source.durationSec,
     value: state.settings.trim,
     video,
     thumbnails,
+    previewPlayable,
     onChange: onTrim,
   });
-  stage.append(video, trimHost, settingsHost);
+  const showPreviewUnplayable = () => {
+    if (!previewPlayable) return;
+    previewPlayable = false;
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    video.remove();
+    previewNote.hidden = false;
+    trim.setPreviewPlayable(false);
+  };
+  video.addEventListener('error', showPreviewUnplayable);
+  if (previewPlayable) {
+    stage.append(video, previewNote, trimHost, settingsHost);
+    video.src = url;
+  } else {
+    previewNote.hidden = false;
+    stage.append(previewNote, trimHost, settingsHost);
+  }
   const another = el('button', 'btn btn-quiet', 'Choose another video');
   another.type = 'button';
   another.addEventListener('click', onReset);
@@ -238,6 +274,7 @@ function renderPrepare(
     update,
     destroy() {
       trim.destroy();
+      video.removeEventListener('error', showPreviewUnplayable);
       video.pause();
       video.removeAttribute('src');
       video.load();

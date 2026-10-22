@@ -1,4 +1,4 @@
-import { ConversionCanceledError, type Input } from 'mediabunny';
+import { ConversionCanceledError, type canEncodeVideo, type Input } from 'mediabunny';
 import type { probeCapabilities as probeCapabilitiesFn } from '../core/capabilities';
 import { autoSettings, scaleToLongEdge, targetVideoBitrate } from '../core/autoSettings';
 import {
@@ -93,6 +93,7 @@ export type AppAction =
 
 export interface AppDeps {
   probeCapabilities: typeof probeCapabilitiesFn;
+  canEncodeVideo: typeof canEncodeVideo;
   readSource: typeof readSourceFn;
   startConversion: typeof startConversionFn;
   openSink: typeof openSinkFn;
@@ -232,6 +233,32 @@ export function availableVideoCodecs(container: Container, caps: Capabilities): 
   return CONTAINER_VIDEO[container].filter((codec) => caps.video[codec]);
 }
 
+function videoBaseline(video: NonNullable<Settings['video']>, source: SourceInfo): number {
+  return Math.min(
+    targetVideoBitrate(video.codec, video.width, video.height, video.fps),
+    source.video?.bitrate ?? Infinity,
+  );
+}
+
+function preserveQuality(previous: Settings, requested: Settings, source: SourceInfo): Settings {
+  const old = previous.video;
+  const next = requested.video;
+  if (!old || !next || next.bitrate !== old.bitrate) return requested;
+  if (
+    next.codec === old.codec &&
+    next.width === old.width &&
+    next.height === old.height &&
+    next.fps === old.fps
+  )
+    return requested;
+  const oldBaseline = videoBaseline(old, source);
+  const newBaseline = videoBaseline(next, source);
+  return {
+    ...requested,
+    video: { ...next, bitrate: Math.round((old.bitrate / oldBaseline) * newBaseline) },
+  };
+}
+
 /** Apply every source and encoder limit before settings enter controller state. */
 export function validateSettings(
   value: Settings,
@@ -269,10 +296,7 @@ export function validateSettings(
       Number.isFinite(requested.fps) && requested.fps > 0
         ? Math.min(requested.fps, source.video.fps)
         : fallback.video.fps;
-    const baseline = Math.min(
-      targetVideoBitrate(codec, width, height, fps),
-      source.video.bitrate ?? Infinity,
-    );
+    const baseline = videoBaseline({ ...requested, codec, width, height, fps }, source);
     const bitrate = Number.isFinite(requested.bitrate)
       ? Math.round(
           Math.min(
@@ -334,7 +358,12 @@ export function settingsChangeCount(
         current.video?.height !== automatic.video?.height,
     ) +
     Number(current.video?.fps !== automatic.video?.fps) +
-    Number(current.video?.bitrate !== automatic.video?.bitrate) +
+    Number(
+      current.video && automatic.video
+        ? Math.round((current.video.bitrate / videoBaseline(current.video, source)) * 100) !==
+            Math.round((automatic.video.bitrate / videoBaseline(automatic.video, source)) * 100)
+        : current.video?.bitrate !== automatic.video?.bitrate,
+    ) +
     Number(current.audio?.codec !== automatic.audio?.codec) +
     Number(current.audio?.bitrate !== automatic.audio?.bitrate)
   );
@@ -423,7 +452,12 @@ export function createController(
         if (state.kind === 'prepare') {
           setState({
             ...state,
-            settings: validateSettings(action.value, state.auto, state.caps, state.source),
+            settings: validateSettings(
+              preserveQuality(state.settings, action.value, state.source),
+              state.auto,
+              state.caps,
+              state.source,
+            ),
           });
         }
         return;
@@ -555,6 +589,27 @@ export function createController(
     const token = ++exportToken;
     const base: Loaded = prep;
     if (prep.notice) toPrepare(base);
+    if (settings.video) {
+      let supported = false;
+      try {
+        supported = await deps.canEncodeVideo(settings.video.codec, {
+          width: settings.video.width,
+          height: settings.video.height,
+          frameRate: settings.video.fps,
+        });
+      } catch (err) {
+        console.warn('export encoder probe failed', err);
+      }
+      if (token !== exportToken) return;
+      if (!supported) {
+        toPrepare(base, {
+          tone: 'error',
+          title: 'The chosen video encoder is unavailable',
+          message: `${codecLabel(settings.video.codec)} cannot encode ${settings.video.width}x${settings.video.height} at ${settings.video.fps} fps in this browser. Choose another setting.`,
+        });
+        return;
+      }
+    }
     const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
     const outputName = outputNameFor(prep.file.name, settings.container);
 

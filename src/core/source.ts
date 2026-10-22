@@ -81,8 +81,15 @@ async function describe(file: File, input: Input): Promise<SourceInfo> {
       })()
     : null;
 
-  if (!video?.decodable && !audio?.decodable) {
-    const codec = video?.codec ?? audio?.codec ?? null;
+  if (video && !video.decodable) {
+    throw new UnsupportedSourceError(
+      video.codec,
+      `This browser cannot decode ${describeCodec(video.codec)} used by this video.`,
+    );
+  }
+
+  if (!video && !audio?.decodable) {
+    const codec = audio?.codec ?? null;
     throw new UnsupportedSourceError(
       codec,
       video || audio

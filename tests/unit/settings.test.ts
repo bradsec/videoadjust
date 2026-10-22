@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoSettings } from '../../src/core/autoSettings';
+import { autoSettings, targetVideoBitrate } from '../../src/core/autoSettings';
 import type { Capabilities, SourceInfo } from '../../src/core/types';
 import { settingsChangeCount, validateSettings } from '../../src/ui/controller';
 
@@ -88,6 +88,24 @@ describe('settings validation', () => {
 });
 
 describe('settings change count', () => {
+  it('counts codec, size, and frame rate changes without an extra quality change', () => {
+    const rich = { ...source, video: { ...source.video!, bitrate: 12e6 } };
+    const richCaps = { ...caps, video: { ...caps.video, hevc: true } };
+    const auto = autoSettings(rich, richCaps);
+    const original = validateSettings(auto.settings, auto, richCaps, rich);
+    const changes = [{ codec: 'hevc' as const }, { width: 1280, height: 720 }, { fps: 24 }];
+    for (const change of changes) {
+      const nextVideo = { ...original.video!, ...change };
+      const newBaseline = Math.min(
+        targetVideoBitrate(nextVideo.codec, nextVideo.width, nextVideo.height, nextVideo.fps),
+        rich.video.bitrate,
+      );
+      const requested = { ...original, video: { ...nextVideo, bitrate: newBaseline } };
+      const effective = validateSettings(requested, auto, richCaps, rich);
+      expect(settingsChangeCount(effective, auto, richCaps, rich)).toBe(1);
+    }
+  });
+
   it('treats the low-bitrate 1080p30 AAC fixture as automatic after validation', () => {
     const fixtureSource: SourceInfo = {
       name: 'land-1080p30-aac.mp4',

@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@mediabunny/aac-encoder": "1.62.0",
-    "mediabunny": "^1.62.0"
+    "mediabunny": "1.62.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

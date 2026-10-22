@@ -26,6 +26,7 @@ const videoCodecs: VideoCodecId[] = ['avc', 'hevc', 'av1', 'vp9'];
 const audioCodecs: AudioCodecId[] = ['aac', 'opus'];
 const audioRates = [64_000, 96_000, 128_000, 160_000];
 const audioLabels: Record<AudioCodecId, string> = { aac: 'AAC', opus: 'Opus' };
+const formatFps = (fps: number): string => String(Math.round(fps * 100) / 100);
 
 function resolution(s: Settings): string {
   if (!s.video) return 'Audio only';
@@ -244,7 +245,7 @@ export function mountSettings(
       );
       groups.push(size);
 
-      const frame = group('Frame rate', `${autoVideo.fps} fps`, () =>
+      const frame = group('Frame rate', `${formatFps(autoVideo.fps)} fps`, () =>
         change({ ...value, video: { ...value.video!, fps: autoVideo.fps } }),
       );
       const rates = [...new Set([15, 24, 30, autoVideo.fps, opts.source.video.fps])]
@@ -253,18 +254,32 @@ export function mountSettings(
       select(
         frame,
         'Frame rate',
-        rates.map((fps) => ({ value: String(fps), label: `${fps} fps` })),
+        rates.map((fps) => ({ value: String(fps), label: `${formatFps(fps)} fps` })),
         String(video.fps),
         (fps) => change({ ...value, video: { ...value.video!, fps: Number(fps) } }),
       );
       groups.push(frame);
 
-      const quality = group('Quality', '100%', () =>
-        change({ ...value, video: { ...value.video!, bitrate: autoVideo.bitrate } }),
-      );
       const baseline = Math.min(
         targetVideoBitrate(video.codec, video.width, video.height, video.fps),
         opts.source.video.bitrate ?? Infinity,
+      );
+      const quality = group('Quality', '100%', () =>
+        change({
+          ...value,
+          video: {
+            ...value.video!,
+            bitrate: Math.min(
+              targetVideoBitrate(
+                value.video!.codec,
+                value.video!.width,
+                value.video!.height,
+                value.video!.fps,
+              ),
+              opts.source.video!.bitrate ?? Infinity,
+            ),
+          },
+        }),
       );
       const maxPercent = Math.min(
         150,
@@ -439,7 +454,7 @@ export function mountSettings(
     const videoName = next.video ? codecLabel(next.video.codec) : 'No video';
     const audioName = next.audio ? `/${audioLabels[next.audio.codec]}` : '';
     heading.textContent = `${resolution(next)}, ${videoName}${audioName} ${next.container.toUpperCase()}`;
-    sub.textContent = `${next.video?.fps ?? 0} fps · ${audioSummary(next)}`;
+    sub.textContent = `${formatFps(next.video?.fps ?? 0)} fps · ${audioSummary(next)}`;
     const { low, high } = estimateBytes(next, opts.source);
     const range = `${formatBytes(low)}–${formatBytes(high)}`;
     big.textContent = `est. ${range}`;

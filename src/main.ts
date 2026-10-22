@@ -1,5 +1,6 @@
 import './styles/tokens.css';
 import './styles/app.css';
+import { canEncodeVideo } from 'mediabunny';
 import { probeCapabilities } from './core/capabilities';
 import { startConversion } from './core/convert';
 import { openSink } from './core/sink';
@@ -20,6 +21,7 @@ caps.then(
 // The app reuses this probe: the same promise is handed back instead of probing twice.
 createApp(document.getElementById('app')!, {
   probeCapabilities: () => caps,
+  canEncodeVideo,
   readSource,
   startConversion,
   openSink,

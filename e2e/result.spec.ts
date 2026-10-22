@@ -88,7 +88,14 @@ const exportButton = (page: Page) =>
 
 test('exports 1080p30 to a result with the reduction and two videos to compare', async ({
   page,
+  baseURL,
 }) => {
+  if (!baseURL) throw new Error('Playwright baseURL is required');
+  const crossOriginRequests: string[] = [];
+  const origin = new URL(baseURL).origin;
+  page.on('request', (request) => {
+    if (new URL(request.url()).origin !== origin) crossOriginRequests.push(request.url());
+  });
   await forceMemorySink(page);
   const card = await open(page, 'land-1080p30-aac.mp4');
   await reencode(page);
@@ -145,6 +152,7 @@ test('exports 1080p30 to a result with the reduction and two videos to compare',
 
   await page.getByRole('button', { name: 'Start over' }).click();
   await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
+  expect(crossOriginRequests).toEqual([]);
 });
 
 test('shows the new video alone with a note when the original cannot play here', async ({

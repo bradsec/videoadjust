@@ -45,3 +45,28 @@ test('prepare screen has no accessibility violations', async ({ page }) => {
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });
+
+test('unplayable preview keeps trim handles and disables playhead buttons', async ({ page }) => {
+  await page.addInitScript(() => {
+    const canPlayType = HTMLMediaElement.prototype.canPlayType;
+    HTMLMediaElement.prototype.canPlayType = function (mime) {
+      if (this.classList.contains('preview-video')) return '';
+      return canPlayType.call(this, mime);
+    };
+  });
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  await expect(page.locator('.preview-note')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start here' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'End here' })).toBeDisabled();
+  await expect(page.getByRole('slider', { name: 'Start' })).toBeEnabled();
+  await expect(page.locator('.trim-thumbs canvas').first()).toBeVisible();
+});
+
+test('preview error falls back after the source was accepted', async ({ page }) => {
+  await page.locator('.preview-video').dispatchEvent('error');
+  await expect(page.locator('.preview-note')).toBeVisible();
+  await expect(page.locator('.preview-video')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Start here' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'End here' })).toBeDisabled();
+});
