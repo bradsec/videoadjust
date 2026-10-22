@@ -585,6 +585,7 @@ export function createController(
           const trim = clampTrim(action.value, state.source.durationSec, moved);
           setState({
             ...state,
+            notice: unlessMemoryConfirm(state.notice),
             exporting: undefined,
             settings: { ...state.settings, trim },
             audioSettings: state.audioSettings && { ...state.audioSettings, trim },
@@ -602,6 +603,7 @@ export function createController(
           );
           setState({
             ...state,
+            notice: unlessMemoryConfirm(state.notice),
             exporting: undefined,
             audioSettings: value,
           });
@@ -612,6 +614,7 @@ export function createController(
           supersedePending();
           setState({
             ...state,
+            notice: unlessMemoryConfirm(state.notice),
             exporting: undefined,
             settings: validateSettings(
               preserveQuality(
@@ -951,6 +954,11 @@ export function createController(
   }
 
   return { dispatch, getState: () => state };
+}
+
+/** A memory confirm was asked for one estimate; a change to trim or settings voids it. */
+function unlessMemoryConfirm(notice: Notice | undefined): Notice | undefined {
+  return notice?.confirm === 'memory' ? undefined : notice;
 }
 
 function noticeForError(file: File, err: unknown): Notice {

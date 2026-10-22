@@ -510,6 +510,25 @@ describe('export flow', () => {
     expect(t.ctl.getState().kind).toBe('working');
   });
 
+  it('a settings or trim change drops a pending memory confirm', async () => {
+    const warned = async () => {
+      const t = exportSetup({ src: source({ durationSec: 4000 }), deviceMemoryGB: 1 });
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      const s = t.ctl.getState();
+      expect(s).toMatchObject({ kind: 'prepare', notice: { confirm: 'memory' } });
+      if (s.kind !== 'prepare') throw new Error('expected prepare');
+      return { t, s };
+    };
+    // The confirm was for the old estimate; a new export must ask again.
+    const a = await warned();
+    a.t.ctl.dispatch({ type: 'setSettings', value: { ...a.s.settings, container: 'webm' } });
+    expect(a.t.ctl.getState()).toMatchObject({ kind: 'prepare', notice: undefined });
+    const b = await warned();
+    b.t.ctl.dispatch({ type: 'setTrim', value: { start: 0, end: 100 } });
+    expect(b.t.ctl.getState()).toMatchObject({ kind: 'prepare', notice: undefined });
+  });
+
   it('cancel returns to prepare with settings kept', async () => {
     const t = exportSetup();
     const before = t.ctl.getState();
@@ -826,6 +845,19 @@ describe('export flow', () => {
         'x-audio.wav',
         'audio/wav',
       );
+    });
+
+    it('an audio settings change drops a pending memory confirm', async () => {
+      const t = audioSetup({ src: withAudio({ durationSec: 4000 }), deviceMemoryGB: 1 });
+      setFormat(t, 'wav');
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      expect(prepare(t)).toMatchObject({ notice: { confirm: 'memory' } });
+      t.ctl.dispatch({
+        type: 'setAudioSettings',
+        value: { ...prepare(t).audioSettings!, channels: 1 },
+      });
+      expect(prepare(t).notice).toBeUndefined();
     });
 
     it('names the format when the conversion fails', async () => {

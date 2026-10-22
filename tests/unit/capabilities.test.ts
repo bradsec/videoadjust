@@ -126,6 +126,18 @@ describe('registerAacFallback', () => {
   });
 });
 
+const { registerMp3Encoder } = vi.hoisted(() => ({ registerMp3Encoder: vi.fn() }));
+vi.mock('@mediabunny/mp3-encoder', () => ({ registerMp3Encoder }));
+
+describe('registerMp3Fallback', () => {
+  test('registers the encoder once per page', async () => {
+    const { registerMp3Fallback } = await import('../../src/core/capabilities');
+    expect(await registerMp3Fallback()).toBe(true);
+    expect(await registerMp3Fallback()).toBe(true);
+    expect(registerMp3Encoder).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('ensureMp3Encoder', () => {
   test('registers the bundled encoder even when the browser claims native MP3', async () => {
     const register = vi.fn(async () => true);

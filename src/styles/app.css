@@ -9,6 +9,7 @@
 }
 html {
   background: var(--bg);
+  scroll-padding-bottom: var(--dock-space, 0px);
 }
 body {
   display: flex;
@@ -16,6 +17,7 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0;
+  padding-bottom: var(--dock-space, 0px);
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
@@ -1276,7 +1278,6 @@ footer a:hover {
   font-family: var(--font-tc);
   font-size: var(--fs-small);
   font-weight: 500;
-  opacity: 0.85;
   overflow-wrap: anywhere;
 }
 .btn-share {
@@ -1567,7 +1568,14 @@ table.stats {
   color: var(--text-2);
 }
 
+/* Phone: the settings card starts below the fold, so a sticky dock inside it would start
+   off-screen. Fixed keeps the action on screen from the first paint. */
 @media (max-width: 699px) {
+  .dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+  }
   .btn-go {
     flex-grow: 1;
   }

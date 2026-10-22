@@ -1,6 +1,6 @@
 Third-party licences for production dependencies of videoadjust.
 Each package is listed as "## name" followed by version, licence and source.
-Full licence texts for MPL-2.0 and LGPL-2.1 follow the package list.
+Full licence texts for MPL-2.0, LGPL-2.1 and LGPL-2.0 follow the package list.
 This file ships with the site at ./THIRD-PARTY-LICENSES.txt.
 scripts/check-licenses.mjs fails the build if a production package is missing here.
 

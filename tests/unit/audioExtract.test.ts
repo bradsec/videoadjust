@@ -131,6 +131,18 @@ describe('audio extract rules', () => {
     ).toBe(false);
   });
 
+  it('an unknown format falls back to the automatic format', () => {
+    const wavAuto = { ...auto(), format: 'wav' as const };
+    expect(
+      validateAudioExtract(
+        { ...wavAuto, format: 'bad' as AudioExtractSettings['format'] },
+        wavAuto,
+        source(),
+        caps(),
+      ).format,
+    ).toBe('wav');
+  });
+
   it('counts format, bitrate and channels, ignoring wav bitrate', () => {
     const base = auto();
     expect(audioExtractChangeCount(base, base, source(), caps())).toBe(0);

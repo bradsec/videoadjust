@@ -84,8 +84,9 @@ scripts/make-fixtures.sh   # regenerate tests/fixtures (needs ffmpeg)
 First e2e run needs browsers: `pnpm exec playwright install chromium webkit`.
 
 On the prepare screen, choose Shrink video or Extract audio from the tabs under the header (in the
-header centre on wide screens). The estimate and the Export or Extract audio button stay docked
-together at the bottom of the screen or settings panel. Extract audio is unavailable when
+header centre on wide screens). The estimate and the Export or Extract audio button sit together
+in a dock: fixed to the bottom of the screen on phones (under 700px wide), and at the foot of the
+settings panel on wider screens. Extract audio is unavailable when
 the source has no usable audio track. Both tools use the same trim. Drag the trim handles or use
 arrow keys to adjust by 0.1 seconds.
 Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set
@@ -175,10 +176,11 @@ dependency is pinned to the audited version; re-run the audit before upgrading i
 
 ### MP3 fallback encoder
 
-Browsers without a native WebCodecs MP3 encoder (all current ones) get `@mediabunny/mp3-encoder`,
-registered with its documented `registerMp3Encoder()` call. The app loads it with a dynamic
-`import()` on the first MP3 export, after `canEncodeAudio('mp3')` returns false, so it ships as a
-separate same-origin chunk that the capability probe never loads. The WASM and the encode worker
+MP3 always uses the bundled LAME encoder, `@mediabunny/mp3-encoder`, registered with its
+documented `registerMp3Encoder()` call, even where WebCodecs reports native MP3 support. The
+native encoder is not trusted: in Playwright WebKit it ignored the requested bitrate and cut off
+the end of the audio. The app loads the encoder with a dynamic `import()` on the first MP3 export,
+so it ships as a separate same-origin chunk that the capability probe never loads. The WASM and the encode worker
 (a `blob:` worker, allowed by the CSP) are embedded in that chunk.
 
 Licence audit (version 1.62.0, 2026-10-22):

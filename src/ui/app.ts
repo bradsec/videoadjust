@@ -205,6 +205,14 @@ function renderPrepare(
     disabledReason: audioReason(state),
     onChange: (tool) => dispatch({ type: 'setTool', tool }),
   });
+  // Under 700px app.css fixes the dock to the viewport bottom; --dock-space reserves its
+  // height at the page foot so the footer and the last controls can scroll clear of it.
+  const root = document.documentElement;
+  const dockSpace = new ResizeObserver(() => {
+    const dock = panelHost.querySelector<HTMLElement>('.dock');
+    const fixed = dock !== null && getComputedStyle(dock).position === 'fixed';
+    root.style.setProperty('--dock-space', fixed && dock ? `${dock.offsetHeight}px` : '0px');
+  });
   let shownTool: Tool | undefined;
   let panel: { update(value: Of<'prepare'>): void; setBusy(busy: boolean): void } | undefined;
   // Each tool's panel is mounted fresh on a switch; its settings live in the controller.
@@ -306,7 +314,13 @@ function renderPrepare(
     if (value.kind !== 'prepare') return;
     trim.update(value.settings.trim);
     tabs.update(value.tool, audioReason(value));
-    if (value.tool !== shownTool) showPanel(value);
+    if (value.tool !== shownTool) {
+      showPanel(value);
+      dockSpace.disconnect();
+      dockSpace.observe(root);
+      const dock = panelHost.querySelector('.dock');
+      if (dock) dockSpace.observe(dock);
+    }
     panel?.update(value);
     panel?.setBusy(value.exporting === true);
   }
@@ -315,6 +329,8 @@ function renderPrepare(
     update,
     destroy() {
       slots.tools.replaceChildren();
+      dockSpace.disconnect();
+      root.style.removeProperty('--dock-space');
       trim.destroy();
       video.removeEventListener('error', showPreviewUnplayable);
       video.pause();

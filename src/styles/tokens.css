@@ -75,8 +75,9 @@
   --text-2: #57504a;
   --text-3: #6e665d;
   --accent: #c2470e;
-  --accent-hover: #d0571d;
-  --accent-press: #a83d0c;
+  /* Hover darkens in light: a lighter accent would drop white text below 4.5:1. */
+  --accent-hover: #a83d0c;
+  --accent-press: #8f330a;
   --on-accent: #ffffff;
   --accent-text: #a63c0b;
   --accent-soft: #fbe6d8;

@@ -51,7 +51,7 @@ export function validateAudioExtract(
   const format =
     Object.hasOwn(AUDIO_FORMATS, value.format) && (value.format !== 'm4a' || caps.audio.aac)
       ? value.format
-      : 'mp3';
+      : auto.format;
   const channels: 1 | 2 = src.audio?.channels === 1 || value.channels === 1 ? 1 : 2;
   const target = channels === 1 ? AUDIO_MONO_BPS : AUDIO_STEREO_BPS;
   const copy =

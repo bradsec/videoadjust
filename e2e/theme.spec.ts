@@ -62,6 +62,7 @@ test('theme-init.js applies the saved theme without the app bundle', async ({ pa
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await bodyBackground(page)).toBe(LIGHT_BG);
   await expect(page.locator('#app')).toBeEmpty();
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f5f1ea');
 });
 
 test('falls back to dark when storage throws, and the switch still works', async ({ page }) => {
@@ -112,6 +113,69 @@ for (const theme of ['dark', 'light'] as const) {
       expect(look.border).toBeGreaterThanOrEqual(1);
       expect(look.height).toBeGreaterThanOrEqual(44);
     }
+    const axe = await new AxeBuilder({ page }).analyze();
+    expect(axe.violations).toEqual([]);
+  });
+}
+
+/** A save picker whose file never finishes a write, so the export stays on the working screen. */
+async function stalledSavePicker(page: Page) {
+  await page.addInitScript(() => {
+    (window as unknown as { showSaveFilePicker: () => Promise<unknown> }).showSaveFilePicker =
+      async () => ({
+        createWritable: async () => new WritableStream({ write: () => new Promise(() => {}) }),
+      });
+  });
+}
+
+/** In-memory output, as on iOS Safari, so the result screen shows the comparison or player. */
+async function memorySink(page: Page) {
+  await page.addInitScript(() => {
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
+    delete (Window.prototype as unknown as Record<string, unknown>).showSaveFilePicker;
+  });
+}
+
+async function startExport(page: Page, tool: 'shrink' | 'audio') {
+  await page.addInitScript(() => localStorage.setItem('videoadjust-theme', 'light'));
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture('land-1080p30-aac.mp4'));
+  if (tool === 'audio') {
+    await page.getByRole('tab', { name: 'Extract audio' }).click();
+    await page
+      .getByRole('region', { name: 'Audio summary' })
+      .getByRole('button', { name: 'Extract audio' })
+      .click();
+  } else {
+    const card = page.getByRole('region', { name: 'Export summary' });
+    await expect(card).toBeVisible();
+    // Re-encode as the other export tests do. A trimmed copy finishes within about 100 ms, and
+    // Playwright WebKit can then block its main thread in the preview video's load() teardown.
+    const reencode = card.getByRole('checkbox', { name: 'Re-encode anyway' });
+    if (await reencode.isVisible()) await reencode.check();
+    await card.getByRole('button', { name: /^Export/ }).click();
+  }
+}
+
+for (const tool of ['shrink', 'audio'] as const) {
+  test(`light theme: the ${tool} working screen is axe clean`, async ({ page }) => {
+    await stalledSavePicker(page);
+    await startExport(page, tool);
+    await expect(page.getByRole('button', { name: 'Cancel export' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    const axe = await new AxeBuilder({ page }).analyze();
+    expect(axe.violations).toEqual([]);
+  });
+
+  test(`light theme: the ${tool} result screen is axe clean`, async ({ page }) => {
+    test.setTimeout(90_000); // a real export; slow when workers share the CPU
+    await memorySink(page);
+    await startExport(page, tool);
+    await expect(page.locator('.verdict .figure')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('link', { name: /Download/ })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     const axe = await new AxeBuilder({ page }).analyze();
     expect(axe.violations).toEqual([]);
   });
