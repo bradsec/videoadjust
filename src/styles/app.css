@@ -578,6 +578,10 @@ footer a:hover {
   justify-self: start;
   margin-inline: calc(-1 * var(--s-3));
 }
+/* The working screen's file line ends the canvas; a rule there would divide it from nothing. */
+.canvas > .file-line:last-child {
+  border-bottom: 0;
+}
 
 /* Trim */
 .trim {
@@ -965,15 +969,17 @@ footer a:hover {
 .setting-head {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 0 var(--s-3);
   min-height: var(--tap);
 }
+/* The name takes the free space, so a reset that wraps keeps the right edge, as it does inline. */
 .setting-head strong {
+  margin-right: auto;
   font-weight: 650;
 }
 .setting-auto {
-  margin-left: auto;
   font-size: var(--fs-14);
   color: var(--text-2);
 }
@@ -1000,9 +1006,6 @@ footer a:hover {
   cursor: not-allowed;
 }
 /* The audio rows show either the auto value or the reset, which then takes the right edge. */
-.setting-auto[hidden] + .setting-reset {
-  margin-left: auto;
-}
 /* A changed setting carries a dot next to its name, as well as the change count. */
 .setting.is-changed .setting-name::after {
   content: '';
@@ -1196,6 +1199,7 @@ footer a:hover {
   margin: 2px 0 0;
   font-size: var(--fs-18);
   font-weight: 650;
+  white-space: nowrap;
 }
 
 /* Result */
@@ -1397,6 +1401,7 @@ table.stats {
   padding-top: var(--s-3);
   padding-bottom: 0;
   border-bottom: 0;
+  vertical-align: baseline;
 }
 .stats tr.total td {
   font-size: var(--fs-18);
@@ -1553,6 +1558,22 @@ table.stats {
   .stage {
     max-height: 60vh;
   }
+  /* The mode switch takes the full row, so mode and transport stack as one block. */
+  .compare-bar .seg {
+    width: 100%;
+  }
+  .stats tbody th {
+    width: auto;
+    white-space: nowrap;
+  }
+  .facts dd {
+    font-size: var(--fs-16);
+  }
+  /* Stacked full width, so the text action is centred rather than offset by its padding. */
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 /* Tablet and up: rounded footage within the gutter, cue rows side by side. */
@@ -1630,6 +1651,10 @@ table.stats {
     margin-inline: calc(-1 * var(--inset));
     padding: var(--s-4) var(--inset);
     border-block: 1px solid var(--line);
+  }
+  /* The dock's lower rule already divides it from Adjust. */
+  .dock + .adjust {
+    border-top: 0;
   }
   .btn-go {
     min-width: 200px;

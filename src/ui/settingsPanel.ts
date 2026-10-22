@@ -133,7 +133,9 @@ export function mountSettings(
     current: string,
     onSelect: (selected: string) => void,
   ): void {
-    const label = el('label', 'setting-label', name);
+    // The setting's heading already names it on screen; the select keeps its own name.
+    const label = el('label', 'setting-label');
+    label.append(el('span', 'sr', name));
     const input = el('select', 'setting-select');
     input.setAttribute('aria-label', name);
     for (const item of items) {
