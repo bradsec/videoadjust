@@ -25,10 +25,21 @@ import {
   type startConversion as startConversionFn,
 } from '../core/convert';
 import { estimateBytes } from '../core/estimate';
+import {
+  autoGifSettings,
+  exportGif,
+  gifBudgetError,
+  gifDimensions,
+  gifFrameCount,
+  gifOutputName,
+  validateGifSettings,
+  type GifSettings,
+} from '../core/gifExport';
 import { normalizeCrop, outputSize, rotatedSize, videoFrameSize } from '../core/videoGeometry';
 import { UnsupportedSourceError, type readSource as readSourceFn } from '../core/source';
 import {
   chooseSink,
+  openGifSink,
   type OpenSink,
   type openSink as openSinkFn,
   type SinkPlan,
@@ -58,7 +69,7 @@ export interface Notice {
   confirm?: 'memory';
 }
 
-export type Tool = 'shrink' | 'audio';
+export type Tool = 'shrink' | 'audio' | 'gif';
 
 /** The loaded source and its derived limits, carried from prepare through result. */
 interface Loaded {
@@ -73,6 +84,8 @@ interface Loaded {
   audioAuto: AudioExtractSettings | null;
   /** Non-null whenever audioAuto is, so tool 'audio' always has settings. */
   audioSettings: AudioExtractSettings | null;
+  gifAuto: GifSettings | null;
+  gifSettings: GifSettings | null;
 }
 
 export type AppState =
@@ -119,6 +132,7 @@ export type AppAction =
   | { type: 'setSettings'; value: Settings }
   | { type: 'setTool'; tool: Tool }
   | { type: 'setAudioSettings'; value: AudioExtractSettings }
+  | { type: 'setGifSettings'; value: GifSettings }
   | { type: 'export'; confirmed?: boolean }
   | { type: 'cancel' }
   | { type: 'smaller' }
@@ -573,7 +587,19 @@ export function createController(
   }
 
   function toPrepare(from: Loaded, notice?: Notice): void {
-    const { file, source, input, auto, caps: c, settings, tool, audioAuto, audioSettings } = from;
+    const {
+      file,
+      source,
+      input,
+      auto,
+      caps: c,
+      settings,
+      tool,
+      audioAuto,
+      audioSettings,
+      gifAuto,
+      gifSettings,
+    } = from;
     setState({
       kind: 'prepare',
       file,
@@ -585,6 +611,8 @@ export function createController(
       tool,
       audioAuto,
       audioSettings,
+      gifAuto,
+      gifSettings,
       notice,
     });
   }
@@ -613,6 +641,7 @@ export function createController(
         return;
       case 'loaded': {
         const audioAuto = autoAudioExtract(action.source, action.caps);
+        const gifAuto = autoGifSettings(action.source);
         setState({
           kind: 'prepare',
           file: action.file,
@@ -624,13 +653,15 @@ export function createController(
           tool: 'shrink',
           audioAuto,
           audioSettings: audioAuto,
+          gifAuto,
+          gifSettings: gifAuto,
         });
         return;
       }
       case 'setTool':
         if (
           (state.kind === 'prepare' || state.kind === 'result') &&
-          (action.tool === 'shrink' || state.audioAuto)
+          (action.tool === 'shrink' || (action.tool === 'audio' ? state.audioAuto : state.gifAuto))
         ) {
           supersedePending();
           // Drops any notice: a pending memory confirm belongs to the other tool's export.
@@ -648,6 +679,7 @@ export function createController(
             exporting: undefined,
             settings: { ...state.settings, trim },
             audioSettings: state.audioSettings && { ...state.audioSettings, trim },
+            gifSettings: state.gifSettings && { ...state.gifSettings, trim },
           });
         }
         return;
@@ -668,23 +700,49 @@ export function createController(
           });
         }
         return;
-      case 'setSettings':
-        if (state.kind === 'prepare') {
+      case 'setGifSettings':
+        if (state.kind === 'prepare' && state.gifAuto) {
           supersedePending();
           setState({
             ...state,
             notice: unlessMemoryConfirm(state.notice),
             exporting: undefined,
-            settings: validateSettings(
-              preserveQuality(
-                state.settings,
-                { ...action.value, trim: state.settings.trim },
-                state.source,
-              ),
-              state.auto,
-              state.caps,
+            gifSettings: validateGifSettings(
+              { ...action.value, trim: state.settings.trim },
+              state.gifAuto,
+              state.source,
+              state.settings.transform,
+            ),
+          });
+        }
+        return;
+      case 'setSettings':
+        if (state.kind === 'prepare') {
+          supersedePending();
+          const settings = validateSettings(
+            preserveQuality(
+              state.settings,
+              { ...action.value, trim: state.settings.trim },
               state.source,
             ),
+            state.auto,
+            state.caps,
+            state.source,
+          );
+          setState({
+            ...state,
+            notice: unlessMemoryConfirm(state.notice),
+            exporting: undefined,
+            settings,
+            gifSettings:
+              state.gifSettings && state.gifAuto
+                ? validateGifSettings(
+                    state.gifSettings,
+                    state.gifAuto,
+                    state.source,
+                    settings.transform,
+                  )
+                : state.gifSettings,
           });
         }
         return;
@@ -789,6 +847,10 @@ export function createController(
     prep: Extract<AppState, { kind: 'prepare' }>,
     confirmed: boolean,
   ): Promise<void> {
+    if (prep.tool === 'gif' && prep.gifSettings) {
+      await startGifExport(prep);
+      return;
+    }
     const { source, caps: c } = prep;
     // Tool 'audio' always has audioSettings (see Loaded).
     const spec =
@@ -916,6 +978,118 @@ export function createController(
           message: `${spec.failure.message}${partial}`,
         });
       }
+    }
+  }
+
+  async function startGifExport(prep: Extract<AppState, { kind: 'prepare' }>): Promise<void> {
+    const settings = prep.gifSettings;
+    if (!settings) return;
+    const { width, height } = gifDimensions(settings, prep.source, prep.settings.transform);
+    const frames = gifFrameCount(settings.trim, settings.fps);
+    const budget = gifBudgetError(width, height, frames);
+    if (budget) {
+      toPrepare(prep, { tone: 'warn', title: 'GIF is too large', message: budget });
+      return;
+    }
+    const outputName = gifOutputName(prep.file.name);
+    const plan: SinkPlan = prep.caps.fileStreamSave
+      ? { kind: 'file-stream' }
+      : { kind: 'memory', warn: false };
+    const token = ++exportToken;
+    const base: Loaded = prep;
+    setState({ ...prep, notice: undefined, exporting: true });
+    let sink;
+    try {
+      sink = await openGifSink(plan, outputName);
+    } catch (err) {
+      if (token !== exportToken) return;
+      if (isAbortError(err)) {
+        toPrepare(base);
+        return;
+      }
+      console.error('opening the GIF output failed', err);
+      toPrepare(base, {
+        tone: 'error',
+        title: 'The GIF file could not be created',
+        message: 'Choose another place to save it, or try again.',
+      });
+      return;
+    }
+    if (token !== exportToken) {
+      void sink.abort();
+      return;
+    }
+    const controller = new AbortController();
+    cancelExport = () => {
+      controller.abort();
+      void sink.abort();
+    };
+    const startedAt = Date.now();
+    setState({
+      ...base,
+      kind: 'working',
+      outputName,
+      sinkKind: plan.kind,
+      estimate: { low: 0, high: 0 },
+      progress: 0,
+      bytes: 0,
+      startedAt,
+    });
+    try {
+      const bytes = await exportGif(
+        base.input,
+        base.source,
+        settings,
+        base.settings.transform,
+        controller.signal,
+        (progress) => {
+          if (token === exportToken && state.kind === 'working') setState({ ...state, progress });
+        },
+      );
+      if (token !== exportToken) return;
+      const blob = await sink.finish(bytes);
+      if (token !== exportToken) return;
+      cancelExport = undefined;
+      const sizeBytes = bytes.byteLength;
+      const info: SourceInfo = {
+        name: outputName,
+        sizeBytes,
+        durationSec: settings.trim.end - settings.trim.start,
+        containerMime: 'image/gif',
+        video: {
+          codec: 'gif',
+          decodable: true,
+          displayWidth: width,
+          displayHeight: height,
+          rotation: 0,
+          fps: settings.fps,
+          bitrate: null,
+        },
+        audio: null,
+      };
+      setState({
+        ...base,
+        kind: 'result',
+        outputName,
+        sinkKind: plan.kind,
+        elapsedMs: Date.now() - startedAt,
+        notSmaller: sizeBytes >= base.source.sizeBytes,
+        output: { blob, sizeBytes, url: blob ? URL.createObjectURL(blob) : null, info },
+      });
+    } catch (err) {
+      await sink.abort();
+      if (token !== exportToken) return;
+      cancelExport = undefined;
+      if (isAbortError(err)) {
+        toPrepare(base);
+        return;
+      }
+      console.error('GIF export failed', err);
+      toPrepare(base, {
+        tone: 'error',
+        title: 'The GIF export failed',
+        message: 'Could not make the GIF. Try a shorter trim, lower frame rate, or smaller width.',
+      });
     }
   }
 

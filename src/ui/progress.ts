@@ -7,6 +7,7 @@ export interface ProgressOptions {
   originalBytes?: number;
   /** Estimated output size range. */
   expected?: { low: number; high: number };
+  showBytes?: boolean;
 }
 
 // Below this much progress a remaining-time guess swings too much to show.
@@ -85,7 +86,8 @@ export function mountProgress(
   const elapsed = fact('Elapsed');
   const remaining = fact('Remaining');
   const written = fact('Written so far');
-  facts.append(elapsed.node, remaining.node, written.node);
+  facts.append(elapsed.node, remaining.node);
+  if (opts.showBytes !== false) facts.append(written.node);
   if (opts.expected) {
     const expected = fact('Expected');
     expected.value.textContent = formatByteRange(opts.expected.low, opts.expected.high);

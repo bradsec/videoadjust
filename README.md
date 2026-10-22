@@ -5,16 +5,16 @@
 [![License: MIT](https://img.shields.io/github/license/bradsec/videoadjust)](LICENSE)
 [![Live site](https://img.shields.io/website?url=https%3A%2F%2Fvideoadjust.com%2F&label=videoadjust.com)](https://videoadjust.com/)
 
-Compress, convert, resize, trim and extract audio from videos entirely in your browser. [Mediabunny](https://mediabunny.dev/) runs conversion locally through WebCodecs. Nothing is uploaded.
+Compress, convert, resize, trim, extract audio and make animated GIFs from videos entirely in your browser. [Mediabunny](https://mediabunny.dev/) runs conversion locally through WebCodecs. Nothing is uploaded.
 
 **Live app: https://videoadjust.com/**
 
 ## Features
 
 - Pick a video, trim it, choose a tool and its settings, then export. Video output defaults to MP4 with H.264 video and AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and the frame rate is never raised. No ffmpeg.wasm.
-- On the prepare screen, choose Shrink video or Extract audio from the workspace tabs. The video and trim controls form the canvas; the summary, action, and Adjust controls form the inspector. On desktop they sit side by side. On narrower screens they stack, with the estimate and Export or Extract audio action fixed at the bottom on phones and sticky within the inspector on tablets.
-- Extract audio is unavailable when the source has no usable audio track.
-- Both tools use the same trim. Drag the trim handles or use arrow keys to adjust by 0.1 seconds. Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set a boundary at the preview playhead. The kept duration and summary estimate update as you trim.
+- On the prepare screen, choose Shrink video, Extract audio or GIF from the workspace tabs. The video and trim controls form the canvas; the summary, action, and Adjust controls form the inspector. On desktop they sit side by side. On narrower screens they stack, with the summary and action fixed at the bottom on phones and sticky within the inspector on tablets.
+- Extract audio is unavailable when the source has no usable audio track. GIF is unavailable when the source has no decodable video.
+- All three tools use the same trim. Drag the trim handles or use arrow keys to adjust by 0.1 seconds. Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set a boundary at the preview playhead. The kept duration and summary update as you trim.
 - The source summary shows whether sampled frames have a variable frame rate and whether the video is HDR, when Mediabunny can determine those properties.
 - If the browser cannot play the preview, the handles and thumbnails still work. Start here and End here are disabled because they need a playhead.
 - Shrink's summary card shows the estimated output range against the original size. Open Adjust to change format, codec, resolution, frame rate, quality, or audio. Each setting has a reset button.
@@ -24,10 +24,11 @@ Compress, convert, resize, trim and extract audio from videos entirely in your b
 - Unavailable codecs show why they cannot be selected. WebM uses Opus audio. The quality control and audio bitrates stay within the source limits. Quality keeps the same percentage when you change codec, resolution, or frame rate. Reset Quality returns to 100% for the current video settings.
 - If the source is already small, the summary offers Export trimmed copy, which keeps the source video and audio tracks. Select Re-encode anyway to use the adjustment controls.
 - Extract audio defaults to MP3. Open Adjust to choose MP3, M4A (AAC), or WAV, plus bitrate and mono or stereo where available. M4A copies the source audio without re-encoding when the source is AAC at or below the target bitrate; otherwise it encodes AAC at the target. MP3 and WAV are always encoded. WAV is 16-bit PCM with no bitrate control, so files are large. The audio summary shows the estimated size and kept duration.
-- Export saves straight to a file you pick where the browser supports a save picker (Chromium). Elsewhere the new file stays in memory until you download or share it; a large in-memory export asks before it starts.
-- The progress screen shows percent, elapsed and remaining time, and bytes written; Cancel returns to the prepare screen with your settings, and says when a partial file may remain at the chosen location.
-- The result screen compares original and new in a table and, for in-memory exports, with a wipe view (drag the divider or use the arrow keys on it; Frame mode steps one frame at a time).
-- If the new file is not smaller, the result says so and Make it smaller moves to the next smaller size, or lowers quality one step when no smaller size is left.
+- GIF exports the kept video frames as an animated image without audio. Open Adjust to choose width, frame rate, colours and whether the animation loops. GIF uses the same rotation, mirroring and crop as Shrink. The summary shows frame count and dimensions; a long or large GIF may need a shorter trim, lower frame rate or smaller width.
+- Export saves straight to a file you pick where the browser supports a save picker (Chromium). Elsewhere the new file stays in memory until you download or share it; a large estimated video or audio export asks before it starts. GIF instead limits frames and total pixels.
+- The progress screen shows percent, elapsed and remaining time, plus bytes written for video and audio. Cancel returns to the prepare screen with your settings, and says when a partial file may remain at the chosen location.
+- The result screen compares original and new in a table and, for in-memory video exports, with a wipe view (drag the divider or use the arrow keys on it; Frame mode steps one frame at a time). GIF results show an image preview.
+- If a new video or audio file is not smaller, the result says so and Make it smaller moves to the next smaller size, or lowers quality one step when no smaller size is left.
 - Privacy: No video is uploaded and nothing is sent anywhere. The page is static, has no analytics, web fonts or CDN assets, and makes no requests to other origins. Its CSP only allows `'self'`, `blob:` and workers. `scripts/check-no-remote.mjs` (`pnpm check:remote`, part of `pnpm build`) fails the build if any built file contains a URL outside a short, commented allowlist (spec links in bundled comments). It does not need `SharedArrayBuffer` or COOP/COEP headers.
 - Theme: The app is dark for everyone, whatever the system colour scheme. The "Light theme" switch in the header turns on the light theme. The choice is the only thing the app stores: `localStorage` key `videoadjust-theme`, value `light` or `dark`. If storage is blocked the app stays dark and the switch still works for the open page. `public/theme-init.js` applies the saved theme before first paint; it is a separate same-origin file because the CSP blocks inline scripts. The workspace uses Palette A, "Ink and Chartreuse": dark ink `#0e0f0d`, pale text `#f1f3ec`, and chartreuse actions `#c6ef3a`. Light mode uses `#f6f7f2` behind white surfaces, dark text `#161813`, and a deeper green accent `#4a6b00`. Both modes use system sans-serif fonts and tabular figures for times and sizes.
 - Size guidance: Designed and tested for inputs up to 2 GB. Above 2 GB the app warns and lets you continue. Where there is no save picker (iOS Safari, Firefox) the output stays in memory until you download or share it, and a large estimate asks before it starts.
@@ -147,6 +148,7 @@ Shipped libraries and related type packages:
 | mediabunny                        | MPL-2.0 (unmodified)                                                    | https://github.com/Vanilagy/mediabunny                                                          |
 | @mediabunny/aac-encoder           | MPL-2.0 (unmodified), embeds FFmpeg AAC encoder under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder                           |
 | @mediabunny/mp3-encoder           | MPL-2.0 (unmodified), embeds LAME 3.100 under LGPL-2.0-or-later         | https://github.com/Vanilagy/mediabunny/tree/main/packages/mp3-encoder                           |
+| gifenc                            | MIT                                                                     | https://github.com/mattdesl/gifenc                                                              |
 | @types/dom-webcodecs              | MIT (type declarations only, not shipped)                               | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs              |
 | @types/dom-mediacapture-transform | MIT (type declarations only, not shipped)                               | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform |
 

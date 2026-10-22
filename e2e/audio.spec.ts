@@ -77,6 +77,14 @@ test('tool tabs switch between Shrink and the audio settings', async ({ page }) 
   await expect(shrink.getByLabel('Frame rate', { exact: true })).toHaveValue('24');
 
   await page.keyboard.press('End');
+  await expect(page.getByRole('tab', { name: 'GIF', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(
+    page.getByRole('region', { name: 'GIF summary' }).getByRole('heading'),
+  ).toContainText('GIF');
+  await page.keyboard.press('ArrowLeft');
   await expect(audioTab).toHaveAttribute('aria-selected', 'true');
   await expect(audio.locator('h2')).toContainText('192 kbps');
 });

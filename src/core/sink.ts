@@ -31,7 +31,48 @@ const EXTENSIONS: Record<string, string> = {
   'audio/mpeg': '.mp3',
   'audio/mp4': '.m4a',
   'audio/wav': '.wav',
+  'image/gif': '.gif',
 };
+
+export interface GifSink {
+  finish(bytes: Uint8Array): Promise<Blob | null>;
+  abort(): Promise<void>;
+}
+
+export async function openGifSink(plan: SinkPlan, suggestedName: string): Promise<GifSink> {
+  if (plan.kind === 'memory') {
+    return {
+      async finish(bytes) {
+        return new Blob([new Uint8Array(bytes)], { type: 'image/gif' });
+      },
+      async abort() {},
+    };
+  }
+  if (!window.showSaveFilePicker) throw new Error('This browser cannot save files directly.');
+  const handle = await window.showSaveFilePicker({
+    suggestedName,
+    types: [{ accept: { 'image/gif': ['.gif'] } }],
+  });
+  const writable = await handle.createWritable();
+  let closed = false;
+  return {
+    async finish(bytes) {
+      await writable.write(new Uint8Array(bytes));
+      await writable.close();
+      closed = true;
+      return null;
+    },
+    async abort() {
+      if (closed) return;
+      closed = true;
+      try {
+        await writable.abort();
+      } catch (err) {
+        console.warn('discarding the output file failed', err);
+      }
+    },
+  };
+}
 
 export async function openSink(
   plan: SinkPlan,

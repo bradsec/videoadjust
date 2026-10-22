@@ -1,5 +1,6 @@
 import { CanvasSink } from 'mediabunny';
 import { AUDIO_FORMATS, audioUnavailable, type AudioExtractSettings } from '../core/audioExtract';
+import { gifUnavailable } from '../core/gifExport';
 import type { Settings, SourceInfo } from '../core/types';
 import { mountAudioPanel } from './audioPanel';
 import { mountAudioPlayer } from './audioPlayer';
@@ -17,6 +18,7 @@ import {
 import { el, icon } from './dom';
 import { mountDropZone } from './dropZone';
 import { formatBitrate, formatBytes, formatDuration } from './format';
+import { mountGifPanel } from './gifPanel';
 import { mountProgress, sizeMeter } from './progress';
 import { mountSettings } from './settingsPanel';
 import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
@@ -207,6 +209,7 @@ function renderPrepare(
   const tabs = mountToolTabs(toolsHost, {
     value: state.tool,
     disabledReason: audioReason(state),
+    gifDisabledReason: gifReason(state),
     onChange: (tool) => dispatch({ type: 'setTool', tool }),
   });
   // Under 700px app.css fixes the dock to the viewport bottom; --dock-space reserves its
@@ -237,6 +240,22 @@ function renderPrepare(
       panel = {
         update: (s) => s.audioSettings && audio.update(s.audioSettings),
         setBusy: audio.setBusy,
+      };
+      return;
+    }
+    if (value.tool === 'gif' && value.gifSettings) {
+      const gif = mountGifPanel(panelHost, {
+        value: value.gifSettings,
+        source: value.source,
+        transform: value.settings.transform,
+        onChange: (next) => dispatch({ type: 'setGifSettings', value: next }),
+        onExport,
+      });
+      changeTransform = (transform) =>
+        dispatch({ type: 'setSettings', value: { ...value.settings, transform } });
+      panel = {
+        update: (s) => s.gifSettings && gif.update(s.gifSettings, s.settings.transform),
+        setBusy: gif.setBusy,
       };
       return;
     }
@@ -329,8 +348,8 @@ function renderPrepare(
     if (value.kind !== 'prepare') return;
     trim.update(value.settings.trim);
     cropEditor?.update(value.settings);
-    cropEditor?.setTool(value.tool === 'shrink');
-    tabs.update(value.tool, audioReason(value));
+    cropEditor?.setTool(value.tool !== 'audio');
+    tabs.update(value.tool, audioReason(value), gifReason(value));
     if (value.tool !== shownTool) {
       showPanel(value);
       dockSpace.disconnect();
@@ -364,6 +383,10 @@ function audioReason(state: Of<'prepare'>): string | null {
   return audioUnavailable(state.source) === 'undecodable'
     ? 'This browser cannot decode the audio in this video'
     : 'This video has no audio track';
+}
+
+function gifReason(state: Of<'prepare'>): string | null {
+  return state.gifAuto ? null : gifUnavailable(state.source);
 }
 
 const CONTAINER_LABELS: Record<string, string> = {
@@ -437,7 +460,9 @@ function renderWorking(
       'file-summary num',
       state.tool === 'audio' && state.audioSettings
         ? summaryAudio(state.audioSettings)
-        : summaryOutput(state.settings),
+        : state.tool === 'gif' && state.gifSettings
+          ? `${state.gifSettings.width} px · ${state.gifSettings.fps} fps GIF`
+          : summaryOutput(state.settings),
     ),
   );
 
@@ -463,8 +488,9 @@ function renderWorking(
   const progressHost = el('div');
   const progress = mountProgress(progressHost, {
     onCancel,
-    originalBytes: state.source.sizeBytes,
-    expected: state.estimate,
+    originalBytes: state.tool === 'gif' ? undefined : state.source.sizeBytes,
+    expected: state.tool === 'gif' ? undefined : state.estimate,
+    showBytes: state.tool !== 'gif',
   });
   const note = el(
     'p',
@@ -513,12 +539,17 @@ function statsTable(
   trim: Settings['trim'],
   notSmaller: boolean,
   audioOnly: boolean,
+  gifOnly = false,
 ): HTMLTableElement {
   const table = el('table', 'stats');
   const caption = el(
     'caption',
     'sr',
-    audioOnly ? 'Original video and audio file compared' : 'Original and new video compared',
+    audioOnly
+      ? 'Original video and audio file compared'
+      : gifOnly
+        ? 'Original video and GIF compared'
+        : 'Original and new video compared',
   );
   const thead = el('thead');
   const headRow = el('tr');
@@ -527,7 +558,7 @@ function statsTable(
   prop.append(el('span', 'sr', 'Property'));
   const colOrig = el('th', undefined, audioOnly ? 'Original video' : 'Original');
   colOrig.scope = 'col';
-  const colNew = el('th', undefined, audioOnly ? 'Audio file' : 'New');
+  const colNew = el('th', undefined, audioOnly ? 'Audio file' : gifOnly ? 'GIF' : 'New');
   colNew.scope = 'col';
   headRow.append(prop, colOrig, colNew);
   thead.append(headRow);
@@ -585,8 +616,10 @@ function statsTable(
       row('Frame rate', fps(source), fps(output));
       row('Video', video(source), video(output));
     }
-    row('Audio', audio(source), audio(output));
-    row('Bitrate', bitrate(source), bitrate(output));
+    if (!gifOnly) {
+      row('Audio', audio(source), audio(output));
+      row('Bitrate', bitrate(source), bitrate(output));
+    }
     durationRow();
   }
 
@@ -618,9 +651,10 @@ function renderResult(
 ): Mounted {
   const { output, source } = state;
   const audioOnly = state.tool === 'audio';
+  const gifOnly = state.tool === 'gif';
   // WAV is lossless, so no setting makes it smaller and there is nothing to suggest.
   const lossless = audioOnly && state.audioSettings?.format === 'wav';
-  const showNotSmaller = state.notSmaller && !lossless;
+  const showNotSmaller = state.notSmaller && !lossless && !gifOnly;
   // The canvas holds the comparison or the player; the inspector holds the verdict, the
   // delivery actions, the stats and the next steps. Phones keep the same order in one column.
   const work = el('div', 'work result');
@@ -635,7 +669,9 @@ function renderResult(
     el(
       'em',
       undefined,
-      state.notSmaller ? 'not smaller' : reductionText(source.sizeBytes, output.sizeBytes),
+      state.notSmaller && !gifOnly
+        ? 'not smaller'
+        : reductionText(source.sizeBytes, output.sizeBytes),
     ),
   );
   verdict.append(
@@ -705,6 +741,11 @@ function renderResult(
         : Promise.resolve(null),
     });
     canvas.append(host);
+  } else if (gifOnly && output.url) {
+    const preview = el('img', 'gif-preview');
+    preview.src = output.url;
+    preview.alt = 'GIF preview';
+    canvas.append(preview);
   } else if (output.url && output.info.video && source.video) {
     const host = el('div', 'compare');
     originalUrl = URL.createObjectURL(state.file);
@@ -721,7 +762,9 @@ function renderResult(
       el(
         'p',
         'note compare-skipped',
-        'The new file went straight to the place you chose, so there is no side-by-side preview here. Open it from there to watch it.',
+        gifOnly
+          ? 'The GIF was saved where you chose. Open it there to preview it.'
+          : 'The new file went straight to the place you chose, so there is no side-by-side preview here. Open it from there to watch it.',
       ),
     );
   }
@@ -765,13 +808,14 @@ function renderResult(
       audioOnly && state.audioSettings ? state.audioSettings.trim : state.settings.trim,
       state.notSmaller,
       audioOnly,
+      gifOnly,
     ),
   );
   side.append(stats);
 
   // The recommended adjustment is a secondary button; starting over is a quiet text action.
   const actions = el('div', 'actions');
-  if (!lossless) {
+  if (!lossless && !gifOnly) {
     const smaller = el('button', showNotSmaller ? 'btn is-suggested' : 'btn');
     smaller.type = 'button';
     smaller.append(icon('i-smaller'), audioOnly ? 'Lower bitrate' : 'Make it smaller');

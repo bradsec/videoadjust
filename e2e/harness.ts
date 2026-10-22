@@ -18,6 +18,7 @@ import {
   shrinkJob,
   startConversion,
 } from '../src/core/convert';
+import { exportGif, type GifSettings } from '../src/core/gifExport';
 import { chooseSink, openSink } from '../src/core/sink';
 import { readSource, UnsupportedSourceError } from '../src/core/source';
 import type { Settings, SourceInfo, VideoCodecId } from '../src/core/types';
@@ -40,6 +41,18 @@ export type ConvertResult =
 export type CancelAt = 'never' | 'immediately' | 'at-start' | 'mid-run';
 
 export type StreamResult = ConvertResult & { closeCalls: number; abortCalls: number };
+
+export type GifResult =
+  | {
+      ok: true;
+      width: number;
+      height: number;
+      frames: number;
+      outputBytes: number;
+      lastProgress: number;
+      pixelSamples: [number, number, number][];
+    }
+  | { ok: false; error: { name: string; message: string } };
 
 const fileInput = document.getElementById('file') as HTMLInputElement;
 
@@ -66,6 +79,65 @@ async function sampleVideoPixels(blob: Blob): Promise<[number, number, number][]
   }
 }
 
+function inspectGif(bytes: Uint8Array): { width: number; height: number; frames: number } {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const signature = String.fromCharCode(...bytes.subarray(0, 6));
+  if (signature !== 'GIF89a' && signature !== 'GIF87a') throw new Error('GIF header is missing');
+  const width = view.getUint16(6, true);
+  const height = view.getUint16(8, true);
+  let offset = 13;
+  const screen = bytes[10];
+  if (screen & 0x80) offset += 3 * 2 ** ((screen & 7) + 1);
+  let frames = 0;
+  while (offset < bytes.length) {
+    const block = bytes[offset++];
+    if (block === 0x3b) break;
+    if (block === 0x21) {
+      offset++; // Extension label.
+    } else if (block === 0x2c) {
+      frames++;
+      const packed = bytes[offset + 8];
+      offset += 9;
+      if (packed & 0x80) offset += 3 * 2 ** ((packed & 7) + 1);
+      offset++; // LZW minimum code size.
+    } else {
+      throw new Error(`Unexpected GIF block ${block}`);
+    }
+    while (offset < bytes.length) {
+      const length = bytes[offset++];
+      if (length === 0) break;
+      offset += length;
+    }
+  }
+  return { width, height, frames };
+}
+
+async function sampleGifPixels(blob: Blob): Promise<[number, number, number][]> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas 2D context is unavailable');
+    context.drawImage(image, 0, 0);
+    return [0.1, 0.5, 0.9].map((fraction) => {
+      const pixel = context.getImageData(
+        Math.floor(canvas.width * fraction),
+        Math.floor(canvas.height / 2),
+        1,
+        1,
+      ).data;
+      return [pixel[0], pixel[1], pixel[2]];
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 function selectedFile(): File {
   const file = fileInput.files?.[0];
   if (!file) throw new Error('No file selected in the harness');
@@ -84,6 +156,37 @@ async function ensureAudioEncoder(settings: Settings): Promise<void> {
 }
 
 const harness = {
+  async exportGif(settings: GifSettings, transform?: Settings['transform']): Promise<GifResult> {
+    let input: Input | undefined;
+    try {
+      const selected = selectedFile();
+      const read = await readSource(selected);
+      input = read.input;
+      let lastProgress = 0;
+      const bytes = await exportGif(
+        input,
+        read.info,
+        settings,
+        transform,
+        new AbortController().signal,
+        (progress) => {
+          lastProgress = progress;
+        },
+      );
+      const blob = new Blob([new Uint8Array(bytes)], { type: 'image/gif' });
+      return {
+        ok: true,
+        ...inspectGif(bytes),
+        outputBytes: bytes.byteLength,
+        lastProgress,
+        pixelSamples: await sampleGifPixels(blob),
+      };
+    } catch (err) {
+      return failure(err);
+    } finally {
+      input?.dispose();
+    }
+  },
   async readSource(): Promise<ReadResult> {
     try {
       const { info } = await readSource(selectedFile());

@@ -21,6 +21,7 @@
   "dependencies": {
     "@mediabunny/aac-encoder": "1.62.0",
     "@mediabunny/mp3-encoder": "1.62.0",
+    "gifenc": "1.0.3",
     "mediabunny": "1.62.0"
   },
   "devDependencies": {
