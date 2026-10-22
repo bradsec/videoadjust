@@ -1,6 +1,6 @@
 {
-  "name": "videoresize",
-  "short_name": "videoresize",
+  "name": "videomate",
+  "short_name": "videomate",
   "description": "Shrink and trim videos in your browser. Nothing is uploaded.",
   "start_url": "./",
   "scope": "./",

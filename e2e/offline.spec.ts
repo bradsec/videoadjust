@@ -36,7 +36,7 @@ test('works offline after the first visit and converts a fixture', async ({ page
 
 test('precache list covers the build and excludes the e2e harness', async ({ request }) => {
   const sw = await (await request.get('/sw.js')).text();
-  expect(sw).not.toContain('__VR_');
+  expect(sw).not.toContain('__VM_');
   expect(sw).not.toContain('harness');
   expect(sw).toContain('index.html');
   expect(sw).toContain("cache: 'no-cache'");
@@ -54,7 +54,7 @@ test('offline navigation uses the current cache only, never an older version', a
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   // An older version's cache sorts first in caches.match, so a lookup across caches would hit it.
   await page.evaluate(async () => {
-    const stale = await caches.open('videoresize-0.0.0-old');
+    const stale = await caches.open('videomate-0.0.0-old');
     const body = () =>
       new Response('<!doctype html><title>STALE</title>', {
         headers: { 'content-type': 'text/html' },
@@ -63,7 +63,7 @@ test('offline navigation uses the current cache only, never an older version', a
       await stale.put(new URL(url, location.href).href, body());
     const names = await caches.keys();
     // Put the stale cache first in creation order by recreating the current ones after it.
-    for (const name of names.filter((n) => n !== 'videoresize-0.0.0-old')) {
+    for (const name of names.filter((n) => n !== 'videomate-0.0.0-old')) {
       const cache = await caches.open(name);
       const entries = await cache.keys();
       const saved = await Promise.all(entries.map(async (r) => [r, await cache.match(r)] as const));
@@ -76,4 +76,22 @@ test('offline navigation uses the current cache only, never an older version', a
   await page.reload();
   await expect(page).not.toHaveTitle('STALE');
   await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
+});
+
+test('activation deletes caches left by the old videoresize name', async ({ page }) => {
+  // Runs before the page registers the worker; install precaches the whole build, so the
+  // legacy cache exists well before activate.
+  await page.addInitScript(() => {
+    void caches.open('videoresize-1.0.0');
+  });
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => (await caches.keys()).some((k) => k.startsWith('videoresize-'))),
+    )
+    .toBe(false);
+  expect(
+    await page.evaluate(async () => (await caches.keys()).some((k) => k.startsWith('videomate-'))),
+  ).toBe(true);
 });

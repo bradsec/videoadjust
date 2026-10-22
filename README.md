@@ -1,9 +1,9 @@
-# videoresize
+# videomate
 
-[![Tests](https://github.com/bradsec/videoresize/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/bradsec/videoresize/actions/workflows/tests.yml)
-[![Version](https://img.shields.io/github/package-json/v/bradsec/videoresize)](package.json)
-[![License: MIT](https://img.shields.io/github/license/bradsec/videoresize)](LICENSE)
-[![Live site](https://img.shields.io/website?url=https%3A%2F%2Fbradsec.github.io%2Fvideoresize%2F&label=bradsec.github.io%2Fvideoresize)](https://bradsec.github.io/videoresize/)
+[![Tests](https://github.com/bradsec/videomate/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/bradsec/videomate/actions/workflows/tests.yml)
+[![Version](https://img.shields.io/github/package-json/v/bradsec/videomate)](package.json)
+[![License: MIT](https://img.shields.io/github/license/bradsec/videomate)](LICENSE)
+[![Live site](https://img.shields.io/website?url=https%3A%2F%2Fbradsec.github.io%2Fvideomate%2F&label=bradsec.github.io%2Fvideomate)](https://bradsec.github.io/videomate/)
 
 Shrink and trim phone videos in the browser so they are small enough to send. Pick a video, trim
 it, choose a size, export, then compare the original and the new file. Output defaults to MP4 with
@@ -11,7 +11,7 @@ H.264 video and AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are n
 the frame rate is never raised. Conversion runs locally on WebCodecs through
 [Mediabunny](https://mediabunny.dev/). No ffmpeg.wasm.
 
-Live site: https://bradsec.github.io/videoresize/
+Live site: https://bradsec.github.io/videomate/ (formerly videoresize; the old address no longer works).
 
 ## Privacy
 

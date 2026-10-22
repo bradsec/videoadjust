@@ -1,13 +1,15 @@
-// videoresize service worker. The app is static and client-side, so offline is caching.
+// videomate service worker. The app is static and client-side, so offline is caching.
 // The two tokens below are replaced at build time by the precache plugin in vite.config.ts.
 // Navigations are network-first and revalidate with the server (cache: 'no-cache'), so the
 // host's max-age cannot hand back an old index.html after a deploy; if the network is down or
 // slower than NAV_TIMEOUT_MS the cached page is used. Hashed build assets are cache-first.
 // On activate the previous version's cache is kept (only older ones are deleted) and lookups
 // search every cache, so a tab opened before a deploy can still import its lazy AAC chunk.
-const VERSION = '__VR_VERSION__';
-const PRECACHE = '__VR_PRECACHE__'.split('\n');
-const PREFIX = 'videoresize-';
+const VERSION = '__VM_VERSION__';
+const PRECACHE = '__VM_PRECACHE__'.split('\n');
+const PREFIX = 'videomate-';
+// The app was called videoresize; its caches share this origin and are never used again.
+const LEGACY_PREFIX = 'videoresize-';
 const CACHE = PREFIX + VERSION;
 const NAV_TIMEOUT_MS = 4000;
 
@@ -31,7 +33,8 @@ self.addEventListener('activate', (event) => {
       .then((keys) => {
         // keys() is in creation order: the last other entry is the previous version.
         const others = keys.filter((key) => key.startsWith(PREFIX) && key !== CACHE);
-        return Promise.all(others.slice(0, -1).map((key) => caches.delete(key)));
+        const legacy = keys.filter((key) => key.startsWith(LEGACY_PREFIX));
+        return Promise.all([...others.slice(0, -1), ...legacy].map((key) => caches.delete(key)));
       })
       .then(() => self.clients.claim()),
   );

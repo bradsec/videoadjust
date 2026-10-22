@@ -10,7 +10,7 @@ test('loads, has no axe violations, makes no cross-origin requests', async ({ pa
   });
 
   await page.goto('/');
-  await expect(page).toHaveTitle('videoresize');
+  await expect(page).toHaveTitle('videomate');
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);

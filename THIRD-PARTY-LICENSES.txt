@@ -1,4 +1,4 @@
-Third-party licences for production dependencies of videoresize.
+Third-party licences for production dependencies of videomate.
 Each package is listed as "## name" followed by version, licence and source.
 Full licence texts for MPL-2.0 and LGPL-2.1 follow the package list.
 This file ships with the site at ./THIRD-PARTY-LICENSES.txt.

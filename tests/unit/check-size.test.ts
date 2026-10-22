@@ -7,7 +7,7 @@ import { MAX_FILE_BYTES, oversizedFiles } from '../../scripts/check-size.mjs';
 const dirs: string[] = [];
 
 function fixture() {
-  const dir = mkdtempSync(join(tmpdir(), 'videoresize-size-'));
+  const dir = mkdtempSync(join(tmpdir(), 'videomate-size-'));
   dirs.push(dir);
   return dir;
 }

@@ -1,4 +1,4 @@
-// Test-only page. vite.config.ts builds it only when VR_E2E=1, so the deployed site has no harness.
+// Test-only page. vite.config.ts builds it only when VM_E2E=1, so the deployed site has no harness.
 import { canEncodeAudio, canEncodeVideo, StreamTarget, type StreamTargetChunk } from 'mediabunny';
 import { registerAacFallback } from '../src/core/capabilities';
 import { createOutputFormat, startConversion } from '../src/core/convert';
