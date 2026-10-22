@@ -274,7 +274,8 @@ function describeAudioWritten(
             decodable: true,
             channels: s.channels,
             sampleRate: source.audio.sampleRate,
-            bitrate: s.bitrate,
+            // WAV ignores the bitrate setting; 16-bit PCM runs at a fixed rate.
+            bitrate: s.format === 'wav' ? source.audio.sampleRate * s.channels * 16 : s.bitrate,
           }),
   };
 }

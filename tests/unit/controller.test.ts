@@ -879,6 +879,22 @@ describe('export flow', () => {
       });
     });
 
+    it('reports the PCM bitrate for a file-stream WAV output', async () => {
+      const t = audioSetup({ fileStreamSave: true });
+      const s0 = t.ctl.getState();
+      if (s0.kind !== 'prepare' || !s0.audioSettings) throw new Error('Expected prepare');
+      t.ctl.dispatch({ type: 'setAudioSettings', value: { ...s0.audioSettings, format: 'wav' } });
+      t.ctl.dispatch({ type: 'export' });
+      await flush();
+      t.progress(1, 4000);
+      t.resolve();
+      await flush();
+      await flush();
+      const s = t.ctl.getState();
+      if (s.kind !== 'result') throw new Error('Expected result');
+      expect(s.output.info.audio).toMatchObject({ codec: 'pcm-s16', bitrate: 48_000 * 2 * 16 });
+    });
+
     it('reset clears both tools', async () => {
       const t = audioSetup();
       await toResult(t);
