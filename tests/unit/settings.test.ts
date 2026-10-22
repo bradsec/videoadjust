@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { autoSettings, targetVideoBitrate } from '../../src/core/autoSettings';
+import { estimateBytes } from '../../src/core/estimate';
 import type { Capabilities, SourceInfo } from '../../src/core/types';
 import { settingsChangeCount, validateSettings } from '../../src/ui/controller';
 
@@ -83,6 +84,71 @@ describe('settings validation', () => {
       source,
     );
     expect(tagsOnly.passthrough).toBe(true);
+  });
+  it('clamps a moved crop rectangle and sizes output from it', () => {
+    const actual = validateSettings(
+      {
+        ...auto.settings,
+        passthrough: true,
+        transform: {
+          rotate: 0,
+          flip: false,
+          crop: 'square',
+          rect: { left: 3000, top: -20, width: 501, height: 301 },
+        },
+      },
+      auto,
+      caps,
+      source,
+    );
+    expect(actual.transform?.rect).toEqual({ left: 1618, top: 0, width: 302, height: 302 });
+    expect(actual.video).toMatchObject({ width: 302, height: 302 });
+    expect(actual.passthrough).toBe(false);
+  });
+  it('keeps a full Original frame as passthrough but counts a reduced Original crop', () => {
+    const full = validateSettings(
+      {
+        ...auto.settings,
+        passthrough: true,
+        transform: {
+          rotate: 0,
+          flip: false,
+          crop: 'original',
+          rect: { left: 0, top: 0, width: 1920, height: 1080 },
+        },
+      },
+      auto,
+      caps,
+      source,
+    );
+    expect(full.transform?.rect).toBeNull();
+    expect(full.video).toMatchObject({ width: 1920, height: 1080 });
+    expect(full.passthrough).toBe(true);
+    expect(settingsChangeCount(full, auto, caps, source)).toBe(0);
+    expect(estimateBytes(full, source)).toEqual(
+      estimateBytes(validateSettings(auto.settings, auto, caps, source), source),
+    );
+
+    const cropped = validateSettings(
+      {
+        ...auto.settings,
+        passthrough: true,
+        transform: {
+          rotate: 0,
+          flip: false,
+          crop: 'original',
+          rect: { left: 100, top: 50, width: 1600, height: 900 },
+        },
+      },
+      auto,
+      caps,
+      source,
+    );
+    expect(cropped.transform?.crop).toBe('original');
+    expect(cropped.transform?.rect).toMatchObject({ width: 1600, height: 900 });
+    expect(cropped.video).toMatchObject({ width: 1600, height: 900 });
+    expect(cropped.passthrough).toBe(false);
+    expect(settingsChangeCount(cropped, auto, caps, source)).toBe(1);
   });
   it('bounds size, frame rate, video quality, and audio bitrate by source', () => {
     const actual = validateSettings(

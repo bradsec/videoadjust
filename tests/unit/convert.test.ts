@@ -107,6 +107,42 @@ describe('toConversionOptions', () => {
     expect(toConversionOptions({ ...base, passthrough: true }).video).toEqual({});
     expect(toConversionOptions(base).video).not.toHaveProperty('keyFrameInterval');
   });
+  it('omits full Original crop and transcodes only a reduced Original crop', () => {
+    const transform = { rotate: 0 as const, flip: false, crop: 'original' as const };
+    expect(toConversionOptions({ ...base, passthrough: true, transform }, source).video).toEqual(
+      {},
+    );
+    expect(
+      toConversionOptions(
+        {
+          ...base,
+          passthrough: true,
+          transform: {
+            ...transform,
+            rect: { left: 0, top: 0, width: 1920, height: 1080 },
+          },
+        },
+        source,
+      ).video,
+    ).toEqual({});
+    const options = toConversionOptions(
+      {
+        ...base,
+        passthrough: true,
+        transform: {
+          ...transform,
+          rect: { left: 100, top: 50, width: 1600, height: 900 },
+        },
+      },
+      source,
+    );
+    expect(options.video).toMatchObject({
+      crop: { left: 100, top: 50, width: 1600, height: 900 },
+      forceTranscode: true,
+      allowTransformationMetadata: false,
+    });
+    expect(options.audio).toEqual({});
+  });
   it('rotates before centered crop and swaps output dimensions', () => {
     expect(rotatedSize(1920, 1080, 90)).toEqual({ width: 1080, height: 1920 });
     expect(outputSize(source.video, 90, 'original', 1920)).toEqual({ width: 1080, height: 1920 });
@@ -140,7 +176,12 @@ describe('toConversionOptions', () => {
       width: 1920,
       height: 1080,
     });
-    expect(cropRectangle(1080, 1920, 'landscape')).toBeNull();
+    expect(cropRectangle(1080, 1920, 'landscape')).toEqual({
+      left: 12,
+      top: 663,
+      width: 1056,
+      height: 594,
+    });
     const portraitRotated = rotatedSize(1080, 1920, 90);
     expect(cropRectangle(portraitRotated.width, portraitRotated.height, 'landscape')).toEqual({
       left: 0,
@@ -181,6 +222,27 @@ describe('toConversionOptions', () => {
       }),
     ).toEqual({ artist: 'Artist', title: 'New title' });
     expect(toConversionOptions({ ...base, metadata: { title: '', strip: true } }).tags).toEqual({});
+  });
+  it('exports the edited rectangle instead of the centred preset', () => {
+    const options = toConversionOptions(
+      {
+        ...base,
+        transform: {
+          rotate: 0,
+          flip: false,
+          crop: 'square',
+          rect: { left: 100, top: 80, width: 400, height: 400 },
+        },
+        video: { ...base.video!, width: 400, height: 400 },
+      },
+      source,
+    );
+    expect(options.video).toMatchObject({
+      crop: { left: 100, top: 80, width: 400, height: 400 },
+      width: 400,
+      height: 400,
+      fit: 'contain',
+    });
   });
   it('keeps trim and copies present tracks in passthrough mode', () => {
     expect(toConversionOptions({ ...base, passthrough: true })).toEqual({

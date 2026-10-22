@@ -1,6 +1,12 @@
 import { targetVideoBitrate } from '../core/autoSettings';
 import { estimateBytes } from '../core/estimate';
-import { cropRectangle, outputSize, rotatedSize, videoFrameSize } from '../core/videoGeometry';
+import {
+  normalizeCrop,
+  outputSize,
+  remapCrop,
+  rotatedSize,
+  videoFrameSize,
+} from '../core/videoGeometry';
 import type {
   AudioCodecId,
   AutoResult,
@@ -46,7 +52,11 @@ function audioSummary(s: Settings): string {
 export function mountSettings(
   host: HTMLElement,
   opts: SettingsPanelOptions,
-): { update(s: Settings): void; setBusy(busy: boolean): void } {
+): {
+  update(s: Settings): void;
+  setBusy(busy: boolean): void;
+  changeTransform(t: NonNullable<Settings['transform']>): void;
+} {
   let value = opts.value;
   const card = el('section', 'card export-summary');
   card.setAttribute('aria-label', 'Export summary');
@@ -115,6 +125,44 @@ export function mountSettings(
 
   function change(next: Settings): void {
     opts.onChange(next);
+  }
+  function changeTransform(transform: NonNullable<Settings['transform']>): void {
+    const video = value.video;
+    const source = opts.source.video;
+    if (!video || !source) return;
+    const previous = value.transform ?? {
+      rotate: 0,
+      flip: false,
+      crop: 'original' as const,
+      rect: null,
+    };
+    const oldSize = rotatedSize(source.displayWidth, source.displayHeight, previous.rotate);
+    const nextSize = rotatedSize(source.displayWidth, source.displayHeight, transform.rotate);
+    const oldRect = normalizeCrop(oldSize.width, oldSize.height, previous.crop, previous.rect);
+    const rect =
+      transform.crop !== previous.crop
+        ? normalizeCrop(nextSize.width, nextSize.height, transform.crop, transform.rect)
+        : oldRect && (transform.rotate !== previous.rotate || transform.flip !== previous.flip)
+          ? remapCrop(
+              oldRect,
+              source.displayWidth,
+              source.displayHeight,
+              previous.rotate,
+              previous.flip,
+              transform.rotate,
+              transform.flip,
+              transform.crop,
+            )
+          : normalizeCrop(nextSize.width, nextSize.height, transform.crop, transform.rect);
+    preferredEdge ??= Math.max(video.width, video.height);
+    const frame = videoFrameSize(source, transform.rotate, transform.crop, rect);
+    const edge = Math.min(preferredEdge, Math.max(frame.width, frame.height));
+    change({
+      ...value,
+      passthrough: false,
+      transform: { ...transform, rect },
+      video: { ...video, ...outputSize(source, transform.rotate, transform.crop, edge, rect) },
+    });
   }
   function group(name: string, automatic: string, reset: () => void): HTMLElement {
     const section = el('div', 'setting');
@@ -193,27 +241,16 @@ export function mountSettings(
       const autoVideo = opts.auto.settings.video;
       const rotate = value.transform?.rotate ?? 0;
       const crop = value.transform?.crop ?? 'original';
-      const frameSize = videoFrameSize(opts.source.video, rotate, crop);
+      const rect = value.transform?.rect;
+      const frameSize = videoFrameSize(opts.source.video, rotate, crop, rect);
       const autoSize = outputSize(
         opts.source.video,
         rotate,
         crop,
         Math.max(autoVideo.width, autoVideo.height),
+        rect,
       );
-      const updateTransform = (transform: NonNullable<Settings['transform']>) => {
-        const frame = videoFrameSize(opts.source.video!, transform.rotate, transform.crop);
-        preferredEdge ??= Math.max(video.width, video.height);
-        const edge = Math.min(preferredEdge, Math.max(frame.width, frame.height));
-        change({
-          ...value,
-          passthrough: false,
-          transform,
-          video: {
-            ...video,
-            ...outputSize(opts.source.video!, transform.rotate, transform.crop, edge),
-          },
-        });
-      };
+      const updateTransform = changeTransform;
       const rotation = group('Rotate', '0°', () =>
         updateTransform({ ...(value.transform ?? { flip: false, crop: 'original' }), rotate: 0 }),
       );
@@ -248,23 +285,16 @@ export function mountSettings(
         updateTransform({ rotate, flip: value.transform?.flip ?? false, crop: 'original' }),
       );
       cropGroup.classList.add('transform-setting');
-      const rotated = rotatedSize(
-        opts.source.video.displayWidth,
-        opts.source.video.displayHeight,
-        rotate,
-      );
       select(
         cropGroup,
         'Crop preset',
         [
+          { value: 'free', label: 'Free' },
           { value: 'original', label: 'Original' },
           { value: 'square', label: 'Square 1:1' },
+          { value: '4:5', label: 'Portrait 4:5' },
           { value: 'portrait', label: 'Portrait 9:16' },
-          {
-            value: 'landscape',
-            label: 'Landscape 16:9',
-            disabled: !cropRectangle(rotated.width, rotated.height, 'landscape'),
-          },
+          { value: 'landscape', label: 'Landscape 16:9' },
         ],
         crop,
         (preset) =>
@@ -273,16 +303,7 @@ export function mountSettings(
             flip: value.transform?.flip ?? false,
             crop: preset as CropPreset,
           }),
-        'Landscape crop needs a landscape frame after rotation.',
       );
-      if (rotate || value.transform?.flip || crop !== 'original')
-        cropGroup.append(
-          el(
-            'p',
-            'setting-help',
-            'The preview shows the original video. Rotate, mirror, and crop apply to the export.',
-          ),
-        );
       groups.push(cropGroup);
       const codec = group('Video codec', codecLabel(autoVideo.codec), () =>
         change({ ...value, video: { ...value.video!, codec: autoVideo.codec } }),
@@ -315,7 +336,7 @@ export function mountSettings(
         size,
         'Resolution',
         edges.map((edge) => {
-          const dims = outputSize(opts.source.video!, rotate, crop, edge);
+          const dims = outputSize(opts.source.video!, rotate, crop, edge, rect);
           return {
             value: String(edge),
             label: `${Math.min(dims.width, dims.height)}p (${dims.width}x${dims.height})`,
@@ -323,13 +344,13 @@ export function mountSettings(
         }),
         String(
           edges.find((edge) => {
-            const dims = outputSize(opts.source.video!, rotate, crop, edge);
+            const dims = outputSize(opts.source.video!, rotate, crop, edge, rect);
             return dims.width === video.width && dims.height === video.height;
           }) ?? sourceEdge,
         ),
         (edge) => {
           preferredEdge = Number(edge);
-          const dims = outputSize(opts.source.video!, rotate, crop, Number(edge));
+          const dims = outputSize(opts.source.video!, rotate, crop, Number(edge), rect);
           change({ ...value, video: { ...value.video!, ...dims } });
         },
       );
@@ -546,16 +567,21 @@ export function mountSettings(
       const mirror = controls.querySelector<HTMLInputElement>('input[aria-label="Mirror video"]');
       if (mirror) mirror.checked = next.transform?.flip ?? false;
       selected('Video codec', video.codec);
-      const edges = [
-        Math.max(opts.source.video.displayWidth, opts.source.video.displayHeight),
-        ...opts.auto.sizeSteps,
-      ];
+      const frame = videoFrameSize(
+        opts.source.video,
+        next.transform?.rotate ?? 0,
+        next.transform?.crop ?? 'original',
+        next.transform?.rect,
+      );
+      // Options start at the cropped frame's edge; the source edge would clamp to it and match.
+      const edges = [Math.max(frame.width, frame.height), ...opts.auto.sizeSteps];
       const edge = edges.find((candidate) => {
         const dims = outputSize(
           opts.source.video!,
           next.transform?.rotate ?? 0,
           next.transform?.crop ?? 'original',
           candidate,
+          next.transform?.rect,
         );
         return dims.width === video.width && dims.height === video.height;
       });
@@ -642,7 +668,7 @@ export function mountSettings(
       ? `${changes} ${changes === 1 ? 'change' : 'changes'}`
       : 'All automatic';
     changeCount.classList.toggle('is-changed', changes > 0);
-    const nextStructure = `${next.container}:${!!next.video}:${!!next.audio}:${next.passthrough}:${next.transform?.rotate}:${next.transform?.crop}`;
+    const nextStructure = `${next.container}:${!!next.video}:${!!next.audio}:${next.passthrough}:${next.transform?.rotate}:${next.transform?.crop}:${next.transform?.rect?.width}x${next.transform?.rect?.height}`;
     if (nextStructure !== structure) {
       const active = controls.contains(document.activeElement)
         ? (document.activeElement as HTMLElement)
@@ -674,5 +700,5 @@ export function mountSettings(
     renderExportLabel();
   }
   update(value);
-  return { update, setBusy };
+  return { update, setBusy, changeTransform };
 }

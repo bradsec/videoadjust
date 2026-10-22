@@ -1,5 +1,14 @@
 // Test-only page. vite.config.ts builds it only when VA_E2E=1, so the deployed site has no harness.
-import { canEncodeAudio, canEncodeVideo, StreamTarget, type StreamTargetChunk } from 'mediabunny';
+import {
+  ALL_FORMATS,
+  BlobSource,
+  CanvasSink,
+  canEncodeAudio,
+  canEncodeVideo,
+  Input,
+  StreamTarget,
+  type StreamTargetChunk,
+} from 'mediabunny';
 import { AUDIO_FORMATS, type AudioExtractSettings } from '../src/core/audioExtract';
 import { ensureMp3Encoder, registerAacFallback } from '../src/core/capabilities';
 import {
@@ -24,6 +33,7 @@ export type ConvertResult =
       outputBytes: number;
       reportedBytes: number;
       lastProgress: number;
+      pixelSamples?: [number, number, number][];
     }
   | { ok: false; error: { name: string; message: string } };
 
@@ -32,6 +42,29 @@ export type CancelAt = 'never' | 'immediately' | 'at-start' | 'mid-run';
 export type StreamResult = ConvertResult & { closeCalls: number; abortCalls: number };
 
 const fileInput = document.getElementById('file') as HTMLInputElement;
+
+// Decodes with Mediabunny rather than a <video> element, which can paint black before its first frame.
+async function sampleVideoPixels(blob: Blob): Promise<[number, number, number][]> {
+  const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+  try {
+    const track = await input.getPrimaryVideoTrack();
+    if (!track) throw new Error('Exported video has no video track');
+    const frame = await new CanvasSink(track).getCanvas(await track.getFirstTimestamp());
+    if (!frame) throw new Error('Exported video did not decode');
+    const canvas = frame.canvas;
+    const context = canvas.getContext('2d') as
+      CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+    if (!context) throw new Error('Canvas 2D context is unavailable');
+    return [0.1, 0.5, 0.9].map((fraction) => {
+      const x = Math.floor(canvas.width * fraction);
+      const y = Math.floor(canvas.height / 2);
+      const pixel = context.getImageData(x, y, 1, 1).data;
+      return [pixel[0], pixel[1], pixel[2]];
+    });
+  } finally {
+    input.dispose();
+  }
+}
 
 function selectedFile(): File {
   const file = fileInput.files?.[0];
@@ -76,17 +109,21 @@ const harness = {
   // cancelAt: 'never' runs to completion, 'immediately' cancels before init resolves,
   // 'at-start' cancels from the progress-0 callback that fires before the output starts,
   // 'mid-run' cancels from the first callback with progress above 0.
-  async convertToMemory(settings: Settings, cancelAt: CancelAt = 'never'): Promise<ConvertResult> {
+  async convertToMemory(
+    settings: Settings,
+    cancelAt: CancelAt = 'never',
+    samplePixels = false,
+  ): Promise<ConvertResult> {
     try {
       await ensureAudioEncoder(settings);
-      const { input } = await readSource(selectedFile());
+      const { input, info: source } = await readSource(selectedFile());
       const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
       const sink = await openSink({ kind: 'memory', warn: false }, 'out', mime);
       let reportedBytes = 0;
       let lastProgress = 0;
       const job = startConversion({
         input,
-        job: shrinkJob(settings),
+        job: shrinkJob(settings, source),
         format: createOutputFormat(settings.container, 'memory'),
         target: sink.target,
         onProgress(p, bytes) {
@@ -101,7 +138,15 @@ const harness = {
       const blob = await sink.finish();
       if (!blob) throw new Error('Memory sink returned no blob');
       const { info } = await readSource(new File([blob], 'out', { type: mime }));
-      return { ok: true, output: info, outputBytes: blob.size, reportedBytes, lastProgress };
+      const pixelSamples = samplePixels ? await sampleVideoPixels(blob) : undefined;
+      return {
+        ok: true,
+        output: info,
+        outputBytes: blob.size,
+        reportedBytes,
+        lastProgress,
+        ...(pixelSamples ? { pixelSamples } : {}),
+      };
     } catch (err) {
       return failure(err);
     }
@@ -126,12 +171,12 @@ const harness = {
     });
     try {
       await ensureAudioEncoder(settings);
-      const { input } = await readSource(selectedFile());
+      const { input, info: source } = await readSource(selectedFile());
       let reportedBytes = 0;
       let lastProgress = 0;
       const job = startConversion({
         input,
-        job: shrinkJob(settings),
+        job: shrinkJob(settings, source),
         format: createOutputFormat(settings.container, 'file-stream'),
         target: new StreamTarget(writable, { chunked: true }),
         onProgress(p, bytes) {

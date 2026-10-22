@@ -51,7 +51,6 @@ test('rotation, crop, mirror, and metadata controls stay available', async ({ pa
   await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1080x1920');
   await card.getByLabel('Crop preset').selectOption('square');
   await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1080x1080');
-  await expect(card).toContainText('The preview shows the original video.');
   await card.getByLabel('Crop preset').selectOption('original');
   await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1080x1920');
   await card.getByLabel('Crop preset').selectOption('square');
@@ -62,6 +61,45 @@ test('rotation, crop, mirror, and metadata controls stay available', async ({ pa
   await card.getByLabel('Output title').blur();
   await card.getByLabel('Strip source metadata').check();
   await expect(card).toContainText('changes');
+});
+
+test('crop editor moves and resizes the square guide', async ({ page }) => {
+  const card = page.getByRole('region', { name: 'Export summary' });
+  await card.locator('summary').click();
+  await page.getByRole('button', { name: 'Crop and rotate' }).click();
+  await page.getByLabel('Crop aspect ratio').selectOption('square');
+  await expect(card.getByLabel('Crop preset')).toHaveValue('square');
+  const guide = page.getByRole('group', { name: /Crop selection/ });
+  await expect(guide).toBeVisible();
+  const before = await guide.getAttribute('aria-label');
+  const box = await guide.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width / 2 + 30, box!.y + box!.height / 2);
+  await page.mouse.up();
+  await expect(guide).not.toHaveAttribute('aria-label', before!);
+  await guide.focus();
+  await page.keyboard.press('Shift+ArrowLeft');
+  const moved = await guide.getAttribute('aria-label');
+  await page.keyboard.press('Alt+ArrowLeft');
+  await expect(guide).not.toHaveAttribute('aria-label', moved!);
+  await expect(
+    card.getByLabel('Resolution', { exact: true }).locator('option:checked'),
+  ).not.toContainText('1080x1080');
+  await page.getByLabel('Crop aspect ratio').selectOption('original');
+  await expect(card.getByLabel('Crop preset')).toHaveValue('original');
+  await expect(guide).toHaveAttribute('aria-label', /1920 by 1080 pixels/);
+  await guide.focus();
+  await page.keyboard.press('Alt+ArrowLeft');
+  await expect(guide).toHaveAttribute('aria-label', /1888 by 1062 pixels/);
+  await expect(
+    card.getByLabel('Resolution', { exact: true }).locator('option:checked'),
+  ).toContainText('1888x1062');
+  await page.getByLabel('Editor rotation').selectOption('90');
+  await expect(card.getByLabel('Rotate clockwise')).toHaveValue('90');
+  await page.getByLabel('Editor mirror').check();
+  await expect(card.getByLabel('Mirror video')).toBeChecked();
 });
 
 test('audio removal and WebM selection stay valid', async ({ page }) => {

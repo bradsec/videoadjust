@@ -25,6 +25,10 @@ async function convert(page: Page, settings: Settings, cancelAt?: CancelAt) {
   ] as const);
 }
 
+async function convertWithSamples(page: Page, settings: Settings) {
+  return page.evaluate((s) => window.vrHarness.convertToMemory(s, 'never', true), settings);
+}
+
 test.describe('video conversion', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/e2e/harness.html');
@@ -40,6 +44,49 @@ test.describe('video conversion', () => {
     expect(r.output.audio).toMatchObject({ codec: 'aac', channels: 2 });
     expect(r.lastProgress).toBe(1);
     expect(r.reportedBytes).toBe(r.outputBytes);
+  });
+
+  test('rotated crop takes its rectangle from the rotated frame', async ({ page }) => {
+    await page.setInputFiles('#file', fixture('crop-bands.mp4'));
+    // A quarter turn clockwise moves the red left band to the top 140 rows of a 360x640 frame.
+    const result = ok(
+      await convertWithSamples(page, {
+        ...hd,
+        trim: { start: 0, end: 1 },
+        video: { codec: 'avc', width: 360, height: 140, fps: 30, bitrate: 800_000 },
+        audio: null,
+        transform: {
+          rotate: 90,
+          flip: false,
+          crop: 'free',
+          rect: { left: 0, top: 0, width: 360, height: 140 },
+        },
+      }),
+    );
+    expect(result.output.video).toMatchObject({ displayWidth: 360, displayHeight: 140 });
+    for (const [red, green, blue] of result.pixelSamples ?? []) {
+      expect(red).toBeGreaterThan(green + 35);
+      expect(red).toBeGreaterThan(blue + 35);
+    }
+  });
+
+  test('square crop keeps centre pixels without stretching the full frame', async ({ page }) => {
+    await page.setInputFiles('#file', fixture('crop-bands.mp4'));
+    const result = ok(
+      await convertWithSamples(page, {
+        ...hd,
+        trim: { start: 0, end: 1 },
+        video: { codec: 'avc', width: 360, height: 360, fps: 30, bitrate: 800_000 },
+        audio: null,
+        transform: { rotate: 0, flip: false, crop: 'square' },
+      }),
+    );
+    expect(result.output.video).toMatchObject({ displayWidth: 360, displayHeight: 360 });
+    expect(result.pixelSamples).toHaveLength(3);
+    for (const [red, green, blue] of result.pixelSamples ?? []) {
+      expect(green).toBeGreaterThan(red + 35);
+      expect(green).toBeGreaterThan(blue + 35);
+    }
   });
 
   test('trims 0.5 s to 2.0 s', async ({ page }) => {

@@ -15,9 +15,10 @@ import {
   type TrackType,
 } from 'mediabunny';
 import type { AudioExtractSettings, AudioFormat } from './audioExtract';
+import { registerFrameCrop } from './frameCrop';
 import type { SinkPlan } from './sink';
 import type { Container, Settings, SourceInfo } from './types';
-import { cropRectangle, rotatedSize } from './videoGeometry';
+import { normalizeCrop, rotatedSize } from './videoGeometry';
 
 export class ConversionInvalidError extends Error {
   constructor(public readonly discarded: { track: TrackType; reason: DiscardedTrack['reason'] }[]) {
@@ -42,17 +43,20 @@ export function toConversionOptions(
   const v = s.video;
   const a = s.audio;
   const transform = s.transform;
-  const transformed =
-    !!transform && (transform.rotate !== 0 || transform.flip || transform.crop !== 'original');
-  const reencode = transformed || !!s.keyFrameInterval;
   const rotated =
     source?.video && transform
       ? rotatedSize(source.video.displayWidth, source.video.displayHeight, transform.rotate)
       : null;
-  if (transform?.crop !== undefined && transform.crop !== 'original' && !rotated)
+  if (transform && (transform.crop !== 'original' || transform.rect) && !rotated)
     throw new Error('Source video dimensions are required for cropping.');
   const crop =
-    rotated && transform ? cropRectangle(rotated.width, rotated.height, transform.crop) : null;
+    rotated && transform
+      ? normalizeCrop(rotated.width, rotated.height, transform.crop, transform.rect)
+      : null;
+  const transformed =
+    !!transform &&
+    (transform.rotate !== 0 || transform.flip || transform.crop !== 'original' || !!crop);
+  const reencode = transformed || !!s.keyFrameInterval;
   const title = s.metadata?.title.trim();
   return {
     trim: { start: s.trim.start, end: s.trim.end },
@@ -158,6 +162,7 @@ export function startConversion(args: {
   let canceled = false;
   let bytesWritten = 0;
 
+  registerFrameCrop();
   const done = (async () => {
     const output = new Output({ format: args.format, target: args.target });
     const stopListening = args.target.on('write', ({ end }) => {

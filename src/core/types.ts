@@ -2,7 +2,8 @@ export type Container = 'mp4' | 'webm';
 export type VideoCodecId = 'avc' | 'hevc' | 'av1' | 'vp9';
 export type AudioCodecId = 'aac' | 'opus';
 export type Rotation = 0 | 90 | 180 | 270;
-export type CropPreset = 'original' | 'square' | 'portrait' | 'landscape';
+export type CropPreset = 'free' | 'original' | 'square' | '4:5' | 'portrait' | 'landscape';
+export type CropRect = { left: number; top: number; width: number; height: number };
 
 export interface SourceInfo {
   name: string;
@@ -42,7 +43,7 @@ export interface Settings {
   passthrough: boolean;
   trim: { start: number; end: number };
   keyFrameInterval?: 1 | 2 | null;
-  transform?: { rotate: Rotation; flip: boolean; crop: CropPreset };
+  transform?: { rotate: Rotation; flip: boolean; crop: CropPreset; rect?: CropRect | null };
   metadata?: { title: string; strip: boolean };
   video: null | {
     codec: VideoCodecId;

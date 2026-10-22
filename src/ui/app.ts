@@ -4,6 +4,7 @@ import type { Settings, SourceInfo } from '../core/types';
 import { mountAudioPanel } from './audioPanel';
 import { mountAudioPlayer } from './audioPlayer';
 import { canPlaySource, mountCompare } from './compare';
+import { mountCropEditor } from './cropEditor';
 import {
   codecLabel,
   createController,
@@ -217,12 +218,14 @@ function renderPrepare(
     root.style.setProperty('--dock-space', fixed && dock ? `${dock.offsetHeight}px` : '0px');
   });
   let shownTool: Tool | undefined;
+  let changeTransform: ((t: NonNullable<Settings['transform']>) => void) | undefined;
   let panel: { update(value: Of<'prepare'>): void; setBusy(busy: boolean): void } | undefined;
   // Each tool's panel is mounted fresh on a switch; its settings live in the controller.
   function showPanel(value: Of<'prepare'>): void {
     shownTool = value.tool;
     panelHost.setAttribute('aria-labelledby', toolTabId(value.tool));
     if (value.tool === 'audio' && value.audioAuto && value.audioSettings) {
+      changeTransform = undefined;
       const audio = mountAudioPanel(panelHost, {
         auto: value.audioAuto,
         source: value.source,
@@ -245,6 +248,7 @@ function renderPrepare(
       onChange: (next) => dispatch({ type: 'setSettings', value: next }),
       onExport,
     });
+    changeTransform = shrink.changeTransform;
     panel = { update: (s) => shrink.update(s.settings), setBusy: shrink.setBusy };
   }
   const thumbnails = async (count: number, signal: AbortSignal): Promise<HTMLCanvasElement[]> => {
@@ -281,6 +285,7 @@ function renderPrepare(
     return canvases;
   };
   let previewPlayable = canPlaySource(video, state.source.containerMime);
+  let cropEditor: ReturnType<typeof mountCropEditor> | undefined;
   const trim = mountTrimBar(trimHost, {
     duration: state.source.durationSec,
     value: state.settings.trim,
@@ -298,6 +303,7 @@ function renderPrepare(
     video.remove();
     previewNote.hidden = false;
     trim.setPreviewPlayable(false);
+    cropEditor?.setPlayable(false);
   };
   video.addEventListener('error', showPreviewUnplayable);
   const another = el('button', 'btn btn-text another', 'Choose another video');
@@ -308,6 +314,10 @@ function renderPrepare(
   if (previewPlayable) {
     canvas.append(video, previewNote);
     video.src = url;
+    if (state.source.video)
+      cropEditor = mountCropEditor(canvas, video, state.source.video, state.settings, (transform) =>
+        changeTransform?.(transform),
+      );
   } else {
     previewNote.hidden = false;
     canvas.append(previewNote);
@@ -318,6 +328,8 @@ function renderPrepare(
   function update(value: AppState): void {
     if (value.kind !== 'prepare') return;
     trim.update(value.settings.trim);
+    cropEditor?.update(value.settings);
+    cropEditor?.setTool(value.tool === 'shrink');
     tabs.update(value.tool, audioReason(value));
     if (value.tool !== shownTool) {
       showPanel(value);
@@ -336,6 +348,7 @@ function renderPrepare(
       dockSpace.disconnect();
       root.style.removeProperty('--dock-space');
       trim.destroy();
+      cropEditor?.destroy();
       video.removeEventListener('error', showPreviewUnplayable);
       video.pause();
       video.removeAttribute('src');

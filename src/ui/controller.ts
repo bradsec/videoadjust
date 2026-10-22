@@ -25,7 +25,7 @@ import {
   type startConversion as startConversionFn,
 } from '../core/convert';
 import { estimateBytes } from '../core/estimate';
-import { cropRectangle, outputSize, rotatedSize, videoFrameSize } from '../core/videoGeometry';
+import { normalizeCrop, outputSize, rotatedSize, videoFrameSize } from '../core/videoGeometry';
 import { UnsupportedSourceError, type readSource as readSourceFn } from '../core/source';
 import {
   chooseSink,
@@ -36,6 +36,7 @@ import {
 import type {
   AutoResult,
   Capabilities,
+  CropRect,
   Container,
   Settings,
   SourceInfo,
@@ -181,6 +182,7 @@ export function smallerSettings(
         settings.transform?.rotate ?? 0,
         settings.transform?.crop ?? 'original',
         next,
+        settings.transform?.rect,
       );
       const bitrate = Math.round(
         Math.min(targetVideoBitrate(v.codec, width, height, v.fps), sv.bitrate ?? Infinity),
@@ -342,17 +344,17 @@ export function validateSettings(
   const supported = availableVideoCodecs(container, caps);
   let video: Settings['video'] = null;
   let effectiveCrop = value.transform?.crop ?? 'original';
+  let effectiveRect: CropRect | null = null;
   if (source.video && fallback.video) {
     const requested = value.video ?? fallback.video;
     const rotate = value.transform?.rotate ?? 0;
     const rotated = rotatedSize(source.video.displayWidth, source.video.displayHeight, rotate);
     const requestedCrop = value.transform?.crop ?? 'original';
-    const crop =
-      requestedCrop === 'landscape' && !cropRectangle(rotated.width, rotated.height, requestedCrop)
-        ? 'original'
-        : requestedCrop;
+    const crop = requestedCrop;
     effectiveCrop = crop;
-    const frame = videoFrameSize(source.video, rotate, crop);
+    const rect = normalizeCrop(rotated.width, rotated.height, crop, value.transform?.rect);
+    effectiveRect = rect;
+    const frame = videoFrameSize(source.video, rotate, crop, rect);
     const codec = supported.includes(requested.codec)
       ? requested.codec
       : supported.includes(fallback.video.codec)
@@ -364,7 +366,7 @@ export function validateSettings(
     const edge = allowedEdges.includes(requestedEdge)
       ? requestedEdge
       : Math.max(fallback.video.width, fallback.video.height);
-    const { width, height } = outputSize(source.video, rotate, crop, edge);
+    const { width, height } = outputSize(source.video, rotate, crop, edge, rect);
     const fps =
       Number.isFinite(requested.fps) && requested.fps > 0
         ? Math.min(requested.fps, source.video.fps)
@@ -414,6 +416,7 @@ export function validateSettings(
         (value.transform?.rotate ?? 0) ||
         value.transform?.flip ||
         (value.transform?.crop ?? 'original') !== 'original' ||
+        effectiveRect ||
         value.keyFrameInterval
       ),
     trim: clampTrim(value.trim, source.durationSec, 'end'),
@@ -424,6 +427,7 @@ export function validateSettings(
           rotate: value.transform?.rotate ?? 0,
           flip: value.transform?.flip ?? false,
           crop: effectiveCrop,
+          rect: effectiveRect,
         }
       : fallback.transform,
     metadata: {
@@ -451,6 +455,7 @@ export function settingsChangeCount(
           current.transform?.rotate ?? 0,
           current.transform?.crop ?? 'original',
           Math.max(automatic.video.width, automatic.video.height),
+          current.transform?.rect,
         )
       : null;
   return (
@@ -474,6 +479,10 @@ export function settingsChangeCount(
     Number(current.transform?.rotate !== automatic.transform?.rotate) +
     Number(current.transform?.flip !== automatic.transform?.flip) +
     Number(current.transform?.crop !== automatic.transform?.crop) +
+    Number(
+      current.transform?.crop === automatic.transform?.crop &&
+        JSON.stringify(current.transform?.rect) !== JSON.stringify(automatic.transform?.rect),
+    ) +
     Number(current.keyFrameInterval !== automatic.keyFrameInterval) +
     Number(current.metadata?.title !== automatic.metadata?.title) +
     Number(current.metadata?.strip !== automatic.metadata?.strip)

@@ -94,7 +94,7 @@ export function autoSettings(src: SourceInfo, caps: Capabilities): AutoResult {
       passthrough: false,
       trim: { start: 0, end: src.durationSec },
       keyFrameInterval: null,
-      transform: { rotate: 0, flip: false, crop: 'original' },
+      transform: { rotate: 0, flip: false, crop: 'original', rect: null },
       metadata: { title: '', strip: false },
       video,
       audio,
