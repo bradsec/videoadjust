@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 6, Vite, Mediabunny 1.62.0, `@mediabunny/mp3-encoder` 1.62.0, Vitest, Playwright + axe. pnpm.
 
-**Spec:** `docs/superpowers/specs/2026-10-22-videomate-extract-audio-design.md` (builds on `docs/superpowers/specs/2026-10-22-videoresize-design.md`). Mockups: `docs/mockups/*-prepare-audio*.png`, `*-result-audio.png`, `phone-prepare-no-audio.png`, source `docs/mockups/mockup.html`.
+**Spec:** `docs/superpowers/specs/2026-10-22-videoadjust-extract-audio-design.md` (builds on `docs/superpowers/specs/2026-10-22-videoadjust-design.md`). Mockups: `docs/mockups/*-prepare-audio*.png`, `*-result-audio.png`, `phone-prepare-no-audio.png`, source `docs/mockups/mockup.html`.
 
 ## Global Constraints
 
@@ -196,7 +196,7 @@ Behaviour:
 ### Task 7: Offline, docs and release
 
 **Files:**
-- Modify: `e2e/offline.spec.ts`, `README.md`, `package.json` (version), `docs/superpowers/specs/2026-10-22-videomate-extract-audio-design.md` (mark built)
+- Modify: `e2e/offline.spec.ts`, `README.md`, `package.json` (version), `docs/superpowers/specs/2026-10-22-videoadjust-extract-audio-design.md` (mark built)
 
 - [ ] **Step 1:** Offline e2e: after first visit and service worker control, go offline, load a fixture, extract MP3 (the MP3 chunk comes from the precache), result shows an MP3.
 - [ ] **Step 2:** README: describe both tools, the audio formats and when M4A copies, MP3 encoder licence note, manual device check rows for Extract audio on iPhone and iPad. Remove the "planned" sentence.

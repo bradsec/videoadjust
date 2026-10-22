@@ -61,8 +61,8 @@ function precacheList(): Plugin {
       const version = `${pkg.version}-${hash.digest('hex').slice(0, 10)}`;
       const swPath = join(outDir, 'sw.js');
       const sw = readFileSync(swPath, 'utf8')
-        .replace('__VM_VERSION__', version)
-        .replace('__VM_PRECACHE__', urls.join('\\n'));
+        .replace('__VA_VERSION__', version)
+        .replace('__VA_PRECACHE__', urls.join('\\n'));
       writeFileSync(swPath, sw);
     },
   };
@@ -72,7 +72,7 @@ function precacheList(): Plugin {
 function appVersion(): Plugin {
   return {
     name: 'app-version',
-    transformIndexHtml: (html) => html.replaceAll('__VM_APP_VERSION__', pkg.version),
+    transformIndexHtml: (html) => html.replaceAll('__VA_APP_VERSION__', pkg.version),
   };
 }
 
@@ -83,7 +83,7 @@ export default defineConfig({
     assetsInlineLimit: 0,
     // e2e-only second entry; absent from the deployed build.
     rollupOptions:
-      process.env.VM_E2E === '1'
+      process.env.VA_E2E === '1'
         ? {
             input: {
               main: fileURLToPath(new URL('./index.html', import.meta.url)),

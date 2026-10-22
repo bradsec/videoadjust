@@ -1,11 +1,11 @@
-# videoresize design
+# videoadjust design
 
 Date: 2026-10-22
 
 ## Intent
 
 Videos from phones and cameras are often too large to send by message or
-email. videoresize shrinks a video in the browser so it can be sent, without
+email. videoadjust shrinks a video in the browser so it can be sent, without
 uploading it anywhere. It joins the owner's other fully client-side apps
 (rastertrace, forgeview, pdfmerge, pdfprotect): static files, private, local,
 hosted on GitHub Pages or Cloudflare Pages.

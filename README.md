@@ -1,18 +1,18 @@
-# videomate
+# VideoAdjust
 
-[![Tests](https://github.com/bradsec/videomate/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/bradsec/videomate/actions/workflows/tests.yml)
-[![Version](https://img.shields.io/github/package-json/v/bradsec/videomate)](package.json)
-[![License: MIT](https://img.shields.io/github/license/bradsec/videomate)](LICENSE)
-[![Live site](https://img.shields.io/website?url=https%3A%2F%2Fbradsec.github.io%2Fvideomate%2F&label=bradsec.github.io%2Fvideomate)](https://bradsec.github.io/videomate/)
+[![Tests](https://github.com/bradsec/videoadjust/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/bradsec/videoadjust/actions/workflows/tests.yml)
+[![Version](https://img.shields.io/github/package-json/v/bradsec/videoadjust)](package.json)
+[![License: MIT](https://img.shields.io/github/license/bradsec/videoadjust)](LICENSE)
+[![Live site](https://img.shields.io/website?url=https%3A%2F%2Fvideoadjust.com%2F&label=videoadjust.com)](https://videoadjust.com/)
 
-Private video tools that run in the browser. Nothing is uploaded. Videomate shrinks, trims,
-and converts videos, and extracts audio. Pick a video, trim it, choose a tool and its settings,
-then export. Video output defaults to MP4 with H.264 video and AAC audio; WebM (VP9, AV1, Opus)
-is also available. Frames are never upscaled and
-the frame rate is never raised. Conversion runs locally on WebCodecs through
+Compress, convert, resize, trim and extract audio from videos. Fast, private, and processed entirely in your browser. Nothing is uploaded.
+
+Pick a video, trim it, choose a tool and its settings, then export. Video output defaults to MP4 with H.264 video and
+AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and the frame rate
+is never raised. Conversion runs locally on WebCodecs through
 [Mediabunny](https://mediabunny.dev/). No ffmpeg.wasm.
 
-Live site: https://bradsec.github.io/videomate/ (formerly videoresize; the old address no longer works).
+Live site: https://videoadjust.com/
 
 ## Privacy
 
@@ -108,12 +108,21 @@ moves to the next smaller size, or lowers quality one step when no smaller size 
 
 ## Hosting
 
-Static output in `dist/`, with a relative base so it runs under a GitHub Pages repo subpath.
+Cloudflare Pages, using its Git integration on this repo. Build settings:
+
+- Build command: `pnpm build`
+- Build output directory: `dist`
+- Environment variable: `NODE_VERSION=22`
+- Production branch: `main`
+- Custom domain: `videoadjust.com`
+
+`public/_headers` supplies the security headers (CSP and others). The output uses a relative base,
+so it also runs under a subpath. No asset may exceed 25 MiB (Cloudflare Pages limit);
+`pnpm check:size` verifies every built file.
+
 `.github/workflows/tests.yml` runs checks, unit tests, browser tests and a build on pushes and pull
-requests. After a successful Tests run from a push to `main`, `.github/workflows/pages.yml` builds
-that commit and deploys it. `public/_headers` carries the same CSP
-for Cloudflare Pages: set the build command to `pnpm build` and the output directory to `dist`.
-No asset may exceed 25 MiB (Cloudflare Pages limit); `pnpm check:size` verifies every built file.
+requests. Cloudflare deploys on every push to `main` independently of the Tests workflow, so a red
+Tests run does not block a deploy.
 
 ## Licences
 

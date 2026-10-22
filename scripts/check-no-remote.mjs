@@ -21,7 +21,7 @@ export const JS_URL_ALLOWLIST = new Set([
 
 // The footer links to the source repo. A link the user clicks navigates the tab and sends no
 // media, so it is allowed, but only as this exact anchor href in HTML.
-export const REPO_URL = 'https://github.com/bradsec/videomate';
+export const REPO_URL = 'https://github.com/bradsec/videoadjust';
 const REPO_HREF = new RegExp(
   String.raw`(<a\s[^>]*\bhref=")${REPO_URL.replaceAll('.', '\\.')}(")`,
   'g',

@@ -1,25 +1,24 @@
-# videomate: rename and extract audio
+# VideoAdjust: rename and extract audio
 
 Date: 2026-10-22
-Builds on: `2026-10-22-videoresize-design.md` (the v1 design; its constraints still apply).
+Builds on: `2026-10-22-videoadjust-design.md` (the v1 design; its constraints still apply).
 Status: built (v0.3.0). Extract audio ships as specified.
 
 ## Intent
 
-The app was called videoresize and only shrank video. The owner wants it to
-grow into a general in-browser video tool, so it is now **videomate**. The
+The app only shrank video. The owner wants it to
+grow into a general in-browser video tool, so it is now **VideoAdjust**. The
 first new tool is **Extract audio**: take the soundtrack out of a video as an
 audio file, privately and locally, with the same trim control.
 
 ## Rename (done)
 
-- GitHub repo renamed to `bradsec/videomate`, local folder `videomate/`.
-  Live site moves to https://bradsec.github.io/videomate/. The old Pages
-  address stops working; GitHub redirects the repo URL.
+- GitHub repo renamed to `bradsec/videoadjust`, local folder `videoadjust/`.
+  Live site is https://videoadjust.com/ on Cloudflare Pages.
 - Package, titles, manifest, badges, service worker cache prefix renamed.
-  The service worker deletes caches left under the old `videoresize-`
-  prefix, which share the `bradsec.github.io` origin with sibling apps.
-- Dated v1 docs keep their names and text as a historical record.
+  The service worker deletes caches left under the two earlier names' prefixes
+  (see `public/sw.js`).
+- Dated v1 docs are a historical record; they were renamed with the app.
 
 ## Goals
 
@@ -92,7 +91,7 @@ audio file, privately and locally, with the same trim control.
   in this browser").
 - **Tab control.** A segmented control with `role="tablist"`, arrow-key
   navigation, 44 px touch targets, selected state not shown by colour alone.
-- **Tagline.** README and page subtitle describe videomate as a set of
+- **Tagline.** README and page subtitle describe VideoAdjust as a set of
   private in-browser video tools: shrink and extract audio for now.
 
 ## Errors and limits

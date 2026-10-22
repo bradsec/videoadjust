@@ -1,7 +1,7 @@
 {
-  "name": "videomate",
-  "short_name": "videomate",
-  "description": "Private video tools in your browser: shrink, trim and convert. Nothing is uploaded.",
+  "name": "VideoAdjust",
+  "short_name": "VideoAdjust",
+  "description": "Compress, convert, resize, trim and extract audio from videos. Fast, private, and processed entirely in your browser.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

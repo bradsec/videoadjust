@@ -1,6 +1,6 @@
 # UI revamp research: dark-first direction
 
-Date: 2026-10-22. Scope: visual system for videomate (shrink, trim, compare,
+Date: 2026-10-22. Scope: visual system for videoadjust (shrink, trim, compare,
 extract audio) on phone, tablet and desktop. Inputs: current mockups in
 `docs/mockups/`, `src/styles/tokens.css`, `src/styles/app.css`, and the sources
 linked below.
@@ -29,7 +29,7 @@ Layout
   ([Kapwing](https://www.kapwing.com/trim-video),
   [Clipchamp](https://support.microsoft.com/clipchamp/how-to-trim-videos-images-or-audio-assets)).
   Phone flows (Photos, iMovie) stack preview, filmstrip, action row.
-  videomate's layouts already match.
+  videoadjust's layouts already match.
 
 Dark surfaces
 
@@ -70,7 +70,7 @@ Export panel
   ([BetaNews](https://betanews.com/article/handbrake-revamp/)), CapCut's export
   defaults for resolution, bitrate, frame rate
   ([CapCut help](https://www.capcut.com/help/export-videos-in-capcut)).
-  videomate's "Ready to export" card plus collapsed "Adjust" follows this.
+  videoadjust's "Ready to export" card plus collapsed "Adjust" follows this.
 
 Compare
 
@@ -78,7 +78,7 @@ Compare
   saving beside it ([PCWorld](https://www.pcworld.com/article/3195269/googles-free-sqoosh-tool-takes-the-guesswork-out-of-image-compression.html));
   arrow-key nudging with Shift for larger steps
   ([image-comparison](https://github.com/TonySpegel/image-comparison)).
-  videomate's wipe already matches.
+  videoadjust's wipe already matches.
 
 Buttons
 
@@ -119,7 +119,7 @@ theme"`. `aria-checked` is `true` in light. A switch fits because it sets a
     persistent preference
     ([ARIA switch guidance](https://www.disabilityworld.org/toolkit/standards/aria/switch/)).
     Do not also set `aria-pressed`.
-  - Persistence: `localStorage` key `videomate-theme` (`dark`|`light`), read
+  - Persistence: `localStorage` key `videoadjust-theme` (`dark`|`light`), read
     and write in `try/catch`; on failure stay dark, toggle still works for the
     session.
   - Apply as `data-theme="light"` on `<html>`. Dark tokens live on `:root`,

@@ -1,4 +1,4 @@
-# videoresize Implementation Plan
+# videoadjust Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript (strict), Vite, Mediabunny, `@mediabunny/aac-encoder` (conditional on licence audit), Vitest, Playwright + `@axe-core/playwright`, pnpm. Current stable versions at build time.
 
-**Spec:** `docs/superpowers/specs/2026-10-22-videoresize-design.md`
+**Spec:** `docs/superpowers/specs/2026-10-22-videoadjust-design.md`
 
 ## Global Constraints
 
@@ -138,11 +138,11 @@ export interface AutoResult {
 - [ ] **Step 2:** `vite.config.ts`: `base: './'`, `worker: { format: 'es' }`, `build.assetsInlineLimit: 0`.
 - [ ] **Step 3:** `index.html` with CSP meta `default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; worker-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'`. `public/_headers` mirrors CSP plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, following `../../pdfprojects/pdfmerge/_headers`.
 - [ ] **Step 4:** `scripts/make-fixtures.sh` generates with `ffmpeg -f lavfi testsrc2`/`sine`, each under 1 MB, 3 s unless noted: `land-1080p30-aac.mp4`, `land-4k60-aac.mp4` (2 s), `portrait-rot90.mp4` (1080x1920 coded 1920x1080 with `-metadata:s:v rotate=90`, or display matrix), `noaudio.mp4`, `mono-aac.mp4`, `vp9-opus.webm`, `small-h264-lowbitrate.mp4` (640x360, 300 kbps). Run it; commit outputs.
-- [ ] **Step 5:** smoke tests: unit test asserts `vite.config.ts` exports `base === './'`; e2e loads `/`, asserts title `videoresize` and zero axe violations; also asserts no request leaves the origin (`page.on('request')` host check).
+- [ ] **Step 5:** smoke tests: unit test asserts `vite.config.ts` exports `base === './'`; e2e loads `/`, asserts title `videoadjust` and zero axe violations; also asserts no request leaves the origin (`page.on('request')` host check).
 - [ ] **Step 6:** `.github/workflows/pages.yml` modelled on `../forgeview/.github/workflows/pages.yml`: pnpm install, `pnpm test`, `pnpm build`, upload `dist`, deploy.
 - [ ] **Step 7:** Add `scripts/check-licenses.mjs` and `pnpm check:licenses`: reads `pnpm licenses list --prod --json`, fails on any licence outside the Global Constraints allowlist, and fails if any production package lacks an entry in `THIRD-PARTY-LICENSES.txt`. Run it in `pnpm build` and in the Pages workflow. Unit test it with a fixture JSON containing one `GPL-3.0` package (expect exit 1) and one all-MIT list (expect exit 0).
 - [ ] **Step 8:** Run `pnpm build && pnpm test && pnpm test:e2e`. Expected: all pass; `find dist -size +25M` prints nothing.
-- [ ] **Step 9:** Stage; commit only if authorised: `chore: scaffold videoresize`.
+- [ ] **Step 9:** Stage; commit only if authorised: `chore: scaffold videoadjust`.
 
 ### Task 2: Auto settings rules (pure)
 
@@ -306,6 +306,6 @@ Owner request: CI badges, testing and integration similar to github.com/bradsec/
 - [ ] **Step 1:** Add ESLint (flat config, `typescript-eslint`) and Prettier as dev deps, current stable versions; config modelled on `../rastertrace` and `../../pdfprojects/pdfmerge/eslint.config.js`. Run `pnpm format` once and fix lint errors without changing behaviour.
 - [ ] **Step 2:** `tests.yml` named `Tests`, on `push`, `pull_request`, `workflow_dispatch`; pnpm cache; steps: `pnpm install --frozen-lockfile`, `pnpm check:licenses`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm exec playwright install --with-deps chromium webkit`, `pnpm test:e2e`, `pnpm build`, `pnpm check:size`. Upload the Playwright report as an artifact on failure.
 - [ ] **Step 3:** `pages.yml` deploys only from `main` and only after tests pass (`workflow_run` on `Tests` success, or a `needs:` on a reused test job; pick one, no duplicate suites).
-- [ ] **Step 4:** README top badge row in rastertrace's format: `Tests` workflow badge (`https://github.com/bradsec/videoresize/actions/workflows/tests.yml/badge.svg?branch=main`), package.json version, licence, live site (`https://bradsec.github.io/videoresize/` until a custom domain exists).
+- [ ] **Step 4:** README top badge row in rastertrace's format: `Tests` workflow badge (`https://github.com/bradsec/videoadjust/actions/workflows/tests.yml/badge.svg?branch=main`), package.json version, licence, live site (`https://videoadjust.com/`).
 - [ ] **Step 5:** Verify locally: `pnpm check:licenses && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm test:e2e && pnpm build && pnpm check:size` all pass; `actionlint` on both workflows if installed, else `node -e` YAML parse.
 - [ ] **Step 6:** Commit: `ci: tests workflow, lint, format and badges`.

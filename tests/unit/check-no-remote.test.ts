@@ -52,7 +52,7 @@ describe('check-no-remote', () => {
   });
 
   it('allows the repo link only as an anchor href in HTML', () => {
-    const repo = 'https://github.com/bradsec/videomate';
+    const repo = 'https://github.com/bradsec/videoadjust';
     expect(checkRemote({ 'index.html': `<a class="repo-link" href="${repo}">x</a>` })).toEqual([]);
     expect(checkRemote({ 'index.html': `<img src="${repo}">` })).not.toEqual([]);
     expect(checkRemote({ 'index.html': `<a href="${repo}/evil">x</a>` })).not.toEqual([]);

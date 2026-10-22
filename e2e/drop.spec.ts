@@ -107,7 +107,7 @@ test('footer shows the app version and links to the GitHub repo', async ({ page 
   ) as { version: string };
   await page.goto('/');
   await expect(page.locator('footer')).toContainText(`v${version}`);
-  const repo = page.getByRole('link', { name: 'github.com/bradsec/videomate' });
-  await expect(repo).toHaveAttribute('href', 'https://github.com/bradsec/videomate');
+  const repo = page.getByRole('link', { name: 'github.com/bradsec/videoadjust' });
+  await expect(repo).toHaveAttribute('href', 'https://github.com/bradsec/videoadjust');
   await expect(repo).toHaveAttribute('rel', 'noopener noreferrer');
 });
