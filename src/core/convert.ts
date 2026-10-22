@@ -116,7 +116,7 @@ export function createAudioOutputFormat(
   format: AudioFormat,
   sinkKind: SinkPlan['kind'],
 ): OutputFormat {
-  if (format === 'mp3') return new Mp3OutputFormat({ xingHeader: sinkKind === 'memory' });
+  if (format === 'mp3') return new Mp3OutputFormat();
   if (format === 'wav') return new WavOutputFormat();
   return new Mp4OutputFormat({ fastStart: sinkKind === 'memory' ? 'in-memory' : false });
 }

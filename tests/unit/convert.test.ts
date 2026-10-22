@@ -199,10 +199,10 @@ describe('discardedPrimaryTracks', () => {
 });
 
 describe('createAudioOutputFormat', () => {
-  it('uses MP3 without a Xing header for a file stream', () => {
-    expect(createAudioOutputFormat('mp3', 'memory')).toBeInstanceOf(Mp3OutputFormat);
+  it('keeps the MP3 Xing header for both sinks, since the file stream takes positioned writes', () => {
+    expect(createAudioOutputFormat('mp3', 'memory')).toEqual(new Mp3OutputFormat());
     const format = createAudioOutputFormat('mp3', 'file-stream');
-    expect(format).toEqual(new Mp3OutputFormat({ xingHeader: false }));
+    expect(format).toEqual(new Mp3OutputFormat());
     expect(format.fileExtension).toBe('.mp3');
   });
 

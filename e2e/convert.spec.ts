@@ -170,6 +170,7 @@ test.describe('audio extraction', () => {
       const done = ok(result);
       expect(done.output.video).toBeNull();
       expect(done.output.audio?.codec).toBe(format === 'wav' ? 'pcm-s16' : 'mp3');
+      expect(Math.abs(done.output.durationSec - 3)).toBeLessThanOrEqual(0.1);
       expect(done.outputBytes).toBeGreaterThan(0);
       expect(done.reportedBytes).toBe(done.outputBytes);
     });
