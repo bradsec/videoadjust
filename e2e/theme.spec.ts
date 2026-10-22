@@ -4,8 +4,8 @@ import { expect, test, type Page } from '@playwright/test';
 const fixture = (name: string) => new URL(`../tests/fixtures/${name}`, import.meta.url).pathname;
 
 // --bg in src/styles/tokens.css for each theme.
-const DARK_BG = 'rgb(18, 17, 16)';
-const LIGHT_BG = 'rgb(245, 241, 234)';
+const DARK_BG = 'rgb(14, 15, 13)';
+const LIGHT_BG = 'rgb(246, 247, 242)';
 
 const bodyBackground = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -62,7 +62,7 @@ test('theme-init.js applies the saved theme without the app bundle', async ({ pa
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await bodyBackground(page)).toBe(LIGHT_BG);
   await expect(page.locator('#app')).toBeEmpty();
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f5f1ea');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f6f7f2');
 });
 
 test('falls back to dark when storage throws, and the switch still works', async ({ page }) => {

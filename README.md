@@ -30,6 +30,11 @@ turns on the light theme. The choice is the only thing the app stores: `localSto
 still works for the open page. `public/theme-init.js` applies the saved theme before first paint; it is
 a separate same-origin file because the CSP blocks inline scripts.
 
+The workspace uses Palette A, "Ink and Chartreuse": dark ink `#0e0f0d`, pale text `#f1f3ec`,
+and chartreuse actions `#c6ef3a`. Light mode uses `#f6f7f2` behind white surfaces, dark text
+`#161813`, and a deeper green accent `#4a6b00`. Both modes use system sans-serif fonts and
+tabular figures for times and sizes.
+
 ## Browser support
 
 Support is probed at runtime from what the browser reports (WebCodecs encoders per codec, native or
@@ -84,10 +89,11 @@ scripts/make-fixtures.sh   # regenerate tests/fixtures (needs ffmpeg)
 
 First e2e run needs browsers: `pnpm exec playwright install chromium webkit`.
 
-On the prepare screen, choose Shrink video or Extract audio from the tabs under the header (in the
-header centre on wide screens). The estimate and the Export or Extract audio button sit together
-in a dock: fixed to the bottom of the screen on phones (under 700px wide), and at the foot of the
-settings panel on wider screens. Extract audio is unavailable when
+On the prepare screen, choose Shrink video or Extract audio from the workspace tabs. The video
+and trim controls form the canvas; the summary, action, and Adjust controls form the inspector.
+On desktop they sit side by side. On narrower screens they stack, with the estimate and Export
+or Extract audio action fixed at the bottom on phones and sticky within the inspector on tablets.
+Extract audio is unavailable when
 the source has no usable audio track. Both tools use the same trim. Drag the trim handles or use
 arrow keys to adjust by 0.1 seconds.
 Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set

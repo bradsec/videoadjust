@@ -1,48 +1,48 @@
-/* VideoAdjust design tokens. Spec: docs/design/2026-10-22-videoadjust-ui-overhaul.md.
-   Warm graphite neutrals and one tangerine accent. Dark is the default for everyone;
-   [data-theme='light'] (set by public/theme-init.js and the header switch) overrides it.
-   The system colour scheme is deliberately ignored. System fonts only.
-   Contrast ratios for every pair are listed in the spec. */
+/* VideoAdjust design tokens. Spec: docs/design/2026-10-22-videoadjust-design-system.md
+   (Palette A, "Ink and Chartreuse"). Dark is the default for everyone; [data-theme='light']
+   (set by public/theme-init.js and the header switch) overrides it. The system colour
+   scheme is deliberately ignored. System fonts only, and no monospace: numbers use
+   tabular figures from the UI font.
+   Contrast, dark: text-3 is 4.8:1 on --raised, --ctl 3.4:1 on --raised, on-accent 14:1 on
+   --accent. Light: text-3 5.1:1 on --raised, --ctl 3.4:1 on --raised, on-accent 6.2:1. */
 :root {
   color-scheme: dark;
 
-  --bg: #121110;
-  --panel: #1c1a18;
-  --raised: #2a2724;
-  --line: #3a3632; /* decorative dividers only */
-  --ctl: #77706a; /* control borders, 3:1 or more on bg, panel and raised */
-  --text: #f2ede6;
-  --text-2: #b5ada2;
-  --text-3: #958c81;
-  --accent: #ff8a3d; /* fills and bars; text uses --accent-text */
-  --accent-hover: #ff9c5c;
-  --accent-press: #eb7a2f;
-  --on-accent: #1f0f04;
-  --accent-text: #ffa266;
-  --accent-soft: #3b2416;
+  --bg: #0e0f0d;
+  --surface: #171916;
+  --raised: #21241f;
+  --raised-hover: #2a2e27;
+  --line: #30342d; /* decorative dividers only */
+  --ctl: #71776a; /* control borders, 3:1 or more on bg, surface and raised */
+  --text: #f1f3ec;
+  --text-2: #b6bbad;
+  --text-3: #8b9182;
+  --accent: #c6ef3a; /* fills, selection, focus and trim handles; text uses --accent-text */
+  --accent-hover: #d4f556;
+  --accent-press: #b5dc2c;
+  --on-accent: #11140a;
+  --accent-text: #d4f56a;
+  --accent-soft: #242a16;
   --ok: #5cc98f;
+  --warn: #e2b84b;
   --error: #ff6b6b;
-  --warn: #e9c46a;
+  --warn-soft: #2a2614;
   --error-soft: #2e1817;
-  --warn-soft: #2a2416;
-  --shadow-btn: 0 1px 0 rgb(0 0 0 / 45%);
-  --shadow-dock: 0 -8px 24px rgb(0 0 0 / 25%);
 
   /* The video stage stays near-black in both themes so footage looks the same. */
-  --stage-bg: #0a0908;
-  --stage-text: #f2ede6;
-  --scrim: rgb(10 9 8 / 75%);
+  --stage-bg: #0b0c0a;
+  --stage-text: #f1f3ec;
+  --scrim: rgb(11 12 10 / 72%);
 
-  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
-  --font-tc: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-  --fs-micro: 12px;
-  --fs-meta: 13px;
-  --fs-small: 14px;
-  --fs-body: 16px;
-  --fs-lead: 18px;
-  --fs-h3: 20px;
-  --fs-figure: 34px;
+  --fs-12: 12px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-24: 24px;
+  --fs-32: 32px;
+  --fs-40: 40px;
 
   --s-1: 4px;
   --s-2: 8px;
@@ -51,6 +51,7 @@
   --s-5: 24px;
   --s-6: 32px;
   --s-7: 48px;
+  --s-8: 64px;
 
   --r-sm: 6px;
   --r-md: 10px;
@@ -58,37 +59,35 @@
 
   --tap: 44px;
   --gutter: 16px;
-  --inspector: 440px;
-  --dur-fast: 150ms;
-  --dur: 200ms;
+  --content: 1280px;
+  --inset: 24px; /* every inspector block */
+  --dur: 140ms;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --bg: #f5f1ea;
-  --panel: #ffffff;
-  --raised: #eee8df;
-  --line: #e0d8cc;
-  --ctl: #857c70;
-  --text: #1b1814;
-  --text-2: #57504a;
-  --text-3: #6e665d;
-  --accent: #c2470e;
+  --bg: #f6f7f2;
+  --surface: #ffffff;
+  --raised: #eceee6;
+  --raised-hover: #e2e5da;
+  --line: #dcdfd3;
+  --ctl: #7c8274;
+  --text: #161813;
+  --text-2: #4b5044;
+  --text-3: #5f6557;
+  --accent: #4a6b00;
   /* Hover darkens in light: a lighter accent would drop white text below 4.5:1. */
-  --accent-hover: #a83d0c;
-  --accent-press: #8f330a;
+  --accent-hover: #3d5900;
+  --accent-press: #334b00;
   --on-accent: #ffffff;
-  --accent-text: #a63c0b;
-  --accent-soft: #fbe6d8;
+  --accent-text: #3f5c00;
+  --accent-soft: #eaf0d6;
   --ok: #1e7a4c;
+  --warn: #7a5600;
   --error: #b42318;
-  --warn: #8a5a00;
-  --error-soft: #fbeceb;
-  --warn-soft: #fbf3e2;
-  --shadow-btn: 0 1px 0 rgb(27 24 20 / 12%);
-  --shadow-dock: 0 -6px 18px rgb(27 24 20 / 8%);
-  --stage-bg: #1b1814;
+  --warn-soft: #fbf4e0;
+  --error-soft: #fcecea;
 }
 
 @media (min-width: 700px) {
@@ -99,7 +98,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --dur-fast: 0ms;
     --dur: 0ms;
   }
 }

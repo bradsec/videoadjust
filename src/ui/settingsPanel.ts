@@ -47,10 +47,10 @@ export function mountSettings(
   let value = opts.value;
   const card = el('section', 'card export-summary');
   card.setAttribute('aria-label', 'Export summary');
-  const eyebrow = el('span', 'eyebrow', 'Ready to export');
+  const eyebrow = el('span', 'overline', 'Ready to export');
   const heading = el('h2');
   const sub = el('p', 'export-sub num');
-  const title = el('div');
+  const title = el('div', 'export-title');
   title.append(heading, sub);
   const estimate = el('div', 'export-estimate');
   const big = el('strong', 'export-estimate-big num');
@@ -59,6 +59,8 @@ export function mountSettings(
   const meter = sizeMeter('New, estimated', 'Original');
   meter.origValue.textContent = formatBytes(opts.source.sizeBytes);
   const optimal = el('div', 'export-optimal');
+  optimal.id = 'already-small';
+  optimal.tabIndex = -1;
   optimal.append(
     el('strong', undefined, 'This video is already small'),
     el(
@@ -75,8 +77,9 @@ export function mountSettings(
   reencode.addEventListener('change', () => change({ ...value, passthrough: !reencode.checked }));
   optimal.append(reencodeLabel);
   const warning = el('p', 'export-warning');
-  const exportButton = el('button', 'btn btn-primary btn-go', 'Export');
+  const exportButton = el('button', 'btn btn-primary btn-go');
   exportButton.type = 'button';
+  let busy = false;
   exportButton.addEventListener('click', () => {
     if (exportButton.getAttribute('aria-disabled') === 'true') return;
     if (opts.auto.alreadyOptimal && !reencode.checked) change({ ...value, passthrough: true });
@@ -89,12 +92,22 @@ export function mountSettings(
   const controls = el('div', 'settings-controls');
   const passthroughReason = el('p', 'setting-reason', 'Not needed for a trimmed copy');
   details.append(disclosure, controls);
-  // The estimate and the one primary action are docked together at the foot of the card.
+  // Where the dock floats over the page (phone and tablet), the full warning can sit below
+  // the fold, so the dock repeats it in one line with a way to reach it.
+  const dockNote = el('div', 'dock-note');
+  const seeWhy = el('button', 'btn-link', 'See why');
+  seeWhy.type = 'button';
+  seeWhy.addEventListener('click', () => {
+    optimal.scrollIntoView({ block: 'center' });
+    optimal.focus({ preventScroll: true });
+  });
+  dockNote.append(icon('i-warn'), el('span', undefined, 'This video is already small.'), seeWhy);
+  // The estimate and the one primary action are docked together, above Adjust.
   const dock = el('div', 'dock');
-  dock.append(estimate, exportButton);
+  dock.append(dockNote, estimate, exportButton);
   const spec = el('div', 'spec');
   spec.append(eyebrow, title, meter.node, optimal, warning, passthroughReason);
-  card.append(spec, details, dock);
+  card.append(spec, dock, details);
   host.replaceChildren(card);
 
   function change(next: Settings): void {
@@ -131,7 +144,9 @@ export function mountSettings(
     }
     input.value = current;
     input.addEventListener('change', () => onSelect(input.value));
-    label.append(input);
+    const field = el('span', 'field');
+    field.append(input, icon('i-chev'));
+    label.append(field);
     section.append(label);
     const unavailable = items.filter((item) => item.disabled);
     if (unavailable.length)
@@ -446,7 +461,8 @@ export function mountSettings(
     meter.show(low, high, opts.source.sizeBytes);
     optimal.hidden = !opts.auto.alreadyOptimal;
     reencode.checked = !next.passthrough;
-    exportButton.textContent = next.passthrough ? 'Export trimmed copy' : 'Export';
+    renderExportLabel();
+    dockNote.hidden = !opts.auto.alreadyOptimal;
     passthroughReason.hidden = !next.passthrough;
     if (next.passthrough && !wasPassthrough) details.open = false;
     warning.textContent =
@@ -478,9 +494,17 @@ export function mountSettings(
     }
     patchControls(next);
   }
-  function setBusy(busy: boolean): void {
+  function renderExportLabel(): void {
+    exportButton.replaceChildren(
+      icon('i-down'),
+      busy ? 'Exporting...' : value.passthrough ? 'Export trimmed copy' : 'Export',
+    );
+  }
+  function setBusy(next: boolean): void {
+    busy = next;
     if (busy) exportButton.setAttribute('aria-disabled', 'true');
     else exportButton.removeAttribute('aria-disabled');
+    renderExportLabel();
   }
   update(value);
   return { update, setBusy };

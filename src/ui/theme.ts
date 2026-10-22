@@ -4,7 +4,7 @@ export type Theme = 'dark' | 'light';
 export const THEME_KEY = 'videoadjust-theme';
 
 // Matches --bg in tokens.css, so the browser chrome follows the page.
-const THEME_COLOR: Record<Theme, string> = { dark: '#121110', light: '#f5f1ea' };
+const THEME_COLOR: Record<Theme, string> = { dark: '#0e0f0d', light: '#f6f7f2' };
 
 export function savedTheme(): Theme {
   try {

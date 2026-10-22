@@ -120,7 +120,7 @@ test('already small video offers trim-only export', async ({ page }) => {
   await page.getByRole('button', { name: 'Choose another video' }).click();
   await page.setInputFiles('#file', optimalFixture);
   const card = page.getByRole('region', { name: 'Export summary' });
-  await expect(card.getByText('This video is already small')).toBeVisible();
+  await expect(card.getByText('This video is already small', { exact: true })).toBeVisible();
   await expect(card).toContainText('trim this video');
   await expect(card.getByRole('button', { name: 'Export trimmed copy' })).toBeVisible();
   await expect(card.getByText('Not needed for a trimmed copy')).toBeVisible();

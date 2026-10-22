@@ -8,7 +8,7 @@
       content="default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; worker-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'"
     />
     <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#121110" />
+    <meta name="theme-color" content="#0e0f0d" />
     <link rel="canonical" href="https://videoadjust.com/" />
     <script src="/theme-init.js"></script>
     <link rel="icon" href="./favicon.ico" sizes="48x48" />
@@ -91,106 +91,125 @@
           />
           <path d="M5 7.5 L10 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
         </symbol>
+        <!-- App icons: one family on a 24x24 artboard. Stroke, caps and joins come from svg.i
+             in app.css, so no symbol sets its own; only the play triangle is filled. -->
         <symbol id="i-lock" viewBox="0 0 24 24">
-          <rect x="5" y="11" width="14" height="10" rx="2.5" />
-          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+          <rect x="4" y="11" width="16" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
         </symbol>
         <symbol id="i-film" viewBox="0 0 24 24">
-          <rect x="3" y="5" width="18" height="14" rx="3" />
-          <path d="M10 9.5v5l4-2.5z" />
-          <path d="M3 9h3M3 15h3M18 9h3M18 15h3" />
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="M7 4v16M17 4v16M3 12h18" />
         </symbol>
         <symbol id="i-warn" viewBox="0 0 24 24">
-          <path d="M12 4l9 16H3z" />
-          <path d="M12 10v4M12 17h.01" />
+          <path
+            d="M10.3 4.2 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"
+          />
+          <path d="M12 9.5v4M12 17h.01" />
         </symbol>
         <symbol id="i-stop" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9" />
-          <path d="M8.5 8.5l7 7M15.5 8.5l-7 7" />
+          <path d="m15 9-6 6M9 9l6 6" />
         </symbol>
         <symbol id="i-info" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9" />
-          <path d="M12 11v5M12 8h.01" />
+          <path d="M12 16v-4.5M12 8h.01" />
         </symbol>
-        <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" /></symbol>
-        <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></symbol>
-        <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></symbol>
+        <symbol id="i-play" viewBox="0 0 24 24">
+          <path
+            class="i-fill"
+            d="M7 5.2v13.6a1 1 0 0 0 1.5.9l10.8-6.8a1 1 0 0 0 0-1.8L8.5 4.3A1 1 0 0 0 7 5.2z"
+          />
+        </symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24">
+          <rect x="6" y="5" width="4" height="14" rx="1" />
+          <rect x="14" y="5" width="4" height="14" rx="1" />
+        </symbol>
+        <symbol id="i-down" viewBox="0 0 24 24">
+          <path d="M12 4v11M7 10l5 5 5-5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+        </symbol>
         <symbol id="i-share" viewBox="0 0 24 24">
           <path d="M12 3v12M8 7l4-4 4 4" />
-          <path d="M7 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1" />
+          <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
         </symbol>
         <symbol id="i-smaller" viewBox="0 0 24 24">
-          <rect x="3" y="3" width="18" height="18" rx="3" />
-          <path d="M14 10h-4V6M10 10L5 5M10 14v4M14 14l5 5M14 14h4" />
+          <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
         </symbol>
         <symbol id="i-audio" viewBox="0 0 24 24">
-          <path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" />
+          <path d="M3 10v4M7.5 6v12M12 3v18M16.5 8v8M21 10v4" />
         </symbol>
         <symbol id="i-restart" viewBox="0 0 24 24">
-          <path d="M20 12a8 8 0 1 1-2.5-5.8" />
-          <path d="M20 4v4h-4" />
+          <path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" />
+          <path d="M3 3v5h5" />
         </symbol>
-        <symbol id="i-wipe" viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5" /></symbol>
+        <symbol id="i-wipe" viewBox="0 0 24 24"><path d="m9 7-5 5 5 5M15 7l5 5-5 5" /></symbol>
         <symbol id="i-start" viewBox="0 0 24 24">
-          <path d="M6 4v16M10 12h10M15 8l-5 4 5 4" />
+          <path d="M4 5v14M20 12H8M13 7l-5 5 5 5" />
         </symbol>
-        <symbol id="i-end" viewBox="0 0 24 24"><path d="M18 4v16M4 12h10M9 8l5 4-5 4" /></symbol>
+        <symbol id="i-end" viewBox="0 0 24 24"><path d="M20 5v14M4 12h12M11 7l5 5-5 5" /></symbol>
         <symbol id="i-reset" viewBox="0 0 24 24">
-          <path d="M4 12a8 8 0 1 0 2.5-5.8" />
-          <path d="M4 4v4h4" />
+          <path d="M9 14 4 9l5-5" />
+          <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
         </symbol>
-        <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
+        <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+        <symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6" /></symbol>
+        <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" /></symbol>
         <symbol id="i-sun" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="4" />
           <path
-            d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"
+            d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"
           />
         </symbol>
         <symbol id="i-moon" viewBox="0 0 24 24">
-          <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
         </symbol>
       </defs>
     </svg>
     <header class="top">
-      <div class="brand">
-        <span class="mark"
-          ><svg class="logo" aria-hidden="true"><use href="#i-logo" /></svg
-          ><span>Video<b>Adjust</b></span></span
+      <div class="shell top-in">
+        <div class="brand">
+          <span class="mark"
+            ><svg class="logo" aria-hidden="true"><use href="#i-logo" /></svg
+            ><span class="wordmark">Video<b>Adjust</b></span></span
+          >
+          <span class="local"
+            ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this
+            device</span
+          >
+        </div>
+        <button
+          class="theme"
+          type="button"
+          role="switch"
+          aria-checked="false"
+          aria-label="Light theme"
+          title="Light theme"
         >
-        <span class="local"
-          ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this device</span
-        >
+          <svg class="i sun" aria-hidden="true"><use href="#i-sun" /></svg
+          ><svg class="i moon" aria-hidden="true"><use href="#i-moon" /></svg>
+        </button>
       </div>
-      <div class="tools-slot"></div>
-      <button
-        class="theme"
-        type="button"
-        role="switch"
-        aria-checked="false"
-        aria-label="Light theme"
-      >
-        <svg class="i sun" aria-hidden="true"><use href="#i-sun" /></svg
-        ><svg class="i moon" aria-hidden="true"><use href="#i-moon" /></svg>
-      </button>
     </header>
-    <main id="app"></main>
+    <main id="app" class="shell"></main>
     <footer>
-      <span>Free. Works offline after your first visit.</span>
-      <span class="footer-links">
-        <a href="./THIRD-PARTY-LICENSES.txt">Licences</a>
-        <a
-          class="repo-link"
-          href="https://github.com/bradsec/videoadjust"
-          target="_blank"
-          rel="noopener noreferrer"
-          ><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-            <path
-              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"
-            /></svg
-          >github.com/bradsec/videoadjust</a
-        >
-        <span class="app-version">v__VA_APP_VERSION__</span>
-      </span>
+      <div class="shell foot-in">
+        <span>Free. Works offline after your first visit.</span>
+        <span class="footer-links">
+          <a href="./THIRD-PARTY-LICENSES.txt">Licences</a>
+          <a
+            class="repo-link"
+            href="https://github.com/bradsec/videoadjust"
+            target="_blank"
+            rel="noopener noreferrer"
+            ><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+              /></svg
+            >github.com/bradsec/videoadjust</a
+          >
+          <span class="app-version">v__VA_APP_VERSION__</span>
+        </span>
+      </div>
     </footer>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -64,6 +64,7 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   knob.setAttribute('aria-label', 'Wipe position');
   knob.setAttribute('aria-valuemin', '0');
   knob.setAttribute('aria-valuemax', '100');
+  knob.title = 'Drag to compare original and new';
   knob.append(icon('i-wipe'));
   stage.append(original, output, tagOriginal, tagNew, line, knob);
 
@@ -88,6 +89,8 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   play.type = 'button';
   const prev = el('button', 'btn', 'Previous frame');
   const next = el('button', 'btn', 'Next frame');
+  prev.prepend(icon('i-prev'));
+  next.append(icon('i-next'));
   for (const b of [prev, next]) b.type = 'button';
   const range = el('input', 'scrub-range');
   range.type = 'range';
@@ -144,8 +147,8 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
     range.value = String(output.currentTime);
     time.textContent = `${formatDuration(output.currentTime, { tenths: true })} / ${formatDuration(duration, { tenths: true })}`;
     const paused = output.paused;
-    play.replaceChildren(icon(paused ? 'i-play' : 'i-pause'));
-    play.setAttribute('aria-label', paused ? 'Play' : 'Pause');
+    // A visible label, not an icon alone, so playback reads as part of the control row.
+    play.replaceChildren(icon(paused ? 'i-play' : 'i-pause'), paused ? 'Play' : 'Pause');
   }
 
   function follow(exact: boolean): void {
@@ -239,6 +242,9 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   stage.addEventListener('pointermove', (e) => {
     if (stage.hasPointerCapture(e.pointerId)) fromPointer(e);
   });
+  // The knob stays neutral until it is in use, so the footage stays the focal point.
+  stage.addEventListener('gotpointercapture', () => stage.classList.add('is-wiping'));
+  stage.addEventListener('lostpointercapture', () => stage.classList.remove('is-wiping'));
 
   // The MIME type carries the codecs, so an empty answer catches e.g. HEVC on Chromium before
   // any bytes load; the error listener catches the rest.

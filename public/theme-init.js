@@ -11,5 +11,5 @@
   document.documentElement.dataset.theme = theme;
   // Same values as THEME_COLOR in src/ui/theme.ts (each theme's --bg).
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f1ea' : '#121110');
+  if (meta) meta.setAttribute('content', theme === 'light' ? '#f6f7f2' : '#0e0f0d');
 })();

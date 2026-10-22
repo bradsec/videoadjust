@@ -53,9 +53,6 @@ export function createApp(
   const state = () => controller.getState();
 
   const noticeSlot = el('div', 'notice-slot');
-  // The header holds the tool tabs (index.html): a full-width bar on phone and tablet, the
-  // header centre on desktop. Only Prepare fills it.
-  const toolsSlot = document.querySelector<HTMLElement>('.tools-slot')!;
   const status = el('p', 'sr');
   status.setAttribute('role', 'status');
   const view = el('div', 'view');
@@ -96,7 +93,7 @@ export function createApp(
         dropZone = mountDropZone(view, (file) => dispatch({ type: 'pick', file }));
         return;
       case 'prepare':
-        mounted = renderPrepare(view, s, dispatch, { tools: toolsSlot, notice: noticeSlot });
+        mounted = renderPrepare(view, s, dispatch, noticeSlot);
         return;
       case 'working':
         mounted = renderWorking(view, s, () => dispatch({ type: 'cancel' }));
@@ -133,7 +130,7 @@ export function createApp(
       }
       const back = el(
         'button',
-        notice.confirm ? 'btn btn-quiet' : 'btn',
+        notice.confirm ? 'btn btn-text' : 'btn',
         notice.confirm ? 'Go back' : 'Dismiss',
       );
       back.type = 'button';
@@ -150,7 +147,7 @@ export function createApp(
       go.addEventListener('click', () => dispatch({ type: 'continueLarge' }));
       row.append(go);
     }
-    const another = el('button', notice.pending ? 'btn btn-quiet' : 'btn', 'Choose another video');
+    const another = el('button', notice.pending ? 'btn btn-text' : 'btn', 'Choose another video');
     another.type = 'button';
     another.addEventListener('click', () => {
       dispatch({ type: 'dismissNotice' });
@@ -171,17 +168,20 @@ function renderPrepare(
   container: HTMLElement,
   state: Of<'prepare'>,
   dispatch: (a: AppAction) => void,
-  slots: { tools: HTMLElement; notice: HTMLElement },
+  noticeSlot: HTMLElement,
 ): Mounted {
   const onExport = () => dispatch({ type: 'export' });
   const head = el('div', 'file-line');
-  head.append(
+  const fileText = el('div', 'file-text');
+  fileText.append(
     el('h1', 'file-name', state.file.name),
     el('p', 'file-summary num', summarySource(state.source)),
   );
+  head.append(fileText);
   const stage = el('div', 'prepare-regions work');
   stage.dataset.region = 'prepare';
   const canvas = el('div', 'canvas');
+  const toolsHost = el('div', 'tools-host');
   const video = el('video', 'preview-video');
   video.controls = true;
   video.playsInline = true;
@@ -200,7 +200,7 @@ function renderPrepare(
   panelHost.id = TOOL_PANEL_ID;
   panelHost.setAttribute('role', 'tabpanel');
   settingsHost.append(panelHost);
-  const tabs = mountToolTabs(slots.tools, {
+  const tabs = mountToolTabs(toolsHost, {
     value: state.tool,
     disabledReason: audioReason(state),
     onChange: (tool) => dispatch({ type: 'setTool', tool }),
@@ -297,9 +297,11 @@ function renderPrepare(
     trim.setPreviewPlayable(false);
   };
   video.addEventListener('error', showPreviewUnplayable);
-  const another = el('button', 'btn btn-quiet another', 'Choose another video');
+  const another = el('button', 'btn btn-text another', 'Choose another video');
   another.type = 'button';
   another.addEventListener('click', () => dispatch({ type: 'reset' }));
+  head.append(another);
+  canvas.append(toolsHost);
   if (previewPlayable) {
     canvas.append(video, previewNote);
     video.src = url;
@@ -307,7 +309,7 @@ function renderPrepare(
     previewNote.hidden = false;
     canvas.append(previewNote);
   }
-  canvas.append(head, slots.notice, trimHost, another);
+  canvas.append(head, noticeSlot, trimHost);
   stage.append(canvas, settingsHost);
   container.replaceChildren(stage);
   function update(value: AppState): void {
@@ -328,7 +330,6 @@ function renderPrepare(
   return {
     update,
     destroy() {
-      slots.tools.replaceChildren();
       dockSpace.disconnect();
       root.style.removeProperty('--dock-space');
       trim.destroy();
@@ -409,9 +410,11 @@ function renderWorking(
   onCancel: () => void,
 ): Mounted {
   const head = el('div', 'file-line');
+  const fileText = el('div', 'file-text');
   const title = screenHeading('file-name');
   title.textContent = `${state.tool === 'audio' ? 'Extracting audio' : 'Exporting'} ${state.outputName}`;
-  head.append(
+  head.append(fileText);
+  fileText.append(
     title,
     el(
       'p',
@@ -602,12 +605,11 @@ function renderResult(
   // WAV is lossless, so no setting makes it smaller and there is nothing to suggest.
   const lossless = audioOnly && state.audioSettings?.format === 'wav';
   const showNotSmaller = state.notSmaller && !lossless;
-  // Phone order: verdict with Download and Share, comparison, details. Desktop puts the
-  // comparison on the left and the verdict above the details on the right.
-  const split = el('div', 'split');
-  const lead = el('div', 'lead-col');
-  const main = el('div', 'main-col');
-  const side = el('aside', 'side-col');
+  // The canvas holds the comparison or the player; the inspector holds the verdict, the
+  // delivery actions, the stats and the next steps. Phones keep the same order in one column.
+  const work = el('div', 'work result');
+  const canvas = el('div', 'canvas');
+  const side = el('aside', 'inspector result-rail');
   side.setAttribute('aria-label', 'Details and actions');
 
   const verdict = el('div', 'verdict');
@@ -621,7 +623,7 @@ function renderResult(
     ),
   );
   verdict.append(
-    el('span', 'eyebrow ok', `Done in ${clock(state.elapsedMs)}`),
+    el('span', 'overline ok num', `Done in ${clock(state.elapsedMs)}`),
     figure,
     el(
       'p',
@@ -631,11 +633,19 @@ function renderResult(
         : `${state.outputName} is saved where you chose.`,
     ),
   );
-  lead.append(verdict);
+  side.append(verdict);
 
-  let notice: HTMLElement | undefined;
+  const meter = sizeMeter(
+    audioOnly ? 'Audio file' : 'New',
+    audioOnly ? 'Original video' : 'Original',
+  );
+  meter.origValue.textContent = formatBytes(source.sizeBytes);
+  meter.newValue.textContent = formatBytes(output.sizeBytes);
+  meter.show(output.sizeBytes, output.sizeBytes, source.sizeBytes);
+  side.append(meter.node);
+
   if (showNotSmaller) {
-    notice = el('div', 'notice warn not-smaller');
+    const notice = el('div', 'notice warn not-smaller');
     notice.setAttribute('role', 'alert');
     const body = el('div', 'body');
     body.append(
@@ -655,14 +665,14 @@ function renderResult(
       ),
     );
     notice.append(icon('i-warn'), body);
-    lead.append(notice);
+    side.append(notice);
   }
 
   let compare: { destroy(): void } | undefined;
   let originalUrl: string | undefined;
   const peaksAbort = new AbortController();
   if (audioOnly && state.audioSettings) {
-    const host = el('div');
+    const host = el('div', 'player-host');
     const a = output.info.audio;
     compare = mountAudioPlayer(host, {
       url: output.url,
@@ -678,7 +688,7 @@ function renderResult(
         ? computePeaks(state.input, state.audioSettings.trim, 64, peaksAbort.signal)
         : Promise.resolve(null),
     });
-    main.append(host);
+    canvas.append(host);
   } else if (output.url && output.info.video && source.video) {
     const host = el('div', 'compare');
     originalUrl = URL.createObjectURL(state.file);
@@ -689,9 +699,9 @@ function renderResult(
       outputInfo: output.info,
       offsetSec: state.settings.trim.start,
     });
-    main.append(host);
+    canvas.append(host);
   } else if (!output.blob) {
-    main.append(
+    canvas.append(
       el(
         'p',
         'note compare-skipped',
@@ -700,40 +710,21 @@ function renderResult(
     );
   }
 
-  const meter = sizeMeter(
-    audioOnly ? 'Audio file' : 'New',
-    audioOnly ? 'Original video' : 'Original',
-  );
-  meter.origValue.textContent = formatBytes(source.sizeBytes);
-  meter.newValue.textContent = formatBytes(output.sizeBytes);
-  meter.show(output.sizeBytes, output.sizeBytes, source.sizeBytes);
-  main.append(meter.node);
-
-  const stats = el('div', 'card stats-card');
-  stats.append(
-    statsTable(
-      source,
-      output.info,
-      audioOnly && state.audioSettings ? state.audioSettings.trim : state.settings.trim,
-      state.notSmaller,
-      audioOnly,
-    ),
-  );
-
   const deliver = el('div', 'deliver');
-  const actions = el('div', 'actions');
   if (output.url) {
-    const download = el('a', 'btn btn-primary btn-xl btn-block');
+    const download = el('a', 'btn btn-primary btn-block');
     download.href = output.url;
     download.download = state.outputName;
-    download.append(icon('i-down'), 'Download ', el('span', 'file', state.outputName));
-    deliver.append(download);
+    // The visible label stays one short verb; the name carries the file so it is announced.
+    download.setAttribute('aria-label', `Download ${state.outputName}`);
+    download.append(icon('i-down'), 'Download');
+    deliver.append(download, el('p', 'file-out', state.outputName));
   }
   const shareNote = el('p', 'note share-note');
   shareNote.hidden = true;
   if (output.blob && state.caps.shareFiles && typeof navigator.share === 'function') {
     const blob = output.blob;
-    const share = el('button', 'btn btn-share btn-block');
+    const share = el('button', 'btn btn-block');
     share.type = 'button';
     share.append(icon('i-share'), 'Share');
     share.addEventListener('click', () => {
@@ -747,24 +738,39 @@ function renderResult(
     });
     deliver.append(share);
   }
+  if (deliver.childElementCount) side.append(deliver);
+  side.append(shareNote);
+
+  const stats = el('div', 'stats-block');
+  stats.append(
+    statsTable(
+      source,
+      output.info,
+      audioOnly && state.audioSettings ? state.audioSettings.trim : state.settings.trim,
+      state.notSmaller,
+      audioOnly,
+    ),
+  );
+  side.append(stats);
+
+  // The recommended adjustment is a secondary button; starting over is a quiet text action.
+  const actions = el('div', 'actions');
   if (!lossless) {
-    const smaller = el('button', showNotSmaller ? 'btn btn-quiet is-suggested' : 'btn btn-quiet');
+    const smaller = el('button', showNotSmaller ? 'btn is-suggested' : 'btn');
     smaller.type = 'button';
     smaller.append(icon('i-smaller'), audioOnly ? 'Lower bitrate' : 'Make it smaller');
     smaller.addEventListener('click', () => dispatch({ type: 'smaller' }));
     actions.append(smaller);
   }
-  const restart = el('button', 'btn btn-quiet');
+  const restart = el('button', 'btn btn-text');
   restart.type = 'button';
   restart.append(icon('i-restart'), 'Start over');
   restart.addEventListener('click', () => dispatch({ type: 'reset' }));
   actions.append(restart);
-  if (deliver.childElementCount) lead.append(deliver);
-  lead.append(shareNote);
-  side.append(stats, actions);
+  side.append(actions);
 
-  split.append(lead, main, side);
-  container.replaceChildren(split);
+  work.append(canvas, side);
+  container.replaceChildren(work);
   figure.focus();
 
   return {

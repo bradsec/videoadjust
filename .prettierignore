@@ -3,6 +3,7 @@ node_modules/
 docs/mockups/*.png
 docs/superpowers/
 .superpowers/
+.superdesign/
 test-results/
 playwright-report/
 pnpm-lock.yaml

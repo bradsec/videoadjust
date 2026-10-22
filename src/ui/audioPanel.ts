@@ -35,10 +35,10 @@ export function mountAudioPanel(
   let value = opts.value;
   const card = el('section', 'card export-summary');
   card.setAttribute('aria-label', 'Audio summary');
-  const eyebrow = el('span', 'eyebrow', 'Ready to extract');
+  const eyebrow = el('span', 'overline', 'Ready to extract');
   const heading = el('h2', 'num');
   const sub = el('p', 'export-sub num');
-  const title = el('div');
+  const title = el('div', 'export-title');
   title.append(heading, sub);
   const estimate = el('div', 'export-estimate');
   const big = el('strong', 'export-estimate-big num');
@@ -46,8 +46,9 @@ export function mountAudioPanel(
   estimate.append(big, from);
   const meter = sizeMeter('Audio, estimated', 'Original video');
   meter.origValue.textContent = formatBytes(source.sizeBytes);
-  const exportButton = el('button', 'btn btn-primary btn-go', 'Extract audio');
+  const exportButton = el('button', 'btn btn-primary btn-go');
   exportButton.type = 'button';
+  exportButton.append(icon('i-audio'), 'Extract audio');
   exportButton.addEventListener('click', () => {
     if (exportButton.getAttribute('aria-disabled') !== 'true') opts.onExport();
   });
@@ -167,12 +168,12 @@ export function mountAudioPanel(
   if (monoSource) channels.section.append(el('p', 'setting-reason', 'The original audio is mono.'));
 
   controls.append(format.section, bitrate.section, channels.section);
-  // The estimate and the one primary action are docked together at the foot of the card.
+  // The estimate and the one primary action are docked together, above Adjust.
   const dock = el('div', 'dock');
   dock.append(estimate, exportButton);
   const spec = el('div', 'spec');
   spec.append(eyebrow, title, meter.node);
-  card.append(spec, details, dock);
+  card.append(spec, dock, details);
   host.replaceChildren(card);
 
   function showReset(
@@ -233,6 +234,7 @@ export function mountAudioPanel(
   function setBusy(busy: boolean): void {
     if (busy) exportButton.setAttribute('aria-disabled', 'true');
     else exportButton.removeAttribute('aria-disabled');
+    exportButton.replaceChildren(icon('i-audio'), busy ? 'Extracting...' : 'Extract audio');
   }
   update(value);
   return { update, setBusy };
