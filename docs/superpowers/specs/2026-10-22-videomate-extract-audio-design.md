@@ -2,6 +2,7 @@
 
 Date: 2026-10-22
 Builds on: `2026-10-22-videoresize-design.md` (the v1 design; its constraints still apply).
+Status: built (v0.3.0). Extract audio ships as specified.
 
 ## Intent
 

@@ -65,7 +65,11 @@ async function networkFirst(request) {
 
 async function cacheFirst(request) {
   // Hashed assets may come from any cache so an open tab's lazy chunk survives a deploy.
-  const hit = (await (await caches.open(CACHE)).match(request)) || (await caches.match(request));
+  // ignoreVary: the preview server sends Vary: Origin, and module imports carry an Origin header
+  // that the precache request lacked, so a plain match misses and the lazy chunk fails offline.
+  const opts = { ignoreVary: true };
+  const hit =
+    (await (await caches.open(CACHE)).match(request, opts)) || (await caches.match(request, opts));
   if (hit) return hit;
   const response = await fetch(request);
   // Cache only complete 200 responses (not 206 ranges) and never an HTML fallback page.

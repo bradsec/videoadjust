@@ -5,10 +5,10 @@
 [![License: MIT](https://img.shields.io/github/license/bradsec/videomate)](LICENSE)
 [![Live site](https://img.shields.io/website?url=https%3A%2F%2Fbradsec.github.io%2Fvideomate%2F&label=bradsec.github.io%2Fvideomate)](https://bradsec.github.io/videomate/)
 
-Private video tools that run in the browser. Nothing is uploaded. Today videomate shrinks, trims
-and converts videos: pick a video, trim it, choose a size, format and codecs, export, then compare
-the original and the new file. More tools, starting with audio extraction, are planned. Output defaults to MP4 with
-H.264 video and AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and
+Private video tools that run in the browser. Nothing is uploaded. Videomate shrinks, trims,
+and converts videos, and extracts audio. Pick a video, trim it, choose a tool and its settings,
+then export. Video output defaults to MP4 with H.264 video and AAC audio; WebM (VP9, AV1, Opus)
+is also available. Frames are never upscaled and
 the frame rate is never raised. Conversion runs locally on WebCodecs through
 [Mediabunny](https://mediabunny.dev/). No ffmpeg.wasm.
 
@@ -48,7 +48,7 @@ large estimate asks before it starts.
 ## Offline
 
 A service worker (`public/sw.js`, registered only in production builds) precaches every built file,
-including the lazy AAC chunk. Navigations are network-first, revalidated with the server (so the host's max-age cannot serve an
+including the lazy AAC and MP3 encoder chunks. Navigations are network-first, revalidated with the server (so the host's max-age cannot serve an
 old page), with the cache used when offline or after 4 s; hashed assets are cache-first. The previous
 version's cache is kept until the next update so an open tab can still load the AAC chunk. The build fills in the file list and
 a cache version at build time.
@@ -75,12 +75,14 @@ scripts/make-fixtures.sh   # regenerate tests/fixtures (needs ffmpeg)
 
 First e2e run needs browsers: `pnpm exec playwright install chromium webkit`.
 
-On the prepare screen, drag the trim handles or use arrow keys to adjust by 0.1 seconds.
+On the prepare screen, choose Shrink video or Extract audio. Extract audio is unavailable when
+the source has no usable audio track. Both tools use the same trim. Drag the trim handles or use
+arrow keys to adjust by 0.1 seconds.
 Hold Shift with an arrow key for 1-second steps. Use Start here or End here to set
 a boundary at the preview playhead. The kept duration and summary estimate update as you trim.
 If the browser cannot play the preview, the handles and thumbnails still work. Start here and
 End here are disabled because they need a playhead.
-The summary card shows the estimated output range against the original size. Open Adjust to
+Shrink's summary card shows the estimated output range against the original size. Open Adjust to
 change format, codec, resolution, frame rate, quality, or audio. Each setting has a reset button.
 Unavailable codecs show why they cannot be selected. WebM uses Opus audio. The quality control
 and audio bitrates stay within the source limits. Quality keeps the same percentage when you
@@ -88,6 +90,12 @@ change codec, resolution, or frame rate. Reset Quality returns to 100% for the c
 settings. If the source is already small, the summary
 offers Export trimmed copy, which keeps the source video and audio tracks. Select Re-encode anyway
 to use the adjustment controls.
+
+Extract audio defaults to MP3. Open Adjust to choose MP3, M4A (AAC), or WAV, plus bitrate and
+mono or stereo where available. M4A copies the source audio without re-encoding when the source
+is AAC at or below the target bitrate; otherwise it encodes AAC at the target. MP3 and WAV are
+always encoded. WAV is 16-bit PCM with no bitrate control, so files are large. The audio summary
+shows the estimated size and kept duration.
 
 Export saves straight to a file you pick where the browser supports a save picker (Chromium).
 Elsewhere the new file stays in memory until you download or share it; a large in-memory export
@@ -177,9 +185,12 @@ real hardware before a release. Record each result; leave a line empty until it 
 
 Steps: open the live site, drop a recent phone video (portrait, rotation metadata), drag the trim
 handles by touch, export, compare, then share or download. Turn on airplane mode after the first
-load and confirm the page still opens.
+load and confirm the page still opens. Then switch to Extract audio, extract MP3 and M4A, and
+confirm the result plays and can be shared or downloaded, also in airplane mode for MP3.
 
 - iPhone (model, iOS version, date):
   - Result:
+  - Extract audio (MP3, M4A, WAV):
 - iPad (model, iPadOS version, date):
   - Result:
+  - Extract audio (MP3, M4A, WAV):

@@ -34,6 +34,34 @@ test('works offline after the first visit and converts a fixture', async ({ page
   await expect(page.locator('.verdict .figure')).toBeVisible({ timeout: 60_000 });
 });
 
+test('extracts MP3 offline from the precached encoder chunk', async ({ page, context }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
+  });
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
+
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
+
+  await page.setInputFiles('#file', fixture('land-1080p30-aac.mp4'));
+  await page.getByRole('tab', { name: 'Extract audio' }).click();
+  const panel = page.getByRole('region', { name: 'Audio summary' });
+  await expect(panel.locator('h2')).toContainText('MP3');
+  await panel.getByRole('button', { name: 'Extract audio' }).click();
+  await expect(page.locator('.verdict')).toContainText('is ready to save or share', {
+    timeout: 60_000,
+  });
+  await expect(page.locator('.stats').locator('tbody tr', { hasText: 'Codec' })).toContainText(
+    'MP3',
+  );
+});
+
 test('precache list covers the build and excludes the e2e harness', async ({ request }) => {
   const sw = await (await request.get('/sw.js')).text();
   expect(sw).not.toContain('__VM_');
