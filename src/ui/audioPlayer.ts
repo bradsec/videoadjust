@@ -82,7 +82,7 @@ export function mountAudioPlayer(host: HTMLElement, opts: AudioPlayerOptions): {
     wave.setAttribute('aria-valuemax', String(Math.round(d)));
     wave.setAttribute('aria-valuenow', String(Math.round(t)));
     wave.setAttribute('aria-valuetext', `${formatDuration(t)} of ${formatDuration(d)}`);
-    now.textContent = formatDuration(t);
+    now.textContent = formatDuration(Math.floor(t));
     total.textContent = formatDuration(d);
   }
 

@@ -471,7 +471,7 @@ function renderWorking(
     const elapsed = Date.now() - value.startedAt;
     progress.update(value.progress, value.bytes, elapsed);
     const at = span * value.progress;
-    overlay.textContent = `Encoding ${formatDuration(at)} of ${formatDuration(span)}`;
+    overlay.textContent = `Encoding ${formatDuration(at, { tenths: true })} of ${formatDuration(span, { tenths: true })}`;
     if (elapsed - lastSeek >= SEEK_EVERY_MS && video.readyState > 0) {
       lastSeek = elapsed;
       video.currentTime = start + at;

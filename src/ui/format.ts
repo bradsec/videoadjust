@@ -15,14 +15,17 @@ export function formatBitrate(bps: number): string {
   return `${trimmed(bps / 1e6, 2)} Mbps`;
 }
 
-/** m:ss, or h:mm:ss from one hour; a fraction shows one decimal place. */
-export function formatDuration(sec: number): string {
+/**
+ * m:ss, or h:mm:ss from one hour; a fraction shows one decimal place. With `tenths` the
+ * decimal always shows (0:04.0), so a live counter keeps one width as the tenths pass zero.
+ */
+export function formatDuration(sec: number, opts: { tenths?: boolean } = {}): string {
   const total = Math.max(0, sec);
   const tenths = Math.floor(total * 10 + 1e-9);
   const whole = Math.floor(tenths / 10);
   const frac = tenths % 10;
   const h = Math.floor(whole / 3600);
   const m = Math.floor((whole % 3600) / 60);
-  const s = String(whole % 60).padStart(2, '0') + (frac ? `.${frac}` : '');
+  const s = String(whole % 60).padStart(2, '0') + (frac || opts.tenths ? `.${frac}` : '');
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }

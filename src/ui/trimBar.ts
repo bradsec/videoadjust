@@ -123,9 +123,9 @@ export function mountTrimBar(
   }
   function update(next: Trim): void {
     value = next;
-    kept.textContent = `${formatDuration(next.end - next.start)} of ${formatDuration(duration)} kept`;
-    values[0]!.textContent = formatDuration(next.start);
-    values[1]!.textContent = formatDuration(next.end);
+    kept.textContent = `${formatDuration(next.end - next.start, { tenths: true })} of ${formatDuration(duration, { tenths: true })} kept`;
+    values[0]!.textContent = formatDuration(next.start, { tenths: true });
+    values[1]!.textContent = formatDuration(next.end, { tenths: true });
     setPercent(before, 'width', next.start);
     setPercent(after, 'left', next.end);
     setPercent(selection, 'left', next.start);

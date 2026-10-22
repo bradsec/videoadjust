@@ -142,7 +142,7 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
       : opts.outputInfo.durationSec;
     range.max = String(duration);
     range.value = String(output.currentTime);
-    time.textContent = `${formatDuration(output.currentTime)} / ${formatDuration(duration)}`;
+    time.textContent = `${formatDuration(output.currentTime, { tenths: true })} / ${formatDuration(duration, { tenths: true })}`;
     const paused = output.paused;
     play.replaceChildren(icon(paused ? 'i-play' : 'i-pause'));
     play.setAttribute('aria-label', paused ? 'Play' : 'Pause');

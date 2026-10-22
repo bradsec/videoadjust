@@ -18,6 +18,22 @@ describe('format', () => {
     expect(formatDuration(5)).toBe('0:05');
     expect(formatDuration(3725)).toBe('1:02:05');
   });
+  it('keeps one tenths digit when asked, so live counters hold their width', () => {
+    const fixed = { tenths: true };
+    expect(formatDuration(4, fixed)).toBe('0:04.0');
+    expect(formatDuration(3.9, fixed)).toBe('0:03.9');
+    expect(formatDuration(4.1, fixed)).toBe('0:04.1');
+    expect(formatDuration(0, fixed)).toBe('0:00.0');
+    expect(formatDuration(75.5, fixed)).toBe('1:15.5');
+    expect(formatDuration(3725, fixed)).toBe('1:02:05.0');
+    expect(formatDuration(-1, fixed)).toBe('0:00.0');
+    const widths = [3.8, 3.9, 4, 4.1].map((t) => formatDuration(t, fixed).length);
+    expect(new Set(widths).size).toBe(1);
+  });
+  it('still drops a zero tenth by default', () => {
+    expect(formatDuration(4, {})).toBe('0:04');
+    expect(formatDuration(4, { tenths: false })).toBe('0:04');
+  });
 });
 
 describe('formatByteRange', () => {
