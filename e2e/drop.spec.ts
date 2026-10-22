@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 const fixture = (name: string) => new URL(`../tests/fixtures/${name}`, import.meta.url).pathname;
@@ -36,7 +37,7 @@ const readingOrFailed = (page: Page) => page.locator('[role=status]:not(:empty),
 test('shows the drop zone and says files stay on this device', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.getByText('Stays on this device')).toBeVisible();
-  await expect(page.getByText('never uploaded')).toBeVisible();
+  await expect(page.getByText('Nothing is uploaded')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
   await expect(page.getByText('Free. Works offline after your first visit.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Licences' })).toBeVisible();
@@ -98,4 +99,15 @@ test('a file at exactly 2 GB is read without a warning', async ({ page }) => {
   await expect(readingOrFailed(page)).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Continue anyway' })).toHaveCount(0);
   await expect(page.getByRole('alert').filter({ hasText: 'GB' })).toHaveCount(0);
+});
+
+test('footer shows the app version and links to the GitHub repo', async ({ page }) => {
+  const { version } = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  ) as { version: string };
+  await page.goto('/');
+  await expect(page.locator('footer')).toContainText(`v${version}`);
+  const repo = page.getByRole('link', { name: 'github.com/bradsec/videomate' });
+  await expect(repo).toHaveAttribute('href', 'https://github.com/bradsec/videomate');
+  await expect(repo).toHaveAttribute('rel', 'noopener noreferrer');
 });

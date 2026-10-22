@@ -68,6 +68,14 @@ function precacheList(): Plugin {
   };
 }
 
+// Stamps the footer with package.json's version, the single version source.
+function appVersion(): Plugin {
+  return {
+    name: 'app-version',
+    transformIndexHtml: (html) => html.replaceAll('__VM_APP_VERSION__', pkg.version),
+  };
+}
+
 export default defineConfig({
   base: './',
   worker: { format: 'es' },
@@ -84,5 +92,5 @@ export default defineConfig({
           }
         : undefined,
   },
-  plugins: [shipLicences(), precacheList()],
+  plugins: [shipLicences(), precacheList(), appVersion()],
 });

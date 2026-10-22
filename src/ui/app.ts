@@ -504,7 +504,7 @@ function renderResult(
       'p',
       undefined,
       output.blob
-        ? `${state.outputName} is ready to send.`
+        ? `${state.outputName} is ready to save or share.`
         : `${state.outputName} is saved where you chose.`,
     ),
   );

@@ -15,12 +15,12 @@ export function mountDropZone(
   grid.className = 'drop-grid';
   grid.innerHTML = `
     <div class="hero">
-      <h1>Make a video <span class="shrink">small enough</span> to send.</h1>
-      <p>Shrink and trim phone videos for messages and email. It all happens in this browser, so your video is never uploaded.</p>
+      <h1>Video tools that <span class="shrink">stay on your device</span>.</h1>
+      <p>Shrink, trim and convert videos in this browser. Nothing is uploaded, so your videos stay private.</p>
       <ol class="steps" aria-label="How it works">
         <li><b>Choose</b>Pick a video</li>
-        <li><b>Export</b>Settings are automatic</li>
-        <li><b>Send</b>Save or share it</li>
+        <li><b>Adjust</b>Automatic settings you can change</li>
+        <li><b>Save</b>Download or share the result</li>
       </ol>
     </div>
     <div class="dropzone">

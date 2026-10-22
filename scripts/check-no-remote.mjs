@@ -19,6 +19,14 @@ export const JS_URL_ALLOWLIST = new Set([
   'https://rolldown.rs/in-depth/bundling-cjs#require-external-modules', // bundler message text
 ]);
 
+// The footer links to the source repo. A link the user clicks navigates the tab and sends no
+// media, so it is allowed, but only as this exact anchor href in HTML.
+export const REPO_URL = 'https://github.com/bradsec/videomate';
+const REPO_HREF = new RegExp(
+  String.raw`(<a\s[^>]*\bhref=")${REPO_URL.replaceAll('.', '\\.')}(")`,
+  'g',
+);
+
 const MARKUP_NS = new Set(['http://www.w3.org/2000/svg', 'http://www.w3.org/1999/xlink']);
 // Absolute http(s)/ws(s) URLs anywhere, and protocol-relative ones at the start of a string
 // literal or after url( / @import / = in markup and CSS.
@@ -34,9 +42,10 @@ const normalise = (url) => url.replace(/[.,;:]+$/, '');
 /** @param {Record<string, string>} files built text files by path relative to dist */
 export function checkRemote(files) {
   const problems = [];
-  for (const [rel, text] of Object.entries(files)) {
+  for (const [rel, source] of Object.entries(files)) {
     if (rel === 'THIRD-PARTY-LICENSES.txt') continue;
     const isJs = /\.m?js$/.test(rel);
+    const text = rel.endsWith('.html') ? source.replace(REPO_HREF, '$1$2') : source;
     for (const raw of text.match(ABSOLUTE) ?? []) {
       const url = normalise(raw);
       if (isJs ? !JS_URL_ALLOWLIST.has(url) : !MARKUP_NS.has(url))

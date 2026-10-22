@@ -103,6 +103,19 @@ footer {
   font-size: var(--fs-1);
   color: var(--c-ink-3);
 }
+footer .footer-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-4);
+}
+footer .repo-link svg {
+  margin-right: 6px;
+  flex: none;
+}
+footer .app-version {
+  font-variant-numeric: tabular-nums;
+}
 footer a {
   color: var(--c-accent-text);
   display: inline-flex;

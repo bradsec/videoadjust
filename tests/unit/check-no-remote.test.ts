@@ -50,4 +50,13 @@ describe('check-no-remote', () => {
     expect(checkRemote({ 'icon.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>' })).toEqual([]);
     expect(checkRemote({ 'THIRD-PARTY-LICENSES.txt': 'https://github.com/x' })).toEqual([]);
   });
+
+  it('allows the repo link only as an anchor href in HTML', () => {
+    const repo = 'https://github.com/bradsec/videomate';
+    expect(checkRemote({ 'index.html': `<a class="repo-link" href="${repo}">x</a>` })).toEqual([]);
+    expect(checkRemote({ 'index.html': `<img src="${repo}">` })).not.toEqual([]);
+    expect(checkRemote({ 'index.html': `<a href="${repo}/evil">x</a>` })).not.toEqual([]);
+    expect(checkRemote({ 'a.css': `a{background:url(${repo})}` })).not.toEqual([]);
+    expect(js(`fetch("${repo}")`)).not.toEqual([]);
+  });
 });

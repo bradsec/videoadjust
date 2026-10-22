@@ -5,8 +5,9 @@
 [![License: MIT](https://img.shields.io/github/license/bradsec/videomate)](LICENSE)
 [![Live site](https://img.shields.io/website?url=https%3A%2F%2Fbradsec.github.io%2Fvideomate%2F&label=bradsec.github.io%2Fvideomate)](https://bradsec.github.io/videomate/)
 
-Shrink and trim phone videos in the browser so they are small enough to send. Pick a video, trim
-it, choose a size, export, then compare the original and the new file. Output defaults to MP4 with
+Private video tools that run in the browser. Nothing is uploaded. Today videomate shrinks, trims
+and converts videos: pick a video, trim it, choose a size, format and codecs, export, then compare
+the original and the new file. More tools, starting with audio extraction, are planned. Output defaults to MP4 with
 H.264 video and AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and
 the frame rate is never raised. Conversion runs locally on WebCodecs through
 [Mediabunny](https://mediabunny.dev/). No ffmpeg.wasm.
