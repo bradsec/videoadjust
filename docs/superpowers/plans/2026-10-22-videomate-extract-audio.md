@@ -72,7 +72,7 @@ Rules the tests pin:
 - Estimate: mp3/m4a `bitrate * seconds / 8 * 1.01`; m4a copy uses source bitrate; wav `sampleRate * channels * 2 * seconds + 44`. Low/high factors 0.85 / 1.15 for lossy, 1.0 / 1.0 for wav. Seconds = trimmed span.
 - `audioOutputName('IMG_4907.MP4', 'mp3') === 'IMG_4907-audio.mp3'`; a name without a dot gets the suffix appended.
 
-- [ ] **Step 1:** Write `tests/unit/audioExtract.test.ts` covering every rule above: stereo AAC 160k source gives mp3 128k; mono 96k source gives 96k mono; 48k source floors to 64k; no audio and undecodable give null; m4a copy on/off cases (AAC 128k on, AAC 192k off, Opus off, mono override on stereo source off); m4a without AAC capability validates to mp3; invalid bitrate resets; change count; lower steps from 128k to 96k, from 64k to null, wav to mp3; estimates for 60 s at 128k (mid 968 000 bytes), wav 48 kHz stereo 10 s (1 920 044 bytes, low equals high); output naming.
+- [ ] **Step 1:** Write `tests/unit/audioExtract.test.ts` covering every rule above: stereo AAC 160k source gives mp3 128k; mono 96k source gives 96k mono; 48k source floors to 64k; no audio and undecodable give null; m4a copy on/off cases (AAC 128k on, AAC 192k off, Opus off, mono override on stereo source off); m4a without AAC capability validates to mp3; invalid bitrate resets; change count; lower steps from 128k to 96k, from 64k to null, wav to mp3; estimates for 60 s at 128k (mid 969 600 bytes), wav 48 kHz stereo 10 s (1 920 044 bytes, low equals high); output naming.
 - [ ] **Step 2:** Run `pnpm exec vitest run tests/unit/audioExtract.test.ts`; expect failure (module missing).
 - [ ] **Step 3:** Implement `src/core/audioExtract.ts`.
 - [ ] **Step 4:** Run the test file, then `pnpm test`, `pnpm typecheck`, `pnpm lint`; all pass.
