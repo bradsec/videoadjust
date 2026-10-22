@@ -71,8 +71,8 @@ audio file, privately and locally, with the same trim control.
   - Channel override: stereo or mono (only mono for a mono source).
   - Bitrate steps: 64, 96, 128, 160, 192, 320 kbps. The user may pick a
     step above the source bitrate; auto never does.
-- **MP3 encoder.** Use native WebCodecs MP3 encode if `canEncodeAudio('mp3')`
-  says so (rare); else register `@mediabunny/mp3-encoder` 1.62.0 (MPL-2.0
+- **MP3 encoder.** Always register (native WebCodecs MP3 in Playwright WebKit
+  ignored the bitrate and cut the tail, so it is not trusted) `@mediabunny/mp3-encoder` 1.62.0 (MPL-2.0
   package, embeds a WASM build of LAME, LGPL). Load it as a lazy same-origin
   chunk on first MP3 export, like the AAC fallback. Add it to the licence
   check's per-package LGPL exception after verifying the exact LGPL

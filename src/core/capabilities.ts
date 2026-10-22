@@ -51,13 +51,12 @@ export function registerMp3Fallback(): Promise<boolean> {
   return mp3Registration;
 }
 
+// The bundled encoder is used even where WebCodecs claims MP3 support: WebKit's native MP3
+// encoder (Playwright WebKit) ignored the requested bitrate and dropped the last 0.2 s. Mediabunny
+// picks a registered custom encoder before the native one.
 export async function ensureMp3Encoder(
-  deps: { canEncodeAudio: typeof canEncodeAudio; register: () => Promise<boolean> } = {
-    canEncodeAudio,
-    register: registerMp3Fallback,
-  },
+  deps: { register: () => Promise<boolean> } = { register: registerMp3Fallback },
 ): Promise<void> {
-  if (await deps.canEncodeAudio('mp3')) return;
   if (!(await deps.register())) throw new Error('No MP3 encoder is available in this browser');
 }
 

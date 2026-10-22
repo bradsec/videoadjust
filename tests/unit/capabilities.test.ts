@@ -1,4 +1,3 @@
-import type { canEncodeAudio } from 'mediabunny';
 import { describe, expect, test, vi } from 'vitest';
 import { ensureMp3Encoder, probeCapabilities, type ProbeDeps } from '../../src/core/capabilities';
 
@@ -128,17 +127,9 @@ describe('registerAacFallback', () => {
 });
 
 describe('ensureMp3Encoder', () => {
-  const canEncode = (mp3: boolean) => vi.fn(async () => mp3) as unknown as typeof canEncodeAudio;
-
-  test('native MP3: registration skipped', async () => {
+  test('registers the bundled encoder even when the browser claims native MP3', async () => {
     const register = vi.fn(async () => true);
-    await ensureMp3Encoder({ canEncodeAudio: canEncode(true), register });
-    expect(register).not.toHaveBeenCalled();
-  });
-
-  test('no native MP3: registers the fallback', async () => {
-    const register = vi.fn(async () => true);
-    await ensureMp3Encoder({ canEncodeAudio: canEncode(false), register });
+    await ensureMp3Encoder({ register });
     expect(register).toHaveBeenCalledTimes(1);
   });
 
@@ -147,7 +138,7 @@ describe('ensureMp3Encoder', () => {
       .fn<() => Promise<boolean>>()
       .mockRejectedValueOnce(new Error('chunk failed'))
       .mockResolvedValueOnce(true);
-    const d = { canEncodeAudio: canEncode(false), register };
+    const d = { register };
     await expect(ensureMp3Encoder(d)).rejects.toThrow('chunk failed');
     await expect(ensureMp3Encoder(d)).resolves.toBeUndefined();
     expect(register).toHaveBeenCalledTimes(2);
@@ -155,8 +146,6 @@ describe('ensureMp3Encoder', () => {
 
   test('a fallback reporting false rejects', async () => {
     const register = vi.fn(async () => false);
-    await expect(ensureMp3Encoder({ canEncodeAudio: canEncode(false), register })).rejects.toThrow(
-      /MP3/,
-    );
+    await expect(ensureMp3Encoder({ register })).rejects.toThrow(/MP3/);
   });
 });
