@@ -1335,6 +1335,7 @@ table.stats {
   width: 24px;
   height: 24px;
   fill: currentColor;
+  stroke-width: 4;
 }
 .wave {
   position: relative;

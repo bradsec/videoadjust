@@ -348,6 +348,10 @@ test('a WAV extract reports PCM 16-bit and lossless', async ({ page }) => {
   const stats = page.locator('.stats');
   await expect(stats.locator('tbody tr', { hasText: 'Codec' })).toContainText('PCM 16-bit');
   await expect(stats.locator('tbody tr', { hasText: 'Bitrate' })).toContainText('Lossless');
+  // WAV is lossless and larger than the video here, but there is nothing to suggest.
+  await expect(page.locator('.not-smaller')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Lower bitrate' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Start over' })).toBeVisible();
   await axeClean(page);
 });
 

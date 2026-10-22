@@ -572,6 +572,9 @@ function renderResult(
 ): Mounted {
   const { output, source } = state;
   const audioOnly = state.tool === 'audio';
+  // WAV is lossless, so no setting makes it smaller and there is nothing to suggest.
+  const lossless = audioOnly && state.audioSettings?.format === 'wav';
+  const showNotSmaller = state.notSmaller && !lossless;
   const split = el('div', 'split');
   const main = el('div', 'main-col');
   const side = el('aside', 'side-col');
@@ -601,16 +604,24 @@ function renderResult(
   main.append(verdict);
 
   let notice: HTMLElement | undefined;
-  if (state.notSmaller) {
+  if (showNotSmaller) {
     notice = el('div', 'notice warn not-smaller');
     notice.setAttribute('role', 'alert');
     const body = el('div', 'body');
     body.append(
-      el('h2', undefined, 'The new file is not smaller than the original'),
+      el(
+        'h2',
+        undefined,
+        audioOnly
+          ? 'The audio file is not smaller than the original video'
+          : 'The new file is not smaller than the original',
+      ),
       el(
         'p',
         undefined,
-        'This video was already compressed well. Make it smaller tries the next smaller size, or lower quality if no smaller size is left.',
+        audioOnly
+          ? 'Lower the bitrate, or choose MP3 or M4A.'
+          : 'This video was already compressed well. Make it smaller tries the next smaller size, or lower quality if no smaller size is left.',
       ),
     );
     notice.append(icon('i-warn'), body);
@@ -629,7 +640,7 @@ function renderResult(
       detail: [
         a ? audioLabel(a.codec) : AUDIO_FORMATS[state.audioSettings.format].label,
         a?.codec?.startsWith('pcm') || !a?.bitrate ? null : formatBitrate(a.bitrate),
-        a?.channels === 1 ? 'mono' : 'stereo',
+        a ? (a.channels === 1 ? 'mono' : 'stereo') : null,
       ]
         .filter(Boolean)
         .join(' · '),
@@ -706,15 +717,18 @@ function renderResult(
     });
     actions.append(share);
   }
-  const smaller = el('button', state.notSmaller ? 'btn btn-quiet is-suggested' : 'btn btn-quiet');
-  smaller.type = 'button';
-  smaller.append(icon('i-smaller'), audioOnly ? 'Lower bitrate' : 'Make it smaller');
-  smaller.addEventListener('click', () => dispatch({ type: 'smaller' }));
+  if (!lossless) {
+    const smaller = el('button', showNotSmaller ? 'btn btn-quiet is-suggested' : 'btn btn-quiet');
+    smaller.type = 'button';
+    smaller.append(icon('i-smaller'), audioOnly ? 'Lower bitrate' : 'Make it smaller');
+    smaller.addEventListener('click', () => dispatch({ type: 'smaller' }));
+    actions.append(smaller);
+  }
   const restart = el('button', 'btn btn-quiet');
   restart.type = 'button';
   restart.append(icon('i-restart'), 'Start over');
   restart.addEventListener('click', () => dispatch({ type: 'reset' }));
-  actions.append(smaller, restart);
+  actions.append(restart);
   side.append(stats, actions, shareNote);
 
   split.append(main, side);
