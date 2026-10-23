@@ -8,7 +8,7 @@ import {
 } from '../core/overlays';
 import type { Settings, SourceInfo } from '../core/types';
 import { normalizeCrop, rotatedSize } from '../core/videoGeometry';
-import { el } from './dom';
+import { el, icon } from './dom';
 
 export function mountOverlayEditor(
   host: HTMLElement,
@@ -16,6 +16,7 @@ export function mountOverlayEditor(
   source: NonNullable<SourceInfo['video']>,
   initial: Settings,
   onChange: (value: Overlays) => void,
+  toolbar: HTMLElement = host,
 ): {
   update(settings: Settings, assets?: OverlayAssets): void;
   setTool(enabled: boolean): void;
@@ -28,7 +29,8 @@ export function mountOverlayEditor(
   let playable = true;
   let version = 0;
   let bounds: { text?: OverlayBounds; image?: OverlayBounds } = {};
-  const toggle = el('button', 'btn btn-text crop-edit-toggle', 'Overlay');
+  const toggle = el('button', 'btn edit-tool crop-edit-toggle');
+  toggle.append(icon('i-text'), 'Overlay');
   toggle.type = 'button';
   toggle.setAttribute('aria-pressed', 'false');
   const editor = el('section', 'overlay-editor');
@@ -56,7 +58,8 @@ export function mountOverlayEditor(
     status,
     done,
   );
-  host.append(toggle, editor);
+  toolbar.append(toggle);
+  host.append(editor);
   function overlays(): Overlays {
     return settings.overlays ?? defaultOverlays();
   }
@@ -193,13 +196,15 @@ export function mountOverlayEditor(
     toggle.setAttribute('aria-pressed', String(editing));
     video.style.display = editing ? 'none' : '';
     if (editing) {
-      const cropToggle = host.querySelector<HTMLButtonElement>(
+      const cropToggle = toolbar.querySelector<HTMLButtonElement>(
         '.crop-edit-toggle[aria-pressed="true"]',
       );
       if (cropToggle && cropToggle !== toggle) cropToggle.click();
       video.style.display = 'none';
       video.pause();
       video.preload = 'auto';
+      // The toggle sits below the editor, so on a phone the editor can open above the screen.
+      editor.scrollIntoView({ block: 'start' });
       void draw();
     }
   }
@@ -215,7 +220,7 @@ export function mountOverlayEditor(
       toggle.setAttribute('aria-pressed', 'false');
     }
   };
-  host.addEventListener('click', closeForCrop);
+  toolbar.addEventListener('click', closeForCrop);
   toggle.addEventListener('click', () => setEditing(!editing));
   done.addEventListener('click', () => {
     setEditing(false);
@@ -243,7 +248,7 @@ export function mountOverlayEditor(
     },
     destroy() {
       version++;
-      host.removeEventListener('click', closeForCrop);
+      toolbar.removeEventListener('click', closeForCrop);
       video.removeEventListener('seeked', redraw);
       video.removeEventListener('loadeddata', redraw);
     },

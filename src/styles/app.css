@@ -563,9 +563,35 @@ footer a:hover {
 .preview-video {
   object-fit: contain;
 }
-.crop-edit-toggle {
-  align-self: flex-start;
-  margin-block: var(--s-2);
+/* The file now leads the canvas, so it sits on the preview rather than under a rule. */
+.canvas > .file-line {
+  border-bottom: 0;
+  padding-top: 0;
+  padding-bottom: var(--s-3);
+}
+.edit-section {
+  padding-block: var(--s-4);
+  border-bottom: 1px solid var(--line);
+}
+.edit-section[hidden] {
+  display: none;
+}
+.edit-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+.edit-tool {
+  flex: 1 1 0;
+  padding-inline: var(--s-3);
+  white-space: nowrap;
+}
+.edit-tool svg.i {
+  color: var(--accent-text);
+}
+.edit-tool[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 .crop-editor {
   width: 100%;
@@ -785,7 +811,8 @@ footer a:hover {
 .trim {
   padding-top: var(--s-4);
 }
-.trim-head {
+.trim-head,
+.section-head {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -793,7 +820,8 @@ footer a:hover {
   gap: var(--s-1) var(--s-3);
   margin-bottom: var(--s-3);
 }
-.trim-head h2 {
+.trim-head h2,
+.section-head h2 {
   font-size: var(--fs-18);
   font-weight: 650;
 }

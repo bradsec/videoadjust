@@ -210,9 +210,10 @@ function renderPrepare(
   panelHost.setAttribute('role', 'tabpanel');
   // Overlays apply to Shrink and GIF alike, so their controls sit below whichever panel shows.
   const overlayDetails = el('details', 'adjust overlay-adjust');
-  const overlaySummary = el('summary');
-  overlaySummary.append('Overlay', icon('i-chev'));
-  overlayDetails.append(overlaySummary);
+  const overlayHeading = el('summary');
+  const overlayState = el('span', 'adjust-state');
+  overlayHeading.append('Overlay', overlayState, icon('i-chev'));
+  overlayDetails.append(overlayHeading);
   settingsHost.append(panelHost, overlayDetails);
   let current = state;
   const changeOverlays = (overlays: Settings['overlays']) =>
@@ -339,6 +340,7 @@ function renderPrepare(
     video.load();
     video.remove();
     previewNote.hidden = false;
+    editSection.hidden = true;
     trim.setPreviewPlayable(false);
     cropEditor?.setPlayable(false);
     overlayEditor?.setPlayable(false);
@@ -348,27 +350,42 @@ function renderPrepare(
   another.type = 'button';
   another.addEventListener('click', () => dispatch({ type: 'reset' }));
   head.append(another);
-  canvas.append(toolsHost);
+  // File, then preview, then the two kinds of edit, each under its own heading like Trim.
+  const editSection = el('section', 'edit-section');
+  editSection.setAttribute('aria-label', 'Edit');
+  const editHead = el('div', 'section-head');
+  editHead.append(el('h2', undefined, 'Edit'));
+  const editTools = el('div', 'edit-tools');
+  editSection.append(editHead, editTools);
+  // Editors take the preview's place while open, so they sit directly after it.
+  const editorsHost = el('div', 'editors');
+  canvas.append(toolsHost, head);
   if (previewPlayable) {
-    canvas.append(video, previewNote);
+    canvas.append(video, editorsHost, previewNote, editSection);
     video.src = url;
     if (state.source.video)
-      cropEditor = mountCropEditor(canvas, video, state.source.video, state.settings, (transform) =>
-        changeTransform?.(transform),
+      cropEditor = mountCropEditor(
+        editorsHost,
+        video,
+        state.source.video,
+        state.settings,
+        (transform) => changeTransform?.(transform),
+        editTools,
       );
     if (state.source.video)
       overlayEditor = mountOverlayEditor(
-        canvas,
+        editorsHost,
         video,
         state.source.video,
         state.settings,
         changeOverlays,
+        editTools,
       );
   } else {
     previewNote.hidden = false;
     canvas.append(previewNote);
   }
-  canvas.append(head, noticeSlot, trimHost);
+  canvas.append(noticeSlot, trimHost);
   stage.append(canvas, settingsHost);
   container.replaceChildren(stage);
   function update(value: AppState): void {
@@ -380,6 +397,12 @@ function renderPrepare(
     overlayEditor?.update(value.settings, value.overlayAssets);
     overlayEditor?.setTool(value.tool !== 'audio');
     overlayDetails.hidden = value.tool === 'audio' || !value.source.video;
+    editSection.hidden = value.tool === 'audio' || !previewPlayable || !value.source.video;
+    overlayState.textContent = overlaySummary(
+      value.settings.overlays,
+      !!value.overlayAssets?.image,
+    );
+    overlayState.classList.toggle('is-changed', overlayState.textContent !== 'Off');
     overlayPanel.update(value.settings.overlays);
     tabs.update(value.tool, audioReason(value), gifReason(value));
     if (value.tool !== shownTool) {
@@ -457,6 +480,13 @@ function summaryOutput(settings: Settings): string {
   return [v ? `${Math.min(v.width, v.height)}p` : null, `${codecs} ${container}`]
     .filter(Boolean)
     .join(' · ');
+}
+
+/** "Off", "Text", "Image" or "Text and image", for the Overlay row. */
+function overlaySummary(overlays: Settings['overlays'], hasImage: boolean): string {
+  const text = !!overlays?.text.enabled && !!overlays.text.content.trim();
+  const image = !!overlays?.image.enabled && hasImage;
+  return text && image ? 'Text and image' : text ? 'Text' : image ? 'Image' : 'Off';
 }
 
 /** "270x480" */

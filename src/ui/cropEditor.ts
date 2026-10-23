@@ -6,7 +6,7 @@ import {
   rotatedSize,
   type CropHandle,
 } from '../core/videoGeometry';
-import { el } from './dom';
+import { el, icon } from './dom';
 
 const ratios: { value: CropPreset; label: string }[] = [
   { value: 'free', label: 'Free' },
@@ -24,6 +24,7 @@ export function mountCropEditor(
   source: NonNullable<SourceInfo['video']>,
   initial: Settings,
   onTransform: (transform: NonNullable<Settings['transform']>) => void,
+  toolbar: HTMLElement = host,
 ): {
   update(s: Settings): void;
   setTool(shrink: boolean): void;
@@ -39,7 +40,8 @@ export function mountCropEditor(
   let editing = false;
   let playable = true;
   let shrinkTool = true;
-  const toggle = el('button', 'btn btn-text crop-edit-toggle', 'Crop and rotate');
+  const toggle = el('button', 'btn edit-tool crop-edit-toggle');
+  toggle.append(icon('i-crop'), 'Crop and rotate');
   toggle.type = 'button';
   toggle.setAttribute('aria-pressed', 'false');
   const editor = el('section', 'crop-editor');
@@ -98,7 +100,8 @@ export function mountCropEditor(
   const status = el('p', 'sr');
   status.setAttribute('aria-live', 'polite');
   editor.append(stage, bar, help, status);
-  host.append(toggle, editor);
+  toolbar.append(toggle);
+  host.append(editor);
 
   const frame = () => rotatedSize(source.displayWidth, source.displayHeight, transform.rotate);
   const rect = () => {
@@ -175,7 +178,9 @@ export function mountCropEditor(
       }
       draw();
       layout();
-      ratioSelect.focus();
+      // The toggle sits below the editor, so on a phone the editor can open above the screen.
+      editor.scrollIntoView({ block: 'start' });
+      ratioSelect.focus({ preventScroll: true });
     } else if (next) toggle.focus();
   }
   toggle.addEventListener('click', () => setEditing(!editing));
