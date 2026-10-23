@@ -231,3 +231,15 @@ test('a user font is validated, used, kept across a reload, and removable', asyn
   await expect(font.locator('option', { hasText: 'My Hand (your font)' })).toHaveCount(0);
   await expect(font).toHaveValue('Inter');
 });
+
+test('the text effect can be turned off', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  await page.locator('.overlay-adjust > summary').click();
+  await page.getByLabel('Text overlay', { exact: true }).check();
+  const effect = page.getByLabel('Text effect', { exact: true });
+  await expect(effect).toHaveValue('outline');
+  await expect(page.getByLabel('Effect colour', { exact: true })).toBeVisible();
+  await effect.selectOption({ label: 'No effect' });
+  await expect(page.getByLabel('Effect colour', { exact: true })).toBeHidden();
+});

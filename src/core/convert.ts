@@ -174,6 +174,17 @@ export function createOutputFormat(container: Container, sinkKind: SinkPlan['kin
   return new Mp4OutputFormat({ fastStart: sinkKind === 'memory' ? 'in-memory' : false });
 }
 
+/**
+ * In memory, MP4 and M4A use fast start: Mediabunny holds the whole file and writes it when
+ * the export finishes, so only the header's bytes are reported while it encodes.
+ */
+export function writesWhileEncoding(
+  output: Container | AudioFormat,
+  sinkKind: SinkPlan['kind'],
+): boolean {
+  return !(sinkKind === 'memory' && (output === 'mp4' || output === 'm4a'));
+}
+
 export function createAudioOutputFormat(
   format: AudioFormat,
   sinkKind: SinkPlan['kind'],

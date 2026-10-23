@@ -13,6 +13,7 @@ import {
   discardedPrimaryTracks,
   shrinkJob,
   toConversionOptions,
+  writesWhileEncoding,
 } from '../../src/core/convert';
 import type { AudioExtractSettings } from '../../src/core/audioExtract';
 import type { Settings } from '../../src/core/types';
@@ -407,5 +408,16 @@ describe('createOutputFormat', () => {
   it('uses WebM for the webm container with either sink', () => {
     expect(createOutputFormat('webm', 'memory')).toBeInstanceOf(WebMOutputFormat);
     expect(createOutputFormat('webm', 'file-stream')).toBeInstanceOf(WebMOutputFormat);
+  });
+});
+
+describe('live byte counts', () => {
+  it('reports no bytes while encoding only for in-memory MP4 and M4A, which finish at the end', () => {
+    expect(writesWhileEncoding('mp4', 'memory')).toBe(false);
+    expect(writesWhileEncoding('m4a', 'memory')).toBe(false);
+    expect(writesWhileEncoding('mp4', 'file-stream')).toBe(true);
+    expect(writesWhileEncoding('webm', 'memory')).toBe(true);
+    expect(writesWhileEncoding('mp3', 'memory')).toBe(true);
+    expect(writesWhileEncoding('wav', 'memory')).toBe(true);
   });
 });

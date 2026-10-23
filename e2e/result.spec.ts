@@ -366,3 +366,14 @@ test('a file-stream audio result has no player and says where the file is', asyn
   await expect(page.locator('audio')).toHaveCount(0);
   await axeClean(page);
 });
+
+test('an in-memory MP4 export says Calculating instead of a stuck byte count', async ({ page }) => {
+  await forceMemorySink(page);
+  await open(page, 'land-1080p30-aac.mp4');
+  await reencode(page);
+  await exportButton(page).click();
+  const progress = page.getByRole('region', { name: 'Export progress' });
+  await expect(progress).toContainText('Written so far');
+  await expect(progress).toContainText('Calculating…');
+  await expect(progress).not.toContainText(/\d+ B\b/);
+});

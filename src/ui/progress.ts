@@ -8,6 +8,8 @@ export interface ProgressOptions {
   /** Estimated output size range. */
   expected?: { low: number; high: number };
   showBytes?: boolean;
+  /** False when the output is written only at the end, so a running count would stay near 0. */
+  liveBytes?: boolean;
 }
 
 // Below this much progress a remaining-time guess swings too much to show.
@@ -123,6 +125,13 @@ export function mountProgress(
         : p >= 1
           ? 'Finishing'
           : 'Estimating';
+    if (opts.liveBytes === false) {
+      written.value.textContent = 'Calculating…';
+      meter.newValue.textContent = 'Calculating…';
+      if (opts.originalBytes && opts.expected)
+        meter.show(opts.expected.low, opts.expected.high, opts.originalBytes);
+      return;
+    }
     written.value.textContent = formatBytes(bytes);
     meter.newValue.textContent = formatBytes(bytes);
     if (opts.originalBytes) meter.show(bytes, bytes, opts.originalBytes);

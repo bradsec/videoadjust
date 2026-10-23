@@ -74,13 +74,14 @@ export function mountOverlayPanel(
     choices: readonly T[],
     get: () => T,
     set: (v: T) => void,
+    labels: Partial<Record<T, string>> = {},
   ): void {
     const input = el('select', 'setting-select');
     for (const choice of choices) {
       const option = el(
         'option',
         undefined,
-        choice.replaceAll('-', ' ').replace(/^./, (s) => s.toUpperCase()),
+        labels[choice] ?? choice.replaceAll('-', ' ').replace(/^./, (s) => s.toUpperCase()),
       );
       option.value = choice;
       input.append(option);
@@ -287,21 +288,22 @@ export function mountOverlayPanel(
   );
   select(
     textFields,
-    'Legibility',
+    'Text effect',
     ['none', 'outline', 'shadow', 'box'],
     () => value.text.legibility,
     (legibility) => text({ legibility }),
+    { none: 'No effect', box: 'Box behind text' },
   );
   const legibility = el('div', 'overlay-fields');
   color(
     legibility,
-    'Legibility colour',
+    'Effect colour',
     () => value.text.legibilityColor,
     (legibilityColor) => text({ legibilityColor }),
   );
   number(
     legibility,
-    'Legibility opacity (%)',
+    'Effect opacity (%)',
     () => value.text.legibilityOpacity,
     (legibilityOpacity) => text({ legibilityOpacity }),
   );

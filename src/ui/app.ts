@@ -1,5 +1,6 @@
 import { CanvasSink } from 'mediabunny';
 import { AUDIO_FORMATS, audioUnavailable, type AudioExtractSettings } from '../core/audioExtract';
+import { writesWhileEncoding } from '../core/convert';
 import { gifDimensions, gifUnavailable } from '../core/gifExport';
 import type { Settings, SourceInfo } from '../core/types';
 import { mountAudioPanel } from './audioPanel';
@@ -533,6 +534,12 @@ function renderWorking(
     originalBytes: state.tool === 'gif' ? undefined : state.source.sizeBytes,
     expected: state.tool === 'gif' ? undefined : state.estimate,
     showBytes: state.tool !== 'gif',
+    liveBytes: writesWhileEncoding(
+      state.tool === 'audio' && state.audioSettings
+        ? state.audioSettings.format
+        : state.settings.container,
+      state.sinkKind,
+    ),
   });
   const note = el(
     'p',
