@@ -3,5 +3,13 @@ node_modules/
 dist/
 test-results/
 playwright-report/
+blob-report/
+coverage/
+.env
+.env.*
+.vscode/
+.idea/
+.codex/
+.claude/
 .DS_Store
 *.log
