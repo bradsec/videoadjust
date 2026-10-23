@@ -13,6 +13,8 @@
 html {
   background: var(--bg);
   scroll-padding-bottom: var(--dock-space, 0px);
+  /* No double-tap zoom on quick taps of buttons and fields; pinch zoom still works. */
+  touch-action: manipulation;
 }
 body {
   display: flex;
@@ -920,6 +922,8 @@ input[type='checkbox']:disabled {
   background: var(--bg);
   color: var(--text);
   font: inherit;
+  /* iOS zooms the page into any text field under 16px when it takes focus. */
+  font-size: var(--fs-16);
   font-variant-numeric: tabular-nums;
 }
 .overlay-setting input[type='color'] {

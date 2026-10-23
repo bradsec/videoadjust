@@ -102,3 +102,27 @@ for (const tool of ['shrink', 'audio'] as const) {
     expect(axe.violations).toEqual([]);
   });
 }
+
+test('phone taps do not zoom the page', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture('land-1080p30-aac.mp4'));
+  await expect(page.getByRole('region', { name: 'Export summary' })).toBeVisible();
+  for (const details of await page.locator('details').all())
+    await details.evaluate((node) => ((node as HTMLDetailsElement).open = true));
+  await page.getByLabel('Text overlay', { exact: true }).check();
+  const look = await page.evaluate(() => ({
+    touchAction: getComputedStyle(document.documentElement).touchAction,
+    pageWidth: document.documentElement.scrollWidth,
+    viewWidth: document.documentElement.clientWidth,
+    // iOS zooms into any text field under 16px when it takes focus.
+    small: [...document.querySelectorAll('textarea, select, input')]
+      .filter(
+        (node) => !/^(checkbox|range|color|file|hidden)$/.test((node as HTMLInputElement).type),
+      )
+      .filter((node) => parseFloat(getComputedStyle(node).fontSize) < 16)
+      .map((node) => node.getAttribute('aria-label') ?? node.tagName),
+  }));
+  expect(look.touchAction).toBe('manipulation');
+  expect(look.small).toEqual([]);
+  expect(look.pageWidth).toBeLessThanOrEqual(look.viewWidth);
+});
