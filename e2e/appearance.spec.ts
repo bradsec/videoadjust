@@ -82,7 +82,7 @@ async function startExport(page: Page, tool: 'shrink' | 'audio') {
 }
 
 for (const tool of ['shrink', 'audio'] as const) {
-  test(`the ${tool} working screen is axe clean`, async ({ page }) => {
+  test(`the ${tool} working screen is axe clean`, { tag: '@mobile' }, async ({ page }) => {
     await stalledSavePicker(page);
     await startExport(page, tool);
     await expect(page.getByRole('button', { name: 'Cancel export' })).toBeVisible({
@@ -92,7 +92,7 @@ for (const tool of ['shrink', 'audio'] as const) {
     expect(axe.violations).toEqual([]);
   });
 
-  test(`the ${tool} result screen is axe clean`, async ({ page }) => {
+  test(`the ${tool} result screen is axe clean`, { tag: '@mobile' }, async ({ page }) => {
     test.setTimeout(90_000); // a real export; slow when workers share the CPU
     await memorySink(page);
     await startExport(page, tool);
@@ -103,7 +103,7 @@ for (const tool of ['shrink', 'audio'] as const) {
   });
 }
 
-test('phone taps do not zoom the page', async ({ page }) => {
+test('phone taps do not zoom the page', { tag: '@mobile' }, async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('#file', fixture('land-1080p30-aac.mp4'));
   await expect(page.getByRole('region', { name: 'Export summary' })).toBeVisible();

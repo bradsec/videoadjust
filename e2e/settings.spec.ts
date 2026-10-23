@@ -81,7 +81,7 @@ test('GIF rotation and crop preserve overlays edited after switching tools', asy
   await expect(page.getByLabel('Text overlay', { exact: true })).toBeChecked();
 });
 
-test('crop editor moves and resizes the square guide', async ({ page }) => {
+test('crop editor moves and resizes the square guide', { tag: '@mobile' }, async ({ page }) => {
   const card = page.getByRole('region', { name: 'Export summary' });
   await card.locator('summary').click();
   await page.getByRole('button', { name: 'Crop and rotate' }).click();

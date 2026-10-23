@@ -8,8 +8,10 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-    { name: 'iphone', use: { ...devices['iPhone 15'] } },
-    { name: 'ipad', use: { ...devices['iPad Pro 11'] } },
+    // Phone and tablet run the same WebKit as the webkit project; the app differs there only by
+    // CSS breakpoints and touch input, so these projects run just the tests tagged @mobile.
+    { name: 'iphone', use: { ...devices['iPhone 15'] }, grep: /@mobile/ },
+    { name: 'ipad', use: { ...devices['iPad Pro 11'] }, grep: /@mobile/ },
   ],
   webServer: {
     command: `${process.env.CI ? 'pnpm exec vite build' : 'pnpm build'} && pnpm preview --port 4317 --strictPort`,

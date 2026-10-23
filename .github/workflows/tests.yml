@@ -27,17 +27,21 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm check:licenses
-      - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm test
+      # build also runs check:licenses and typecheck (tsc --noEmit) before vite build.
       - run: pnpm build
       - run: pnpm check:size
 
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # The image ships chromium, webkit and their system packages, so shards skip the browser
+    # install. Its tag must match @playwright/test, which package.json pins exactly for that reason.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --user 1001
     strategy:
       fail-fast: false
       matrix:
@@ -52,19 +56,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - id: playwright-version
-        run: node -p '"version=" + require("@playwright/test/package.json").version' >> "$GITHUB_OUTPUT"
-      - id: playwright-cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
-      - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium webkit
-        timeout-minutes: 10
-      - if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium webkit
-        timeout-minutes: 10
       - run: pnpm test:e2e --workers=2 --shard=${{ matrix.shard }}
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -81,8 +72,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # The merged HTML report is for debugging, so green runs skip this job.
   e2e-report:
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.e2e.result == 'failure' }}
     needs: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 10

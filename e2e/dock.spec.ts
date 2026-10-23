@@ -26,12 +26,12 @@ async function expectDockOnScreen(page: Page) {
   await expect(card.getByRole('button', { name: /^Export/ })).toBeInViewport({ ratio: 1 });
 }
 
-test('the dock is on screen on load', async ({ page }) => {
+test('the dock is on screen on load', { tag: '@mobile' }, async ({ page }) => {
   await open(page);
   await expectDockOnScreen(page);
 });
 
-test('the dock is on screen with a notice above the trim', async ({ page }) => {
+test('the dock is on screen with a notice above the trim', { tag: '@mobile' }, async ({ page }) => {
   // A tiny reported memory makes any in-memory export ask first, which shows a notice.
   await page.addInitScript(() => {
     Object.defineProperty(Navigator.prototype, 'deviceMemory', { get: () => 1e-7 });
@@ -45,10 +45,14 @@ test('the dock is on screen with a notice above the trim', async ({ page }) => {
   await expectDockOnScreen(page);
 });
 
-test('the page reserves the dock height so the footer scrolls clear of it', async ({ page }) => {
-  const card = await open(page);
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  const dock = (await card.locator('.dock').boundingBox())!;
-  const footer = (await page.locator('footer').boundingBox())!;
-  expect(footer.y + footer.height).toBeLessThanOrEqual(dock.y + 1);
-});
+test(
+  'the page reserves the dock height so the footer scrolls clear of it',
+  { tag: '@mobile' },
+  async ({ page }) => {
+    const card = await open(page);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const dock = (await card.locator('.dock').boundingBox())!;
+    const footer = (await page.locator('footer').boundingBox())!;
+    expect(footer.y + footer.height).toBeLessThanOrEqual(dock.y + 1);
+  },
+);

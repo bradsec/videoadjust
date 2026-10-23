@@ -1,4 +1,3 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 const fixture = new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname;
@@ -40,7 +39,7 @@ test.describe('with a video loaded', () => {
     await expect(page.locator('.export-estimate-big')).not.toHaveText(initialEstimate!);
   });
 
-  test('pointer drag changes the start readout', async ({ page, isMobile }) => {
+  test('pointer drag changes the start readout', { tag: '@mobile' }, async ({ page, isMobile }) => {
     const start = page.getByRole('slider', { name: 'Start' });
     const strip = page.locator('.trim-strip');
     const box = await strip.boundingBox();
@@ -59,11 +58,6 @@ test.describe('with a video loaded', () => {
       .poll(async () => Number(await start.getAttribute('aria-valuenow')))
       .toBeGreaterThan(0);
     await expect(page.locator('.trim-readout').first().locator('output')).not.toHaveText('0:00');
-  });
-
-  test('prepare screen has no accessibility violations', async ({ page }) => {
-    const results = await new AxeBuilder({ page }).analyze();
-    expect(results.violations).toEqual([]);
   });
 
   test('preview error falls back after the source was accepted', async ({ page }) => {

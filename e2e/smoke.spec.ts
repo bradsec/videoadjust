@@ -1,18 +1,22 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-test('loads, has no axe violations, makes no cross-origin requests', async ({ page, baseURL }) => {
-  const origin = new URL(baseURL!).host;
-  const foreign: string[] = [];
-  page.on('request', (req) => {
-    const url = new URL(req.url());
-    if (url.protocol.startsWith('http') && url.host !== origin) foreign.push(req.url());
-  });
+test(
+  'loads, has no axe violations, makes no cross-origin requests',
+  { tag: '@mobile' },
+  async ({ page, baseURL }) => {
+    const origin = new URL(baseURL!).host;
+    const foreign: string[] = [];
+    page.on('request', (req) => {
+      const url = new URL(req.url());
+      if (url.protocol.startsWith('http') && url.host !== origin) foreign.push(req.url());
+    });
 
-  await page.goto('/');
-  await expect(page).toHaveTitle('Free Video Compressor, Converter & GIF Maker | VideoAdjust');
+    await page.goto('/');
+    await expect(page).toHaveTitle('Free Video Compressor, Converter & GIF Maker | VideoAdjust');
 
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations).toEqual([]);
-  expect(foreign).toEqual([]);
-});
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+    expect(foreign).toEqual([]);
+  },
+);

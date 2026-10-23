@@ -71,7 +71,7 @@ pnpm check:remote   # alone: scan dist/ for remote request targets
 node scripts/render-og.mjs   # regenerate public/og-image.png from scripts/og-image.html (needs Playwright chromium)
 scripts/make-icons.sh   # regenerate public/ icons from scripts/icons/*.svg (needs inkscape, ImageMagick)
 pnpm test           # unit tests (vitest)
-pnpm test:e2e       # Playwright (chromium, webkit, iPhone 15, iPad Pro 11)
+pnpm test:e2e       # Playwright (chromium, webkit; iPhone 15 and iPad Pro 11 run tests tagged @mobile)
 scripts/make-fixtures.sh   # regenerate tests/fixtures (needs ffmpeg)
 ```
 
@@ -126,8 +126,10 @@ so it also runs under a subpath. No asset may exceed 25 MiB (Cloudflare Pages li
 
 `.github/workflows/tests.yml` runs on pushes to `main`, pull requests and manual dispatches. Checks,
 unit tests and the production build run in parallel with browser tests, which split into three
-shards of two workers each and cache browsers by Playwright version. An `e2e-report` job merges the
-shards' blob reports into one HTML report artifact. A newer run cancels an older run on the same ref. Cloudflare
+shards of two workers each inside the Playwright container image, whose tag must match the pinned
+`@playwright/test` version. The `build` step covers the licence check and type check. When any
+shard fails, an `e2e-report` job merges the shards' blob reports into one HTML report artifact. A
+newer run cancels an older run on the same ref. Cloudflare
 deploys on every push to `main` independently of the Tests workflow, so a red Tests run does not block
 a deploy.
 

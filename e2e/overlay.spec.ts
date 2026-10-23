@@ -141,38 +141,42 @@ async function settledBox(locator: Locator) {
   return JSON.parse(previous) as { x: number; y: number; width: number; height: number };
 }
 
-test('overlay controls enable text, and the editor shows and moves it', async ({ page }) => {
-  await page.goto('/');
-  await page.setInputFiles(
-    '#file',
-    new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname,
-  );
-  const card = page.getByRole('region', { name: 'Export summary' });
-  await expect(card).toBeVisible();
-  await page.locator('.overlay-adjust > summary').click();
-  // Nothing to move yet, so the editor is not offered.
-  await expect(page.getByRole('button', { name: 'Position overlay' })).toBeHidden();
-  await page.getByLabel('Text overlay', { exact: true }).check();
-  await expect(page.getByRole('button', { name: 'Position overlay' })).toBeHidden();
-  await page.getByLabel('Overlay text', { exact: true }).fill('Hello there');
-  await page.getByLabel('Overlay text', { exact: true }).blur();
-  await expect(card).toContainText('1 change');
-  await page.getByRole('button', { name: 'Position overlay' }).click();
-  const selection = page.getByRole('button', { name: 'Move text overlay' });
-  await expect(selection).toBeVisible();
-  const before = await settledBox(selection);
-  await selection.focus();
-  await page.keyboard.press('Shift+ArrowLeft');
-  await expect.poll(async () => (await selection.boundingBox())!.x).toBeLessThan(before.x);
-  const box = await settledBox(selection);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 40);
-  await page.mouse.up();
-  await expect.poll(async () => (await selection.boundingBox())!.y).toBeLessThan(box.y);
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations).toEqual([]);
-});
+test(
+  'overlay controls enable text, and the editor shows and moves it',
+  { tag: '@mobile' },
+  async ({ page }) => {
+    await page.goto('/');
+    await page.setInputFiles(
+      '#file',
+      new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname,
+    );
+    const card = page.getByRole('region', { name: 'Export summary' });
+    await expect(card).toBeVisible();
+    await page.locator('.overlay-adjust > summary').click();
+    // Nothing to move yet, so the editor is not offered.
+    await expect(page.getByRole('button', { name: 'Position overlay' })).toBeHidden();
+    await page.getByLabel('Text overlay', { exact: true }).check();
+    await expect(page.getByRole('button', { name: 'Position overlay' })).toBeHidden();
+    await page.getByLabel('Overlay text', { exact: true }).fill('Hello there');
+    await page.getByLabel('Overlay text', { exact: true }).blur();
+    await expect(card).toContainText('1 change');
+    await page.getByRole('button', { name: 'Position overlay' }).click();
+    const selection = page.getByRole('button', { name: 'Move text overlay' });
+    await expect(selection).toBeVisible();
+    const before = await settledBox(selection);
+    await selection.focus();
+    await page.keyboard.press('Shift+ArrowLeft');
+    await expect.poll(async () => (await selection.boundingBox())!.x).toBeLessThan(before.x);
+    const box = await settledBox(selection);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 40);
+    await page.mouse.up();
+    await expect.poll(async () => (await selection.boundingBox())!.y).toBeLessThan(box.y);
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  },
+);
 
 test('an uploaded SVG overlay shows in the editor and survives a GIF export', async ({ page }) => {
   test.setTimeout(90_000);

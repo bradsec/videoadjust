@@ -48,16 +48,22 @@ test('opens the native picker from the Choose video button', async ({ page }) =>
   expect((await chooser).isMultiple()).toBe(false);
 });
 
-test('moves to the prepare state with the file name and summary', async ({ page }) => {
-  await page.setInputFiles('#file', fixture('land-1080p30-aac.mp4'));
-  await expect(page.getByRole('heading', { level: 1, name: 'land-1080p30-aac.mp4' })).toBeVisible();
-  await expect(page.locator('.file-summary')).toContainText('1920x1080');
-  await expect(page.locator('.file-summary')).toContainText('30 fps');
-  await expect(page.locator('.file-summary')).toContainText('H.264');
-  await expect(page.getByRole('button', { name: 'Choose video' })).toHaveCount(0);
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations).toEqual([]);
-});
+test(
+  'moves to the prepare state with the file name and summary',
+  { tag: '@mobile' },
+  async ({ page }) => {
+    await page.setInputFiles('#file', fixture('land-1080p30-aac.mp4'));
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'land-1080p30-aac.mp4' }),
+    ).toBeVisible();
+    await expect(page.locator('.file-summary')).toContainText('1920x1080');
+    await expect(page.locator('.file-summary')).toContainText('30 fps');
+    await expect(page.locator('.file-summary')).toContainText('H.264');
+    await expect(page.getByRole('button', { name: 'Choose video' })).toHaveCount(0);
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  },
+);
 
 test('shows an error naming the problem for a non-video and stays on the drop screen', async ({
   page,
