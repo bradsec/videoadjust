@@ -327,9 +327,13 @@ test('an MP3 extract shows the audio result with a working player', async ({ pag
     const video = document.createElement('video');
     video.preload = 'metadata';
     video.src = URL.createObjectURL(new Blob([new Uint8Array(data)], { type: 'video/mp4' }));
-    await new Promise((resolve) =>
-      video.addEventListener('loadedmetadata', resolve, { once: true }),
-    );
+    // Reject on error so a failed load fails the test now instead of hanging until the timeout.
+    await new Promise((resolve, reject) => {
+      video.addEventListener('loadedmetadata', resolve, { once: true });
+      video.addEventListener('error', () => reject(new Error('source video failed to load')), {
+        once: true,
+      });
+    });
     return video.duration;
   }, bytes);
   await expect
