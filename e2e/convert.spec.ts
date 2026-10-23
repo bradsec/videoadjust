@@ -46,6 +46,20 @@ test.describe('video conversion', () => {
     expect(r.reportedBytes).toBe(r.outputBytes);
   });
 
+  test('target export fits under half the unconstrained re-encoded output', async ({ page }) => {
+    await page.setInputFiles('#file', fixture('land-1080p30-aac.mp4'));
+    const baseline = ok(await convert(page, hd));
+    expect(baseline.outputBytes).toBeGreaterThanOrEqual(100_000);
+    const targetBytes = Math.floor(baseline.outputBytes / 2);
+    const result = ok(await convert(page, { ...hd, targetSizeMB: targetBytes / 1_000_000 }));
+    expect(result.outputBytes).toBeLessThanOrEqual(targetBytes);
+    expect(result.outputBytes).toBeGreaterThan(0);
+    expect(Math.abs(result.output.durationSec - 3)).toBeLessThanOrEqual(0.1);
+    expect(result.output.video?.codec).toBe('avc');
+    expect(result.lastProgress).toBe(1);
+    expect(result.reportedBytes).toBe(result.outputBytes);
+  });
+
   test('rotated crop takes its rectangle from the rotated frame', async ({ page }) => {
     await page.setInputFiles('#file', fixture('crop-bands.mp4'));
     // A quarter turn clockwise moves the red left band to the top 140 rows of a 360x640 frame.

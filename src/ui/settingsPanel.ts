@@ -1,5 +1,6 @@
 import { targetVideoBitrate } from '../core/autoSettings';
 import { estimateBytes } from '../core/estimate';
+import { targetSizeStatus } from '../core/targetSize';
 import {
   normalizeCrop,
   outputSize,
@@ -34,6 +35,7 @@ export interface SettingsPanelOptions {
 
 const videoCodecs: VideoCodecId[] = ['avc', 'hevc', 'av1', 'vp9'];
 const audioCodecs: AudioCodecId[] = ['aac', 'opus'];
+const targetPresets = [8, 10, 16, 25, 50, 100];
 const audioRates = [64_000, 96_000, 128_000, 160_000];
 const audioLabels: Record<AudioCodecId, string> = { aac: 'AAC', opus: 'Opus' };
 const formatFps = (fps: number): string => String(Math.round(fps * 100) / 100);
@@ -58,6 +60,9 @@ export function mountSettings(
   changeTransform(t: NonNullable<Settings['transform']>): void;
 } {
   let value = opts.value;
+  let customTarget = !!value.targetSizeMB && !targetPresets.includes(value.targetSizeMB);
+  let invalidTarget = false;
+  let customDraft: string | undefined;
   const card = el('section', 'card export-summary');
   card.setAttribute('aria-label', 'Export summary');
   const eyebrow = el('span', 'overline', 'Ready to export');
@@ -95,7 +100,8 @@ export function mountSettings(
   let busy = false;
   exportButton.addEventListener('click', () => {
     if (exportButton.getAttribute('aria-disabled') === 'true') return;
-    if (opts.auto.alreadyOptimal && !reencode.checked) change({ ...value, passthrough: true });
+    if (!value.targetSizeMB && opts.auto.alreadyOptimal && !reencode.checked)
+      change({ ...value, passthrough: true });
     opts.onExport?.();
   });
   const details = el('details', 'adjust');
@@ -124,7 +130,7 @@ export function mountSettings(
   host.replaceChildren(card);
 
   function change(next: Settings): void {
-    opts.onChange(next);
+    opts.onChange({ ...next, targetRetryScale: undefined });
   }
   function changeTransform(transform: NonNullable<Settings['transform']>): void {
     const video = value.video;
@@ -235,6 +241,65 @@ export function mountSettings(
       (container) => change({ ...value, container: container as Container }),
     );
     groups.push(format);
+
+    const target = group('Target size', 'Off', () => {
+      customTarget = false;
+      customDraft = undefined;
+      invalidTarget = false;
+      change({ ...value, targetSizeMB: null });
+    });
+    target.classList.add('target-setting');
+    select(
+      target,
+      'Target size',
+      [
+        { value: 'off', label: 'Off' },
+        ...targetPresets.map((mb) => ({ value: String(mb), label: `${mb} MB` })),
+        { value: 'custom', label: 'Custom' },
+      ],
+      customTarget ? 'custom' : String(value.targetSizeMB ?? 'off'),
+      (choice) => {
+        customTarget = choice === 'custom';
+        customDraft = undefined;
+        invalidTarget = false;
+        change({
+          ...value,
+          targetSizeMB:
+            choice === 'off' ? null : customTarget ? (value.targetSizeMB ?? 25) : Number(choice),
+        });
+      },
+    );
+    target.append(el('p', 'setting-help', 'Decimal MB: 1 MB = 1,000,000 bytes.'));
+    if (customTarget) {
+      const label = el('label', 'setting-label');
+      label.append(el('span', undefined, 'Custom target (MB)'));
+      const input = el('input', 'setting-select') as HTMLInputElement;
+      input.type = 'number';
+      input.min = '0.05';
+      input.max = '4096';
+      input.step = 'any';
+      input.required = true;
+      input.value = customDraft ?? String(value.targetSizeMB ?? 25);
+      input.setAttribute('aria-invalid', String(invalidTarget));
+      input.setAttribute('aria-label', 'Custom target (MB)');
+      const error = el('p', 'setting-reason', 'Enter a target between 0.05 and 4096 MB.');
+      error.id = 'target-size-error';
+      error.hidden = !invalidTarget;
+      input.setAttribute('aria-describedby', error.id);
+      input.addEventListener('input', () => {
+        customDraft = input.value;
+        invalidTarget = !input.validity.valid;
+        input.setAttribute('aria-invalid', String(invalidTarget));
+        error.hidden = !invalidTarget;
+        renderExportLabel();
+      });
+      input.addEventListener('change', () => {
+        if (!invalidTarget) change({ ...value, targetSizeMB: input.valueAsNumber });
+      });
+      label.append(input);
+      target.append(label, error);
+    }
+    groups.push(target);
 
     if (value.video && opts.auto.settings.video && opts.source.video) {
       const video = value.video;
@@ -559,6 +624,7 @@ export function mountSettings(
       if (input && input.value !== selectedValue) input.value = selectedValue;
     };
     selected('Format', next.container);
+    selected('Target size', customTarget ? 'custom' : String(next.targetSizeMB ?? 'off'));
     if (next.video && opts.source.video) {
       const video = next.video;
       selected('Rotate clockwise', String(next.transform?.rotate ?? 0));
@@ -605,7 +671,9 @@ export function mountSettings(
       if (qualityValue) qualityValue.textContent = `Quality: ${percent}% of auto`;
       const help = controls.querySelector('.quality-setting .setting-help');
       if (help)
-        help.textContent = `25% to ${maxPercent}% of auto · ${formatBitrate(video.bitrate)}`;
+        help.textContent = next.targetSizeMB
+          ? `Quality is set by the target size · ${formatBitrate(video.bitrate)}`
+          : `25% to ${maxPercent}% of auto · ${formatBitrate(video.bitrate)}`;
     }
     const titleInput = controls.querySelector<HTMLInputElement>('input[aria-label="Output title"]');
     if (titleInput && titleInput !== document.activeElement)
@@ -635,8 +703,11 @@ export function mountSettings(
       )
       .forEach((input) => {
         input.disabled =
-          next.passthrough &&
-          !input.closest('.metadata-setting, .transform-setting, .seek-setting');
+          (next.passthrough &&
+            !input.closest(
+              '.metadata-setting, .transform-setting, .seek-setting, .target-setting',
+            )) ||
+          (!!next.targetSizeMB && !!input.closest('.quality-setting'));
       });
   }
   function update(next: Settings): void {
@@ -646,29 +717,37 @@ export function mountSettings(
     const audioName = next.audio ? `/${audioLabels[next.audio.codec]}` : '';
     heading.textContent = `${resolution(next)}, ${videoName}${audioName} ${next.container.toUpperCase()}`;
     sub.textContent = `${formatFps(next.video?.fps ?? 0)} fps · ${audioSummary(next)}`;
-    const { low, high } = estimateBytes(next, opts.source);
-    const range = formatByteRange(low, high);
+    const { low, high, mid } = estimateBytes(next, opts.source);
+    const range = next.targetSizeMB ? formatBytes(mid) : formatByteRange(low, high);
     big.replaceChildren(el('small', undefined, 'est.'), ` ${range}`);
     from.textContent = `from ${formatBytes(opts.source.sizeBytes)}`;
     meter.newValue.textContent = range;
-    meter.show(low, high, opts.source.sizeBytes);
-    optimal.hidden = !opts.auto.alreadyOptimal;
+    meter.show(
+      next.targetSizeMB ? mid : low,
+      next.targetSizeMB ? mid : high,
+      opts.source.sizeBytes,
+    );
+    optimal.hidden = !opts.auto.alreadyOptimal && !(next.targetSizeMB && next.passthrough);
     reencode.checked = !next.passthrough;
     renderExportLabel();
     dockNote.hidden = !opts.auto.alreadyOptimal;
     passthroughReason.hidden = !next.passthrough;
     if (next.passthrough && !wasPassthrough) details.open = false;
-    warning.textContent =
-      next.video?.codec !== 'avc'
-        ? `${videoName} may not play on every device. H.264 MP4 is the most compatible choice.`
-        : '';
+    const targetStatus = targetSizeStatus(next, opts.source);
+    warning.textContent = targetStatus.tight
+      ? 'This target is very tight. Try a shorter trim for better quality.'
+      : targetStatus.alreadyUnder
+        ? 'The trimmed copy is already under your target size. No re-encoding is needed.'
+        : next.video?.codec !== 'avc'
+          ? `${videoName} may not play on every device. H.264 MP4 is the most compatible choice.`
+          : '';
     warning.hidden = !warning.textContent;
     const changes = settingsChangeCount(next, opts.auto, opts.caps, opts.source);
     changeCount.textContent = changes
       ? `${changes} ${changes === 1 ? 'change' : 'changes'}`
       : 'All automatic';
     changeCount.classList.toggle('is-changed', changes > 0);
-    const nextStructure = `${next.container}:${!!next.video}:${!!next.audio}:${next.passthrough}:${next.transform?.rotate}:${next.transform?.crop}:${next.transform?.rect?.width}x${next.transform?.rect?.height}`;
+    const nextStructure = `${customTarget}:${next.container}:${!!next.video}:${!!next.audio}:${next.passthrough}:${next.transform?.rotate}:${next.transform?.crop}:${next.transform?.rect?.width}x${next.transform?.rect?.height}`;
     if (nextStructure !== structure) {
       const active = controls.contains(document.activeElement)
         ? (document.activeElement as HTMLElement)
@@ -688,6 +767,8 @@ export function mountSettings(
     patchControls(next);
   }
   function renderExportLabel(): void {
+    if (busy || invalidTarget) exportButton.setAttribute('aria-disabled', 'true');
+    else exportButton.removeAttribute('aria-disabled');
     exportButton.replaceChildren(
       icon('i-down'),
       busy ? 'Exporting...' : value.passthrough ? 'Export trimmed copy' : 'Export',

@@ -25,6 +25,7 @@ import {
   type startConversion as startConversionFn,
 } from '../core/convert';
 import { estimateBytes } from '../core/estimate';
+import { applyTargetSize, retryTargetSize, validTargetSize } from '../core/targetSize';
 import {
   autoGifSettings,
   exportGif,
@@ -324,6 +325,7 @@ function videoBaseline(video: NonNullable<Settings['video']>, source: SourceInfo
 }
 
 function preserveQuality(previous: Settings, requested: Settings, source: SourceInfo): Settings {
+  if (requested.targetSizeMB) return requested;
   const old = previous.video;
   const next = requested.video;
   if (!old || !next || next.bitrate !== old.bitrate) return requested;
@@ -421,36 +423,54 @@ export function validateSettings(
       copy,
     };
   }
-  return {
-    container,
-    passthrough:
-      auto.alreadyOptimal &&
-      value.passthrough &&
-      !(
-        (value.transform?.rotate ?? 0) ||
-        value.transform?.flip ||
-        (value.transform?.crop ?? 'original') !== 'original' ||
-        effectiveRect ||
-        value.keyFrameInterval
-      ),
-    trim: clampTrim(value.trim, source.durationSec, 'end'),
-    keyFrameInterval:
-      value.keyFrameInterval === 1 || value.keyFrameInterval === 2 ? value.keyFrameInterval : null,
-    transform: source.video
-      ? {
-          rotate: value.transform?.rotate ?? 0,
-          flip: value.transform?.flip ?? false,
-          crop: effectiveCrop,
-          rect: effectiveRect,
-        }
-      : fallback.transform,
-    metadata: {
-      title: value.metadata?.title.trim().slice(0, 200) ?? '',
-      strip: value.metadata?.strip ?? false,
+  const targetSizeMB = validTargetSize(value.targetSizeMB);
+  const canCopyTarget =
+    !!video &&
+    !!source.video &&
+    video.codec === source.video.codec &&
+    video.width === source.video.displayWidth &&
+    video.height === source.video.displayHeight &&
+    video.fps === source.video.fps &&
+    source.containerMime.split(';', 1)[0]?.trim().toLowerCase() === `video/${container}` &&
+    (!audio || (audio.codec === source.audio?.codec && audio.copy));
+  return applyTargetSize(
+    {
+      targetSizeMB,
+      targetRetryScale: value.targetRetryScale,
+      container,
+      passthrough:
+        (targetSizeMB ? canCopyTarget : auto.alreadyOptimal) &&
+        value.passthrough &&
+        !(
+          (value.transform?.rotate ?? 0) ||
+          value.transform?.flip ||
+          (value.transform?.crop ?? 'original') !== 'original' ||
+          effectiveRect ||
+          value.keyFrameInterval
+        ),
+      trim: clampTrim(value.trim, source.durationSec, 'end'),
+      keyFrameInterval:
+        value.keyFrameInterval === 1 || value.keyFrameInterval === 2
+          ? value.keyFrameInterval
+          : null,
+      transform: source.video
+        ? {
+            rotate: value.transform?.rotate ?? 0,
+            flip: value.transform?.flip ?? false,
+            crop: effectiveCrop,
+            rect: effectiveRect,
+          }
+        : fallback.transform,
+      metadata: {
+        title: value.metadata?.title.trim().slice(0, 200) ?? '',
+        strip: value.metadata?.strip ?? false,
+      },
+      video,
+      audio,
     },
-    video,
-    audio,
-  };
+    auto,
+    source,
+  );
 }
 
 /** Compare the effective values shown by the controls, after applying the same limits to both sides. */
@@ -461,7 +481,21 @@ export function settingsChangeCount(
   source: SourceInfo,
 ): number {
   const current = validateSettings(value, auto, caps, source);
-  const automatic = validateSettings(auto.settings, auto, caps, source);
+  const automatic = validateSettings(
+    {
+      ...auto.settings,
+      ...(current.targetSizeMB
+        ? {
+            targetSizeMB: current.targetSizeMB,
+            trim: current.trim,
+            passthrough: current.passthrough,
+          }
+        : {}),
+    },
+    auto,
+    caps,
+    source,
+  );
   const expectedSize =
     automatic.video && source.video
       ? outputSize(
@@ -473,6 +507,7 @@ export function settingsChangeCount(
         )
       : null;
   return (
+    Number(!!current.targetSizeMB) +
     Number(current.container !== automatic.container) +
     Number(current.video?.codec !== automatic.video?.codec) +
     Number(
@@ -483,10 +518,11 @@ export function settingsChangeCount(
     ) +
     Number(current.video?.fps !== automatic.video?.fps) +
     Number(
-      current.video && automatic.video
-        ? Math.round((current.video.bitrate / videoBaseline(current.video, source)) * 100) !==
+      !current.targetSizeMB &&
+        (current.video && automatic.video
+          ? Math.round((current.video.bitrate / videoBaseline(current.video, source)) * 100) !==
             Math.round((automatic.video.bitrate / videoBaseline(automatic.video, source)) * 100)
-        : current.video?.bitrate !== automatic.video?.bitrate,
+          : current.video?.bitrate !== automatic.video?.bitrate),
     ) +
     Number(current.audio?.codec !== automatic.audio?.codec) +
     Number(current.audio?.bitrate !== automatic.audio?.bitrate) +
@@ -677,7 +713,14 @@ export function createController(
             ...state,
             notice: unlessMemoryConfirm(state.notice),
             exporting: undefined,
-            settings: { ...state.settings, trim },
+            settings: state.settings.targetSizeMB
+              ? validateSettings(
+                  { ...state.settings, trim, targetRetryScale: undefined },
+                  state.auto,
+                  state.caps,
+                  state.source,
+                )
+              : { ...state.settings, trim },
             audioSettings: state.audioSettings && { ...state.audioSettings, trim },
             gifSettings: state.gifSettings && { ...state.gifSettings, trim },
           });
@@ -722,7 +765,20 @@ export function createController(
           const settings = validateSettings(
             preserveQuality(
               state.settings,
-              { ...action.value, trim: state.settings.trim },
+              {
+                ...action.value,
+                trim: state.settings.trim,
+                // A retry ratio measured against one target does not carry over to another.
+                targetRetryScale:
+                  action.value.targetSizeMB === state.settings.targetSizeMB
+                    ? action.value.targetRetryScale
+                    : undefined,
+                passthrough:
+                  action.value.passthrough ||
+                  (!!action.value.targetSizeMB &&
+                    !state.settings.targetSizeMB &&
+                    !state.auto.alreadyOptimal),
+              },
               state.source,
             ),
             state.auto,
@@ -767,7 +823,22 @@ export function createController(
         return;
       case 'smaller':
         if (state.kind === 'result') {
-          const next = smallerFor(state);
+          const targetRetry =
+            state.tool === 'shrink' && state.settings.targetSizeMB && state.settings.video;
+          const next = targetRetry
+            ? {
+                loaded: {
+                  ...state,
+                  settings: validateSettings(
+                    retryTargetSize(state.settings, state.output.sizeBytes),
+                    state.auto,
+                    state.caps,
+                    state.source,
+                  ),
+                },
+                note: 'The video bitrate is lower. Export again to try the target size.',
+              }
+            : smallerFor(state);
           toPrepare(
             next ? next.loaded : state,
             next

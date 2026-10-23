@@ -1,6 +1,6 @@
 import type { Settings, SourceInfo } from './types';
 
-const CONTAINER_OVERHEAD = 1.01;
+export const CONTAINER_OVERHEAD = 1.01;
 const LOW_FACTOR = 0.85;
 const HIGH_FACTOR = 1.15;
 

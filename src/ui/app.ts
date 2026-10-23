@@ -664,7 +664,11 @@ function renderResult(
   const gifOnly = state.tool === 'gif';
   // WAV is lossless, so no setting makes it smaller and there is nothing to suggest.
   const lossless = audioOnly && state.audioSettings?.format === 'wav';
-  const showNotSmaller = state.notSmaller && !lossless && !gifOnly;
+  const overTarget =
+    state.tool === 'shrink' &&
+    !!state.settings.targetSizeMB &&
+    output.sizeBytes > state.settings.targetSizeMB * 1e6;
+  const showNotSmaller = !overTarget && state.notSmaller && !lossless && !gifOnly;
   // The canvas holds the comparison or the player; the inspector holds the verdict, the
   // delivery actions, the stats and the next steps. Phones keep the same order in one column.
   const work = el('div', 'work result');
@@ -724,6 +728,22 @@ function renderResult(
         audioOnly
           ? 'Lower the bitrate, or choose MP3 or M4A.'
           : 'This video was already compressed well. Make it smaller tries the next smaller size, or lower quality if no smaller size is left.',
+      ),
+    );
+    notice.append(icon('i-warn'), body);
+    side.append(notice);
+  }
+
+  if (overTarget) {
+    const notice = el('div', 'notice warn not-smaller');
+    notice.setAttribute('role', 'status');
+    const body = el('div');
+    body.append(
+      el('h2', undefined, 'The output exceeds your target'),
+      el(
+        'p',
+        undefined,
+        `${formatBytes(output.sizeBytes)} actual versus ${formatBytes(state.settings.targetSizeMB! * 1e6)} target. Try again smaller lowers the video bitrate. A shorter trim can also help.`,
       ),
     );
     notice.append(icon('i-warn'), body);
@@ -826,9 +846,12 @@ function renderResult(
   // The recommended adjustment is a secondary button; starting over is a quiet text action.
   const actions = el('div', 'actions');
   if (!lossless && !gifOnly) {
-    const smaller = el('button', showNotSmaller ? 'btn is-suggested' : 'btn');
+    const smaller = el('button', showNotSmaller || overTarget ? 'btn is-suggested' : 'btn');
     smaller.type = 'button';
-    smaller.append(icon('i-smaller'), audioOnly ? 'Lower bitrate' : 'Make it smaller');
+    smaller.append(
+      icon('i-smaller'),
+      audioOnly ? 'Lower bitrate' : overTarget ? 'Try again smaller' : 'Make it smaller',
+    );
     smaller.addEventListener('click', () => dispatch({ type: 'smaller' }));
     actions.append(smaller);
   }

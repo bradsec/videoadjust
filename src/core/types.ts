@@ -41,6 +41,10 @@ export interface Capabilities {
 export interface Settings {
   container: Container;
   passthrough: boolean;
+  /** Decimal megabytes; absent or null disables the target. */
+  targetSizeMB?: number | null;
+  /** Additional video budget reduction after an oversized export. */
+  targetRetryScale?: number;
   trim: { start: number; end: number };
   keyFrameInterval?: 1 | 2 | null;
   transform?: { rotate: Rotation; flip: boolean; crop: CropPreset; rect?: CropRect | null };

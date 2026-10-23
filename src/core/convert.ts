@@ -74,8 +74,11 @@ export function toConversionOptions(
             fit: 'contain',
             frameRate: v.fps,
             codec: v.codec,
+            // A target keeps the default variable bitrate mode: Mediabunny offers the encoder
+            // no fallback config for an explicit mode, so an unsupported 'constant' would fail
+            // the export. The target's headroom and Try again smaller cover any overshoot.
             quality: quality(v.bitrate),
-            ...(reencode ? { forceTranscode: true } : {}),
+            ...(reencode || s.targetSizeMB ? { forceTranscode: true } : {}),
             ...(transformed ? { allowTransformationMetadata: false } : {}),
             ...(s.keyFrameInterval ? { keyFrameInterval: s.keyFrameInterval } : {}),
             ...(transform?.rotate ? { rotate: transform.rotate } : {}),

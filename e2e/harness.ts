@@ -10,7 +10,8 @@ import {
   type StreamTargetChunk,
 } from 'mediabunny';
 import { AUDIO_FORMATS, type AudioExtractSettings } from '../src/core/audioExtract';
-import { ensureMp3Encoder, registerAacFallback } from '../src/core/capabilities';
+import { autoSettings } from '../src/core/autoSettings';
+import { ensureMp3Encoder, probeCapabilities, registerAacFallback } from '../src/core/capabilities';
 import {
   audioExtractJob,
   createAudioOutputFormat,
@@ -21,6 +22,7 @@ import {
 import { exportGif, type GifSettings } from '../src/core/gifExport';
 import { chooseSink, openSink } from '../src/core/sink';
 import { readSource, UnsupportedSourceError } from '../src/core/source';
+import { applyTargetSize } from '../src/core/targetSize';
 import type { Settings, SourceInfo, VideoCodecId } from '../src/core/types';
 
 export type ReadResult =
@@ -218,8 +220,12 @@ const harness = {
     samplePixels = false,
   ): Promise<ConvertResult> {
     try {
-      await ensureAudioEncoder(settings);
       const { input, info: source } = await readSource(selectedFile());
+      if (settings.targetSizeMB) {
+        const caps = await probeCapabilities();
+        settings = applyTargetSize(settings, autoSettings(source, caps), source);
+      }
+      await ensureAudioEncoder(settings);
       const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
       const sink = await openSink({ kind: 'memory', warn: false }, 'out', mime);
       let reportedBytes = 0;
@@ -273,8 +279,12 @@ const harness = {
       },
     });
     try {
-      await ensureAudioEncoder(settings);
       const { input, info: source } = await readSource(selectedFile());
+      if (settings.targetSizeMB) {
+        const caps = await probeCapabilities();
+        settings = applyTargetSize(settings, autoSettings(source, caps), source);
+      }
+      await ensureAudioEncoder(settings);
       let reportedBytes = 0;
       let lastProgress = 0;
       const job = startConversion({

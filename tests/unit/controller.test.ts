@@ -615,6 +615,36 @@ describe('export flow', () => {
     return s;
   }
 
+  it('retries an oversized target with a lower bitrate and preserves the target across tabs', async () => {
+    const t = exportSetup({ outputBytes: 400_000 });
+    const initial = t.ctl.getState();
+    if (initial.kind !== 'prepare') throw new Error('Expected prepare');
+    t.ctl.dispatch({
+      type: 'setSettings',
+      value: { ...initial.settings, targetSizeMB: 0.2, passthrough: false },
+    });
+    const result = await toResult(t);
+    const bitrate = result.settings.video!.bitrate;
+    t.ctl.dispatch({ type: 'smaller' });
+    const retry = t.ctl.getState();
+    if (retry.kind !== 'prepare') throw new Error('Expected prepare');
+    expect(retry.settings.targetSizeMB).toBe(0.2);
+    expect(retry.settings.video!.bitrate).toBe(Math.floor(bitrate * 0.5 * 0.92));
+    t.ctl.dispatch({ type: 'setTool', tool: 'gif' });
+    t.ctl.dispatch({ type: 'setTool', tool: 'shrink' });
+    expect(t.ctl.getState()).toMatchObject({ settings: retry.settings });
+    t.ctl.dispatch({ type: 'setSettings', value: { ...retry.settings, targetSizeMB: 0.3 } });
+    const retargeted = t.ctl.getState();
+    if (retargeted.kind !== 'prepare') throw new Error('Expected prepare');
+    expect(retargeted.settings.targetRetryScale).toBeUndefined();
+    t.ctl.dispatch({ type: 'setSettings', value: { ...retry.settings } });
+    t.ctl.dispatch({ type: 'setTrim', value: { start: 0, end: 1.5 } });
+    const trimmed = t.ctl.getState();
+    if (trimmed.kind !== 'prepare') throw new Error('Expected prepare');
+    expect(trimmed.settings.video!.bitrate).toBeGreaterThan(bitrate);
+    expect(trimmed.settings.targetRetryScale).toBeUndefined();
+  });
+
   it('Make it smaller picks the next size step and revokes the output URL', async () => {
     const revoke = vi.spyOn(URL, 'revokeObjectURL');
     const t = exportSetup({ outputBytes: 1_000_000 });

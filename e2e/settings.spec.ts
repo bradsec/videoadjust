@@ -188,3 +188,53 @@ test('already small video offers trim-only export', async ({ page }) => {
   await expect(card.getByRole('button', { name: 'Export', exact: true })).toBeVisible();
   await expect(card.getByLabel('Resolution', { exact: true })).toBeEnabled();
 });
+
+test('target size controls quality and validates custom decimal MB', async ({ page }) => {
+  const card = page.getByRole('region', { name: 'Export summary' });
+  await card.locator('summary').click();
+  const target = card.getByLabel('Target size', { exact: true });
+  await expect(target).toHaveValue('off');
+  await target.selectOption('25');
+  await expect(card.getByLabel('Quality', { exact: true })).toBeDisabled();
+  await expect(card.getByRole('button', { name: 'Reset to auto: Quality' })).toBeDisabled();
+  await expect(card).toContainText('1 MB = 1,000,000 bytes');
+  const estimate = await card.locator('.export-estimate-big').innerText();
+  const size = estimate.match(/([\d.]+) (B|kB|MB|GB)/);
+  expect(size).not.toBeNull();
+  const units: Record<string, number> = { B: 1, kB: 1000, MB: 1_000_000, GB: 1_000_000_000 };
+  expect(Number(size![1]) * units[size![2]]).toBeLessThanOrEqual(25_000_000);
+  await target.selectOption('custom');
+  const custom = card.getByLabel('Custom target (MB)');
+  for (const invalid of ['', '0', '0.049', '4097']) {
+    await custom.fill(invalid);
+    await custom.blur();
+    await expect(custom).toHaveAttribute('aria-invalid', 'true');
+    await expect(card.getByText('Enter a target between 0.05 and 4096 MB.')).toBeVisible();
+    await expect(card.locator('.btn-go')).toHaveAttribute('aria-disabled', 'true');
+  }
+  await card.getByLabel('Rotate clockwise').selectOption('90');
+  await expect(custom).toHaveValue('4097');
+  await expect(custom).toHaveAttribute('aria-invalid', 'true');
+  await expect(card.getByText('Enter a target between 0.05 and 4096 MB.')).toBeVisible();
+  await custom.fill('0.05');
+  await custom.blur();
+  await expect(custom).toHaveAttribute('aria-invalid', 'false');
+  await expect(card.locator('.btn-go')).not.toHaveAttribute('aria-disabled', 'true');
+  await target.selectOption('off');
+  await expect(card.getByLabel('Quality', { exact: true })).toBeEnabled();
+});
+
+test('target size stays available for a trimmed copy', async ({ page }) => {
+  await page.getByRole('button', { name: 'Choose another video' }).click();
+  await page.setInputFiles('#file', optimalFixture);
+  const card = page.getByRole('region', { name: 'Export summary' });
+  await card.locator('summary').click();
+  await card.getByLabel('Target size', { exact: true }).selectOption('25');
+  await expect(card.getByLabel('Target size', { exact: true })).toBeEnabled();
+  await expect(card).toContainText('The trimmed copy is already under your target size');
+  await expect(card.getByRole('button', { name: 'Export trimmed copy' })).toBeVisible();
+  const reset = card.getByRole('button', { name: 'Reset to auto: Target size' });
+  await expect(reset).toBeEnabled();
+  await reset.click();
+  await expect(card.getByLabel('Target size', { exact: true })).toHaveValue('off');
+});
