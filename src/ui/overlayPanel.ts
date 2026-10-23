@@ -33,6 +33,12 @@ export function mountOverlayPanel(
     label.append(input);
     parent.append(label);
   }
+  // Two short related fields share a row, so the panel reads as groups rather than one long list.
+  function pair(parent: HTMLElement, wideFirst = false): HTMLElement {
+    const row = el('div', wideFirst ? 'field-pair wide-first' : 'field-pair');
+    parent.append(row);
+    return row;
+  }
   function check(
     parent: HTMLElement,
     name: string,
@@ -42,7 +48,10 @@ export function mountOverlayPanel(
     const input = el('input');
     input.type = 'checkbox';
     input.addEventListener('change', () => set(input.checked));
-    field(parent, name, input);
+    const label = el('label', 'switch-row', name);
+    input.setAttribute('aria-label', name);
+    label.append(input);
+    parent.append(label);
     patches.push(() => {
       input.checked = get();
     });
@@ -108,6 +117,7 @@ export function mountOverlayPanel(
   }
   function position(parent: HTMLElement, kind: 'text' | 'image'): void {
     const name = kind === 'text' ? 'Text' : 'Image';
+    parent = pair(parent, true);
     select(
       parent,
       name + ' anchor',
@@ -237,20 +247,22 @@ export function mountOverlayPanel(
   patches.push(() => {
     bold.hidden = value.text.font === 'Anton';
   });
+  const colourRow = pair(textFields);
   color(
-    textFields,
+    colourRow,
     'Text colour',
     () => value.text.color,
     (color) => text({ color }),
   );
   number(
-    textFields,
+    colourRow,
     'Text opacity (%)',
     () => value.text.opacity,
     (opacity) => text({ opacity }),
   );
+  const sizeRow = pair(textFields);
   number(
-    textFields,
+    sizeRow,
     'Text size (% of height)',
     () => value.text.fontSize,
     (fontSize) => text({ fontSize }),
@@ -258,7 +270,7 @@ export function mountOverlayPanel(
     50,
   );
   number(
-    textFields,
+    sizeRow,
     'Text box width (%)',
     () => value.text.boxWidth,
     (boxWidth) => text({ boxWidth }),
@@ -271,8 +283,9 @@ export function mountOverlayPanel(
     () => value.text.autoFit,
     (autoFit) => text({ autoFit }),
   );
+  const fitRow = pair(textFields);
   number(
-    textFields,
+    fitRow,
     'Text max height (%)',
     () => value.text.maxHeight,
     (maxHeight) => text({ maxHeight }),
@@ -280,7 +293,7 @@ export function mountOverlayPanel(
     100,
   );
   select(
-    textFields,
+    fitRow,
     'Text alignment',
     ['left', 'center', 'right'],
     () => value.text.align,
@@ -294,7 +307,7 @@ export function mountOverlayPanel(
     (legibility) => text({ legibility }),
     { none: 'No effect', box: 'Box behind text' },
   );
-  const legibility = el('div', 'overlay-fields');
+  const legibility = el('div', 'field-pair');
   color(
     legibility,
     'Effect colour',
@@ -331,8 +344,9 @@ export function mountOverlayPanel(
   imageFields.append(
     el('p', 'setting-help', 'PNG, JPEG, WebP or SVG. Kept in memory on this device.'),
   );
+  const imageRow = pair(imageFields);
   number(
-    imageFields,
+    imageRow,
     'Image width (%)',
     () => value.image.scale,
     (scale) => image({ scale }),
@@ -340,7 +354,7 @@ export function mountOverlayPanel(
     100,
   );
   number(
-    imageFields,
+    imageRow,
     'Image opacity (%)',
     () => value.image.opacity,
     (opacity) => image({ opacity }),

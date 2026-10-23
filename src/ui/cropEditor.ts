@@ -89,7 +89,7 @@ export function mountCropEditor(
   mirrorInput.type = 'checkbox';
   mirrorInput.setAttribute('aria-label', 'Editor mirror');
   mirrorLabel.append(mirrorInput, document.createTextNode('Mirror'));
-  const done = el('button', 'btn btn-text', 'Done');
+  const done = el('button', 'btn editor-done', 'Done');
   done.type = 'button';
   bar.append(ratioLabel, rotateLabel, mirrorLabel, done);
   const help = el(
@@ -179,7 +179,7 @@ export function mountCropEditor(
       draw();
       layout();
       // The toggle sits below the editor, so on a phone the editor can open above the screen.
-      editor.scrollIntoView({ block: 'start' });
+      editor.scrollIntoView({ block: 'nearest' });
       ratioSelect.focus({ preventScroll: true });
     } else if (next) toggle.focus();
   }

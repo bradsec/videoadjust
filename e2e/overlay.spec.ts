@@ -150,11 +150,14 @@ test('overlay controls enable text, and the editor shows and moves it', async ({
   const card = page.getByRole('region', { name: 'Export summary' });
   await expect(card).toBeVisible();
   await page.locator('.overlay-adjust > summary').click();
+  // Nothing to move yet, so the editor is not offered.
+  await expect(page.getByRole('button', { name: 'Position overlay' })).toBeHidden();
   await page.getByLabel('Text overlay', { exact: true }).check();
+  await expect(page.getByRole('button', { name: 'Position overlay' })).toBeHidden();
   await page.getByLabel('Overlay text', { exact: true }).fill('Hello there');
   await page.getByLabel('Overlay text', { exact: true }).blur();
   await expect(card).toContainText('1 change');
-  await page.getByRole('button', { name: 'Overlay', exact: true }).click();
+  await page.getByRole('button', { name: 'Position overlay' }).click();
   const selection = page.getByRole('button', { name: 'Move text overlay' });
   await expect(selection).toBeVisible();
   const before = await settledBox(selection);
@@ -191,7 +194,7 @@ test('an uploaded SVG overlay shows in the editor and survives a GIF export', as
       '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#ff00ff"/></svg>',
     ),
   });
-  await page.getByRole('button', { name: 'Overlay', exact: true }).click();
+  await page.getByRole('button', { name: 'Position overlay' }).click();
   await expect(page.getByRole('button', { name: 'Move image overlay' })).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).last().click();
   await page.getByRole('tab', { name: 'GIF' }).click();

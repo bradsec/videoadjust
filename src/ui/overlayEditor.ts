@@ -30,7 +30,7 @@ export function mountOverlayEditor(
   let version = 0;
   let bounds: { text?: OverlayBounds; image?: OverlayBounds } = {};
   const toggle = el('button', 'btn edit-tool crop-edit-toggle');
-  toggle.append(icon('i-text'), 'Overlay');
+  toggle.append(icon('i-text'), 'Position overlay');
   toggle.type = 'button';
   toggle.setAttribute('aria-pressed', 'false');
   const editor = el('section', 'overlay-editor');
@@ -50,14 +50,16 @@ export function mountOverlayEditor(
   selections.image.hidden = true;
   const status = el('p', 'setting-help');
   status.setAttribute('role', 'status');
-  const done = el('button', 'btn btn-text', 'Done');
+  const done = el('button', 'btn editor-done', 'Done');
   done.type = 'button';
-  editor.append(
-    stage,
+  const bar = el('div', 'overlay-editor-bar');
+  const notes = el('div');
+  notes.append(
     el('p', 'setting-help', 'Drag an overlay. Arrow keys nudge; Shift moves farther.'),
     status,
-    done,
   );
+  bar.append(notes, done);
+  editor.append(stage, bar);
   toolbar.append(toggle);
   host.append(editor);
   function overlays(): Overlays {
@@ -204,7 +206,7 @@ export function mountOverlayEditor(
       video.pause();
       video.preload = 'auto';
       // The toggle sits below the editor, so on a phone the editor can open above the screen.
-      editor.scrollIntoView({ block: 'start' });
+      editor.scrollIntoView({ block: 'nearest' });
       void draw();
     }
   }
@@ -226,6 +228,16 @@ export function mountOverlayEditor(
     setEditing(false);
     toggle.focus();
   });
+  // Only offered while there is something to move: text with content, or a loaded image.
+  let toolEnabled = true;
+  function syncToggle(): void {
+    const value = overlays();
+    const movable =
+      (value.text.enabled && !!value.text.content.trim()) ||
+      (value.image.enabled && !!assets.image);
+    toggle.hidden = !toolEnabled || !movable;
+    if (toggle.hidden && editing) setEditing(false);
+  }
   const redraw = () => {
     void draw();
   };
@@ -235,11 +247,12 @@ export function mountOverlayEditor(
     update(next, nextAssets) {
       settings = next;
       assets = nextAssets ?? {};
+      syncToggle();
       void draw();
     },
     setTool(enabled) {
-      toggle.hidden = !enabled;
-      if (!enabled && editing) setEditing(false);
+      toolEnabled = enabled;
+      syncToggle();
     },
     setPlayable(enabled) {
       playable = enabled;
