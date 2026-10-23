@@ -38,11 +38,11 @@ export type ConversionJob = {
 // Quality rejects non-integer bitrates; source bitrates come from packet statistics and can be fractional.
 const quality = (bitrate: number) => new Quality({ bitrate: Math.round(bitrate) });
 
-export function toConversionOptions(
+export function shrinkJob(
   s: Settings,
   source?: SourceInfo,
   assets: OverlayAssets = {},
-): Pick<ConversionOptions, 'video' | 'audio' | 'trim' | 'tags'> {
+): ConversionJob & { copiesVideo: boolean } {
   const v = s.video;
   const a = s.audio;
   const transform = s.transform;
@@ -61,10 +61,11 @@ export function toConversionOptions(
     (transform.rotate !== 0 || transform.flip || transform.crop !== 'original' || !!crop);
   const overlay = s.overlays && hasOverlays(s.overlays) ? s.overlays : undefined;
   const reencode = transformed || !!s.keyFrameInterval || !!overlay;
+  const copiesVideo = !!v && s.passthrough && !reencode;
   let canvas: OffscreenCanvas | undefined;
   let layer: Promise<OffscreenCanvas | null> | undefined;
   const title = s.metadata?.title.trim();
-  return {
+  const options: ConversionJob['options'] = {
     trim: { start: s.trim.start, end: s.trim.end },
     ...(s.metadata?.strip
       ? { tags: title ? { title } : {} }
@@ -72,7 +73,7 @@ export function toConversionOptions(
         ? { tags: (inputTags) => ({ ...inputTags, title }) }
         : {}),
     video: v
-      ? s.passthrough && !reencode
+      ? copiesVideo
         ? {}
         : {
             width: v.width,
@@ -124,13 +125,15 @@ export function toConversionOptions(
             { codec: a.codec, forceTranscode: false }
           : { codec: a.codec, quality: quality(a.bitrate), numberOfChannels: a.channels },
   };
+  return { options, keeps: { video: !!v, audio: !!a }, copiesVideo };
 }
 
-export function shrinkJob(s: Settings, source?: SourceInfo, assets?: OverlayAssets): ConversionJob {
-  return {
-    options: toConversionOptions(s, source, assets),
-    keeps: { video: !!s.video, audio: !!s.audio },
-  };
+export function toConversionOptions(
+  s: Settings,
+  source?: SourceInfo,
+  assets?: OverlayAssets,
+): Pick<ConversionOptions, 'video' | 'audio' | 'trim' | 'tags'> {
+  return shrinkJob(s, source, assets).options;
 }
 
 export function audioExtractJob(s: AudioExtractSettings): ConversionJob {

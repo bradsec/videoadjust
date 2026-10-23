@@ -1240,15 +1240,16 @@ export function createController(
     const { settings, source } = prep;
     const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
     const outputName = outputNameFor(prep.file.name, settings.container);
+    const job = shrinkJob(settings, source, prep.overlayAssets);
     return {
       outputName,
       mime,
       estimate: estimateBytes(settings, source),
-      job: shrinkJob(settings, source, prep.overlayAssets),
+      job,
       format: (sinkKind) => createOutputFormat(settings.container, sinkKind),
       async preflight() {
         const v = settings.video;
-        if (!v) return undefined;
+        if (!v || job.copiesVideo) return undefined;
         let supported = false;
         try {
           supported = await deps.canEncodeVideo(v.codec, {

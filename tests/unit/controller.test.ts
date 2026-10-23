@@ -392,7 +392,9 @@ describe('export flow', () => {
   });
 
   it('stops before opening a sink when the chosen encoder settings are unavailable', async () => {
-    const t = exportSetup();
+    const t = exportSetup({
+      src: source({ video: { ...info('clip.mov').video!, bitrate: 8_000_000 } }),
+    });
     t.canEncodeVideo.mockResolvedValue(false);
     t.ctl.dispatch({ type: 'export' });
     await flush();
@@ -406,6 +408,22 @@ describe('export flow', () => {
       height: 1080,
       frameRate: 30,
     });
+  });
+
+  it('exports a trimmed video copy without probing an unavailable encoder', async () => {
+    const src = source({ video: { ...info('clip.mov').video!, bitrate: 300_000 } });
+    const t = exportSetup({ src });
+    t.canEncodeVideo.mockResolvedValue(false);
+    expect(t.ctl.getState()).toMatchObject({ settings: { passthrough: true } });
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    expect(t.canEncodeVideo).not.toHaveBeenCalled();
+    expect(t.startConversion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        job: expect.objectContaining({ options: expect.objectContaining({ video: {} }) }),
+      }),
+    );
+    expect(t.ctl.getState()).toMatchObject({ kind: 'working' });
   });
 
   it('passes 30 fps and the lowest quality after re-encode, 854 size, quality, and 64 kbps audio', async () => {

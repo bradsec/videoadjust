@@ -40,6 +40,7 @@ describe('conversion jobs', () => {
     expect(shrinkJob(base)).toEqual({
       options: toConversionOptions(base),
       keeps: { video: true, audio: true },
+      copiesVideo: false,
     });
     expect(shrinkJob({ ...base, audio: null }).keeps).toEqual({ video: true, audio: false });
   });
@@ -104,8 +105,12 @@ describe('toConversionOptions', () => {
       });
       expect(options.video).toMatchObject({ keyFrameInterval: seconds, forceTranscode: true });
       expect(options.audio).toEqual({});
+      expect(shrinkJob({ ...base, passthrough: true, keyFrameInterval: seconds }).copiesVideo).toBe(
+        false,
+      );
     }
     expect(toConversionOptions({ ...base, passthrough: true }).video).toEqual({});
+    expect(shrinkJob({ ...base, passthrough: true }).copiesVideo).toBe(true);
     expect(toConversionOptions(base).video).not.toHaveProperty('keyFrameInterval');
   });
   it('omits full Original crop and transcodes only a reduced Original crop', () => {
