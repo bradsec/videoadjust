@@ -115,6 +115,11 @@ describe('autoSettings', () => {
     expect(r.settings.audio).toMatchObject({ copy: true, bitrate: 96000 });
   });
 
+  it('transcodes low-bitrate surround AAC to stereo', () => {
+    const r = autoSettings(fakeSource({ channels: 6, aBitrate: 96_000 }), allCaps());
+    expect(r.settings.audio).toMatchObject({ copy: false, bitrate: 96000, channels: 2 });
+  });
+
   it('handles missing video and audio', () => {
     expect(autoSettings(fakeSource({ video: null }), allCaps()).settings.video).toBeNull();
     expect(autoSettings(fakeSource({ audio: null }), allCaps()).settings.audio).toBeNull();

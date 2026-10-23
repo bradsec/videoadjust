@@ -80,7 +80,11 @@ export function autoSettings(src: SourceInfo, caps: Capabilities): AutoResult {
     const target = channels === 1 ? AUDIO_MONO_BPS : AUDIO_STEREO_BPS;
     const capped = sa.bitrate !== null ? Math.min(target, sa.bitrate) : target;
     const copy =
-      acodec === 'aac' && sa.codec === 'aac' && sa.bitrate !== null && sa.bitrate <= target;
+      acodec === 'aac' &&
+      sa.codec === 'aac' &&
+      sa.channels === channels &&
+      sa.bitrate !== null &&
+      sa.bitrate <= target;
     audio = { codec: acodec, bitrate: copy ? (sa.bitrate as number) : capped, channels, copy };
     audioOptimal = sa.codec === 'aac';
   }
