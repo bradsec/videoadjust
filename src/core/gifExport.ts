@@ -207,12 +207,23 @@ export async function exportGif(
     poolSize: 2,
   });
   const worker = new Worker(new URL('./gifWorker.ts', import.meta.url), { type: 'module' });
+  let workerError: Error | undefined;
+  let rejectPending: ((error: Error) => void) | undefined;
+  const onError = (event: ErrorEvent) => {
+    workerError = new Error(event.message);
+    rejectPending?.(workerError);
+  };
+  worker.addEventListener('error', onError);
   const abort = () => worker.terminate();
   signal.addEventListener('abort', abort, { once: true });
   const send = (message: object, transfer: Transferable[] = []) =>
     new Promise<Uint8Array | undefined>((resolve, reject) => {
       if (signal.aborted) {
         reject(new DOMException('GIF export canceled', 'AbortError'));
+        return;
+      }
+      if (workerError) {
+        reject(workerError);
         return;
       }
       const onMessage = (
@@ -222,21 +233,20 @@ export async function exportGif(
         if (event.data.type === 'error') reject(new Error(event.data.message));
         else resolve(event.data.bytes);
       };
-      const onError = (event: ErrorEvent) => {
-        cleanup();
-        reject(new Error(event.message));
-      };
       const onAbort = () => {
         cleanup();
         reject(new DOMException('GIF export canceled', 'AbortError'));
       };
       const cleanup = () => {
         worker.removeEventListener('message', onMessage);
-        worker.removeEventListener('error', onError);
         signal.removeEventListener('abort', onAbort);
+        rejectPending = undefined;
+      };
+      rejectPending = (error) => {
+        cleanup();
+        reject(error);
       };
       worker.addEventListener('message', onMessage);
-      worker.addEventListener('error', onError);
       signal.addEventListener('abort', onAbort, { once: true });
       worker.postMessage(message, transfer);
     });
@@ -290,6 +300,7 @@ export async function exportGif(
   } finally {
     await frames.return();
     worker.terminate();
+    worker.removeEventListener('error', onError);
     signal.removeEventListener('abort', abort);
   }
 }
