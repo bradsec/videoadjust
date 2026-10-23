@@ -377,3 +377,33 @@ test('an in-memory MP4 export says Calculating instead of a stuck byte count', a
   await expect(progress).toContainText('Calculating…');
   await expect(progress).not.toContainText(/\d+ B\b/);
 });
+
+test('a saved export is read back from disk so the result previews it', async ({ page }) => {
+  // A real file handle from the origin-private file system stands in for the save picker.
+  await page.addInitScript(() => {
+    (
+      window as unknown as { showSaveFilePicker: () => Promise<FileSystemFileHandle> }
+    ).showSaveFilePicker = async () => {
+      const dir = await navigator.storage.getDirectory();
+      return dir.getFileHandle(`saved-${Date.now()}.mp4`, { create: true });
+    };
+  });
+  await open(page, 'land-1080p30-aac.mp4');
+  const canWrite = await page.evaluate(async () => {
+    try {
+      const dir = await navigator.storage.getDirectory();
+      const handle = await dir.getFileHandle('probe', { create: true });
+      return typeof (handle as { createWritable?: unknown }).createWritable === 'function';
+    } catch {
+      return false;
+    }
+  });
+  test.skip(!canWrite, 'This browser cannot write to origin-private files');
+  await reencode(page);
+  await exportButton(page).click();
+  await expect(page.locator('.verdict .figure')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/is saved where you chose/)).toBeVisible();
+  await expect(page.locator('.compare')).toBeVisible();
+  await expect(page.locator('.compare-skipped')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /Download/ })).toHaveCount(0);
+});

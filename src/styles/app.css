@@ -413,7 +413,7 @@ input[type='checkbox']:disabled {
   color: var(--text-2);
 }
 .overline.ok {
-  color: var(--ok);
+  color: var(--accent-text);
 }
 .note {
   font-size: var(--fs-14);

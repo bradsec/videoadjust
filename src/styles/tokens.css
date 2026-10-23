@@ -21,9 +21,9 @@
   --accent-text: #d4f56a;
   --accent-soft: #2a3220;
   --ok: #5cc98f;
-  --warn: #e2b84b;
+  --warn: #ff9d3d;
   --error: #ff6b6b;
-  --warn-soft: #2b2a1e;
+  --warn-soft: #34261a;
   --error-soft: #301c1f;
 
   /* The video stage stays near-black so footage reads true. */

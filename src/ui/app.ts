@@ -758,14 +758,19 @@ function renderResult(
     ),
   );
   verdict.append(
-    el('span', 'overline ok num', `Done in ${clock(state.elapsedMs)}`),
+    el(
+      'span',
+      'overline ok num',
+      // A trimmed copy can finish in well under a second, which the clock would show as 0:00.
+      state.elapsedMs < 1000 ? 'Done in under a second' : `Done in ${clock(state.elapsedMs)}`,
+    ),
     figure,
     el(
       'p',
       'ready',
-      output.blob
-        ? `${state.outputName} is ready to save or share.`
-        : `${state.outputName} is saved where you chose.`,
+      state.sinkKind === 'file-stream'
+        ? `${state.outputName} is saved where you chose.`
+        : `${state.outputName} is ready to save or share.`,
     ),
   );
   side.append(verdict);
@@ -869,7 +874,8 @@ function renderResult(
   }
 
   const deliver = el('div', 'deliver');
-  if (output.url) {
+  // A file-stream export is already saved; its url only feeds the preview.
+  if (output.url && state.sinkKind !== 'file-stream') {
     const download = el('a', 'btn btn-primary btn-block');
     download.href = output.url;
     download.download = state.outputName;

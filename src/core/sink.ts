@@ -19,7 +19,10 @@ export function chooseSink(opts: {
 
 export interface OpenSink {
   target: Target;
-  /** The in-memory output, or null for a file stream (the bytes are already on disk). */
+  /**
+   * The output to preview: the in-memory blob, or for a file stream the saved file read back
+   * from disk (a disk-backed File, not a copy in memory). Null if the saved file cannot be read.
+   */
   finish(): Promise<Blob | null>;
   /** Discard a file-stream output instead of committing it; a no-op for memory. */
   abort(): Promise<void>;
@@ -37,6 +40,16 @@ const EXTENSIONS: Record<string, string> = {
 export interface GifSink {
   finish(bytes: Uint8Array): Promise<Blob | null>;
   abort(): Promise<void>;
+}
+
+/** Reads a saved file back for the result preview; the result screen copes without it. */
+async function savedFile(handle: FileSystemFileHandle): Promise<File | null> {
+  try {
+    return await handle.getFile();
+  } catch (err) {
+    console.warn('could not read the saved file back for a preview', err);
+    return null;
+  }
 }
 
 export async function openGifSink(plan: SinkPlan, suggestedName: string): Promise<GifSink> {
@@ -60,7 +73,7 @@ export async function openGifSink(plan: SinkPlan, suggestedName: string): Promis
       await writable.write(new Uint8Array(bytes));
       await writable.close();
       closed = true;
-      return null;
+      return savedFile(handle);
     },
     async abort() {
       if (closed) return;
@@ -112,7 +125,7 @@ export async function openSink(
   return {
     target: new StreamTarget(writable, { chunked: true }),
     async finish() {
-      return null;
+      return savedFile(handle);
     },
     async abort() {
       if (aborted) return;
