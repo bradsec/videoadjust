@@ -10,7 +10,7 @@ test('loads, has no axe violations, makes no cross-origin requests', async ({ pa
   });
 
   await page.goto('/');
-  await expect(page).toHaveTitle('VideoAdjust - Free Online Video Tools');
+  await expect(page).toHaveTitle('Free Video Compressor, Converter & GIF Maker | VideoAdjust');
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);

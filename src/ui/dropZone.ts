@@ -16,7 +16,7 @@ export function mountDropZone(
   grid.innerHTML = `
     <div class="hero">
       <h1>Video tools that <span class="hl">stay on your device</span>.</h1>
-      <p>Shrink, trim and convert videos in this browser. Nothing is uploaded, so your videos stay private.</p>
+      <p>Shrink, trim, crop and convert videos, add text or a watermark, or turn them into GIFs. Everything runs in this browser and nothing is uploaded.</p>
     </div>
     <div class="dropzone">
       <button class="btn btn-primary" type="button"></button>

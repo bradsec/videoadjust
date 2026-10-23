@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/github/license/bradsec/videoadjust)](LICENSE)
 [![Live site](https://img.shields.io/website?url=https%3A%2F%2Fvideoadjust.com%2F&label=videoadjust.com)](https://videoadjust.com/)
 
-Compress, convert, resize, trim, extract audio and make animated GIFs from videos entirely in your browser. [Mediabunny](https://mediabunny.dev/) runs conversion locally through WebCodecs. Nothing is uploaded.
+Compress, convert, trim, crop and resize videos, add text or a watermark, extract audio and make animated GIFs, entirely in your browser. [Mediabunny](https://mediabunny.dev/) runs conversion locally through WebCodecs. Nothing is uploaded.
 
 **Live app: https://videoadjust.com/**
 
