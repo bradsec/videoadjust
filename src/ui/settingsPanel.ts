@@ -13,8 +13,6 @@ import type {
   AutoResult,
   Capabilities,
   Container,
-  CropPreset,
-  Rotation,
   Settings,
   SourceInfo,
   VideoCodecId,
@@ -315,61 +313,6 @@ export function mountSettings(
         Math.max(autoVideo.width, autoVideo.height),
         rect,
       );
-      const updateTransform = changeTransform;
-      const rotation = group('Rotate', '0°', () =>
-        updateTransform({ ...(value.transform ?? { flip: false, crop: 'original' }), rotate: 0 }),
-      );
-      rotation.classList.add('transform-setting');
-      select(
-        rotation,
-        'Rotate clockwise',
-        [0, 90, 180, 270].map((angle) => ({ value: String(angle), label: `${angle}°` })),
-        String(rotate),
-        (angle) =>
-          updateTransform({
-            rotate: Number(angle) as Rotation,
-            flip: value.transform?.flip ?? false,
-            crop: value.transform?.crop ?? 'original',
-          }),
-      );
-      groups.push(rotation);
-      const mirror = group('Mirror', 'Off', () => updateTransform({ rotate, flip: false, crop }));
-      mirror.classList.add('transform-setting');
-      const mirrorLabel = el('label', 'setting-label');
-      const mirrorInput = el('input') as HTMLInputElement;
-      mirrorInput.type = 'checkbox';
-      mirrorInput.checked = value.transform?.flip ?? false;
-      mirrorInput.setAttribute('aria-label', 'Mirror video');
-      mirrorInput.addEventListener('change', () =>
-        updateTransform({ rotate, flip: mirrorInput.checked, crop }),
-      );
-      mirrorLabel.append(mirrorInput, document.createTextNode('Flip horizontally'));
-      mirror.append(mirrorLabel);
-      groups.push(mirror);
-      const cropGroup = group('Crop', 'Original', () =>
-        updateTransform({ rotate, flip: value.transform?.flip ?? false, crop: 'original' }),
-      );
-      cropGroup.classList.add('transform-setting');
-      select(
-        cropGroup,
-        'Crop preset',
-        [
-          { value: 'free', label: 'Free' },
-          { value: 'original', label: 'Original' },
-          { value: 'square', label: 'Square 1:1' },
-          { value: '4:5', label: 'Portrait 4:5' },
-          { value: 'portrait', label: 'Portrait 9:16' },
-          { value: 'landscape', label: 'Landscape 16:9' },
-        ],
-        crop,
-        (preset) =>
-          updateTransform({
-            rotate,
-            flip: value.transform?.flip ?? false,
-            crop: preset as CropPreset,
-          }),
-      );
-      groups.push(cropGroup);
       const codec = group('Video codec', codecLabel(autoVideo.codec), () =>
         change({ ...value, video: { ...value.video!, codec: autoVideo.codec } }),
       );
@@ -627,11 +570,7 @@ export function mountSettings(
     selected('Target size', customTarget ? 'custom' : String(next.targetSizeMB ?? 'off'));
     if (next.video && opts.source.video) {
       const video = next.video;
-      selected('Rotate clockwise', String(next.transform?.rotate ?? 0));
-      selected('Crop preset', next.transform?.crop ?? 'original');
       selected('Keyframe interval', String(next.keyFrameInterval ?? 'default'));
-      const mirror = controls.querySelector<HTMLInputElement>('input[aria-label="Mirror video"]');
-      if (mirror) mirror.checked = next.transform?.flip ?? false;
       selected('Video codec', video.codec);
       const frame = videoFrameSize(
         opts.source.video,
@@ -704,9 +643,7 @@ export function mountSettings(
       .forEach((input) => {
         input.disabled =
           (next.passthrough &&
-            !input.closest(
-              '.metadata-setting, .transform-setting, .seek-setting, .target-setting',
-            )) ||
+            !input.closest('.metadata-setting, .seek-setting, .target-setting')) ||
           (!!next.targetSizeMB && !!input.closest('.quality-setting'));
       });
   }

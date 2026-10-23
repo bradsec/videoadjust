@@ -44,17 +44,20 @@ test('summary and controls track trim and overrides', async ({ page }) => {
   await expect(card).toContainText('All automatic');
 });
 
-test('rotation, crop, mirror, and metadata controls stay available', async ({ page }) => {
+test('Adjust leaves rotation, crop and mirroring to the editor', async ({ page }) => {
   const card = page.getByRole('region', { name: 'Export summary' });
   await card.locator('summary').click();
-  await card.getByLabel('Rotate clockwise').selectOption('90');
+  for (const name of ['Rotate clockwise', 'Crop preset', 'Mirror video'])
+    await expect(card.getByLabel(name)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Crop and rotate' }).click();
+  await page.getByLabel('Editor rotation').selectOption('90');
   await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1080x1920');
-  await card.getByLabel('Crop preset').selectOption('square');
+  await page.getByLabel('Crop aspect ratio').selectOption('square');
   await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1080x1080');
-  await card.getByLabel('Crop preset').selectOption('original');
+  await page.getByLabel('Crop aspect ratio').selectOption('original');
   await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1080x1920');
-  await card.getByLabel('Crop preset').selectOption('square');
-  await card.getByLabel('Mirror video').check();
+  await page.getByLabel('Crop aspect ratio').selectOption('square');
+  await page.getByLabel('Editor mirror').check();
   await card.getByLabel('Keyframe interval').selectOption('1');
   await expect(card).toContainText('More keyframes improve seeking but increase file size.');
   await card.getByLabel('Output title').fill('Square clip');
@@ -68,7 +71,6 @@ test('crop editor moves and resizes the square guide', async ({ page }) => {
   await card.locator('summary').click();
   await page.getByRole('button', { name: 'Crop and rotate' }).click();
   await page.getByLabel('Crop aspect ratio').selectOption('square');
-  await expect(card.getByLabel('Crop preset')).toHaveValue('square');
   const guide = page.getByRole('group', { name: /Crop selection/ });
   await expect(guide).toBeVisible();
   const before = await guide.getAttribute('aria-label');
@@ -88,7 +90,6 @@ test('crop editor moves and resizes the square guide', async ({ page }) => {
     card.getByLabel('Resolution', { exact: true }).locator('option:checked'),
   ).not.toContainText('1080x1080');
   await page.getByLabel('Crop aspect ratio').selectOption('original');
-  await expect(card.getByLabel('Crop preset')).toHaveValue('original');
   await expect(guide).toHaveAttribute('aria-label', /1920 by 1080 pixels/);
   await guide.focus();
   await page.keyboard.press('Alt+ArrowLeft');
@@ -97,9 +98,9 @@ test('crop editor moves and resizes the square guide', async ({ page }) => {
     card.getByLabel('Resolution', { exact: true }).locator('option:checked'),
   ).toContainText('1888x1062');
   await page.getByLabel('Editor rotation').selectOption('90');
-  await expect(card.getByLabel('Rotate clockwise')).toHaveValue('90');
+  await expect(card.getByLabel('Resolution', { exact: true })).toContainText('1062x1888');
   await page.getByLabel('Editor mirror').check();
-  await expect(card.getByLabel('Mirror video')).toBeChecked();
+  await expect(page.getByLabel('Editor mirror')).toBeChecked();
 });
 
 test('audio removal and WebM selection stay valid', async ({ page }) => {
@@ -212,7 +213,8 @@ test('target size controls quality and validates custom decimal MB', async ({ pa
     await expect(card.getByText('Enter a target between 0.05 and 4096 MB.')).toBeVisible();
     await expect(card.locator('.btn-go')).toHaveAttribute('aria-disabled', 'true');
   }
-  await card.getByLabel('Rotate clockwise').selectOption('90');
+  await page.getByRole('button', { name: 'Crop and rotate' }).click();
+  await page.getByLabel('Editor rotation').selectOption('90');
   await expect(custom).toHaveValue('4097');
   await expect(custom).toHaveAttribute('aria-invalid', 'true');
   await expect(card.getByText('Enter a target between 0.05 and 4096 MB.')).toBeVisible();
