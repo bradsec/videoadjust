@@ -1380,6 +1380,10 @@ footer a:hover {
   font-style: normal;
   color: var(--accent-text);
 }
+/* A larger file is not a saving, so it is not shown in the success colour. */
+.verdict .figure em.is-larger {
+  color: inherit;
+}
 .verdict .ready {
   color: var(--text-2);
   overflow-wrap: anywhere;

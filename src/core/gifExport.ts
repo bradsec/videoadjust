@@ -1,10 +1,12 @@
 import { CanvasSink, type Input } from 'mediabunny';
+import { scaleToLongEdge } from './autoSettings';
 import type { Settings, SourceInfo, Rotation, CropRect } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
 
 export interface GifSettings {
   trim: { start: number; end: number };
-  width: number;
+  /** Long edge in pixels, so a portrait frame is not larger than a landscape one. */
+  size: number;
   fps: number;
   loop: 'forever' | 'once';
   colors: 256 | 128 | 64;
@@ -45,14 +47,16 @@ export function gifFrameSize(
   );
 }
 
+const longEdge = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
+
 export function autoGifSettings(source: SourceInfo): GifSettings | null {
   if (gifUnavailable(source) || !source.video) return null;
   return {
     trim: { start: 0, end: source.durationSec },
-    width: Math.max(2, Math.floor(Math.min(480, source.video.displayWidth) / 2) * 2),
+    size: longEdge(Math.min(320, Math.max(source.video.displayWidth, source.video.displayHeight))),
     fps: Math.min(10, source.video.fps),
     loop: 'forever',
-    colors: 256,
+    colors: 128,
     compression: 'balanced',
   };
 }
@@ -64,15 +68,16 @@ export function validateGifSettings(
   transform?: Settings['transform'],
 ): GifSettings {
   const sourceFps = source.video?.fps ?? auto.fps;
-  const width =
-    Number.isInteger(value.width) && value.width >= 2 && value.width <= 640 && value.width % 2 === 0
-      ? value.width
-      : auto.width;
+  const size =
+    Number.isInteger(value.size) && value.size >= 2 && value.size <= 640 && value.size % 2 === 0
+      ? value.size
+      : auto.size;
+  const frame = gifFrameSize(source, transform);
   const fps =
     Number.isFinite(value.fps) && value.fps > 0 && RATES.includes(value.fps) ? value.fps : auto.fps;
   return {
     trim: value.trim,
-    width: Math.max(2, Math.floor(Math.min(width, gifFrameSize(source, transform).width) / 2) * 2),
+    size: longEdge(Math.min(size, Math.max(frame.width, frame.height))),
     fps: Math.min(fps, sourceFps),
     loop: value.loop === 'once' ? 'once' : 'forever',
     colors: value.colors === 64 || value.colors === 128 ? value.colors : 256,
@@ -89,9 +94,7 @@ export function gifDimensions(
   transform?: Settings['transform'],
 ): { width: number; height: number } {
   const frame = gifFrameSize(source, transform);
-  const width = Math.max(2, Math.floor(Math.min(settings.width, frame.width) / 2) * 2);
-  const height = Math.max(2, Math.floor((frame.height * width) / frame.width / 2) * 2);
-  return { width, height };
+  return scaleToLongEdge(frame.width, frame.height, settings.size);
 }
 
 export function gifCropGeometry(
@@ -147,7 +150,7 @@ export function gifFrameCount(trim: GifSettings['trim'], fps: number): number {
 export function gifBudgetError(width: number, height: number, frames: number): string | null {
   if (frames > 0 && frames <= GIF_MAX_FRAMES && width * height * frames <= GIF_PIXEL_BUDGET)
     return null;
-  return `GIF export allows at most ${GIF_MAX_FRAMES} frames and ${GIF_PIXEL_BUDGET.toLocaleString()} total pixels. Trim shorter, lower the frame rate, or choose a smaller width.`;
+  return `GIF export allows at most ${GIF_MAX_FRAMES} frames and ${GIF_PIXEL_BUDGET.toLocaleString()} total pixels. Trim shorter, lower the frame rate, or choose a smaller size.`;
 }
 
 export function gifOutputName(name: string): string {

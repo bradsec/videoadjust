@@ -71,7 +71,7 @@ export function mountGifPanel(
     controls.append(section);
     return field;
   }
-  const width = select('Width', [], (n) => opts.onChange({ ...value, width: Number(n) }));
+  const size = select('Size', [], (n) => opts.onChange({ ...value, size: Number(n) }));
   const fps = select('Frame rate', [], (n) => opts.onChange({ ...value, fps: Number(n) }));
   const loop = select(
     'Loop',
@@ -118,24 +118,23 @@ export function mountGifPanel(
     value = next;
     transform = nextTransform;
     const frame = gifFrameSize(opts.source, transform);
-    const widths = [
+    const longEdge = Math.max(frame.width, frame.height);
+    const sizes = [
       ...new Set(
-        [320, 480, 640].map((n) => Math.max(2, Math.floor(Math.min(n, frame.width) / 2) * 2)),
+        [320, 480, 640, next.size].map((n) =>
+          Math.max(2, Math.floor(Math.min(n, longEdge) / 2) * 2),
+        ),
       ),
-    ];
-    width.replaceChildren(
-      ...widths.map((n) => {
-        const option = el('option', undefined, `${n} px`);
+    ].sort((a, b) => a - b);
+    size.replaceChildren(
+      ...sizes.map((n) => {
+        const dims = gifDimensions({ ...next, size: n }, opts.source, transform);
+        const option = el('option', undefined, `${n} px long edge (${dims.width}x${dims.height})`);
         option.value = String(n);
         return option;
       }),
     );
-    if (!widths.includes(next.width)) {
-      const option = el('option', undefined, `${next.width} px`);
-      option.value = String(next.width);
-      width.append(option);
-    }
-    width.value = String(next.width);
+    size.value = String(next.size);
     const rates = [
       ...new Set([5, 10, 15, 20].map((n) => Math.min(n, opts.source.video?.fps ?? n))),
     ];

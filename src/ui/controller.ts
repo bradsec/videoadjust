@@ -1088,7 +1088,7 @@ export function createController(
       toPrepare(base, {
         tone: 'error',
         title: 'The GIF export failed',
-        message: 'Could not make the GIF. Try a shorter trim, lower frame rate, or smaller width.',
+        message: 'Could not make the GIF. Try a shorter trim, lower frame rate, or smaller size.',
       });
     }
   }

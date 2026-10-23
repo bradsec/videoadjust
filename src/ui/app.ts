@@ -1,6 +1,6 @@
 import { CanvasSink } from 'mediabunny';
 import { AUDIO_FORMATS, audioUnavailable, type AudioExtractSettings } from '../core/audioExtract';
-import { gifUnavailable } from '../core/gifExport';
+import { gifDimensions, gifUnavailable } from '../core/gifExport';
 import type { Settings, SourceInfo } from '../core/types';
 import { mountAudioPanel } from './audioPanel';
 import { mountAudioPlayer } from './audioPlayer';
@@ -426,6 +426,16 @@ function summaryOutput(settings: Settings): string {
     .join(' · ');
 }
 
+/** "270x480" */
+function summaryGif(
+  gif: Parameters<typeof gifDimensions>[0],
+  source: SourceInfo,
+  transform: Settings['transform'],
+): string {
+  const { width, height } = gifDimensions(gif, source, transform);
+  return `${width}x${height}`;
+}
+
 /** "MP3 · 128 kbps stereo" */
 function summaryAudio(a: AudioExtractSettings): string {
   const { label } = AUDIO_FORMATS[a.format];
@@ -461,7 +471,7 @@ function renderWorking(
       state.tool === 'audio' && state.audioSettings
         ? summaryAudio(state.audioSettings)
         : state.tool === 'gif' && state.gifSettings
-          ? `${state.gifSettings.width} px · ${state.gifSettings.fps} fps GIF`
+          ? `${summaryGif(state.gifSettings, state.source, state.settings.transform)} · ${state.gifSettings.fps} fps GIF`
           : summaryOutput(state.settings),
     ),
   );
@@ -668,7 +678,7 @@ function renderResult(
     `${formatBytes(output.sizeBytes)}, `,
     el(
       'em',
-      undefined,
+      output.sizeBytes > source.sizeBytes ? 'is-larger' : undefined,
       state.notSmaller && !gifOnly
         ? 'not smaller'
         : reductionText(source.sizeBytes, output.sizeBytes),

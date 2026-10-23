@@ -16,7 +16,7 @@ test('encodes a cropped GIF with the requested size, frames, and centre colour',
   await page.setInputFiles('#file', fixture);
   const settings: GifSettings = {
     trim: { start: 0, end: 1 },
-    width: 320,
+    size: 320,
     fps: 5,
     loop: 'forever',
     colors: 256,
@@ -52,11 +52,11 @@ test('GIF tab shows settings and exports an image result', async ({ page }) => {
   const panel = page.getByRole('tabpanel');
   await expect(panel.getByRole('button', { name: 'Export GIF' })).toBeVisible();
   await panel.locator('summary').click();
-  const width = panel.getByLabel('Width', { exact: true });
+  const size = panel.getByLabel('Size', { exact: true });
   const fps = panel.getByLabel('Frame rate', { exact: true });
-  await expect(width).toBeVisible();
+  await expect(size).toBeVisible();
   await expect(fps).toBeVisible();
-  await width.selectOption('320');
+  await size.selectOption('320');
   await fps.selectOption('5');
   await panel.getByRole('button', { name: 'Export GIF' }).click();
   const result = page.getByRole('img', { name: /GIF preview/i });

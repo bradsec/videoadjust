@@ -39,20 +39,27 @@ describe('GIF settings', () => {
     expect(autoGifSettings(source())).not.toBeNull();
   });
 
-  it('caps width and frame rate to the source', () => {
+  it('defaults to a small, short-loop friendly GIF', () => {
+    expect(autoGifSettings(source({ displayWidth: 1920, displayHeight: 1080 }))).toMatchObject({
+      size: 320,
+      colors: 128,
+    });
+  });
+
+  it('caps the long edge and frame rate to the source', () => {
     const small = source({ displayWidth: 240, displayHeight: 136, fps: 12 });
     const auto = autoGifSettings(small)!;
-    expect(auto.width).toBeLessThanOrEqual(240);
+    expect(auto.size).toBeLessThanOrEqual(240);
     expect(auto.fps).toBeLessThanOrEqual(12);
     const invalid: GifSettings = {
       ...auto,
-      width: 640,
+      size: 640,
       fps: 20,
       loop: 'invalid' as GifSettings['loop'],
       colors: 12 as GifSettings['colors'],
     };
     const valid = validateGifSettings(invalid, auto, small);
-    expect(valid.width).toBeLessThanOrEqual(240);
+    expect(valid.size).toBeLessThanOrEqual(240);
     expect(valid.fps).toBeLessThanOrEqual(12);
     expect(['forever', 'once']).toContain(valid.loop);
     expect([64, 128, 256]).toContain(valid.colors);
@@ -62,13 +69,13 @@ describe('GIF settings', () => {
     const src = source();
     const auto = autoGifSettings(src)!;
     const settings = validateGifSettings(
-      { ...auto, trim: { start: 0.5, end: 2 }, width: 320, fps: 10, loop: 'once', colors: 64 },
+      { ...auto, trim: { start: 0.5, end: 2 }, size: 320, fps: 10, loop: 'once', colors: 64 },
       auto,
       src,
     );
     expect(settings).toMatchObject({
       trim: { start: 0.5, end: 2 },
-      width: 320,
+      size: 320,
       fps: 10,
       loop: 'once',
       colors: 64,
@@ -126,15 +133,21 @@ describe('GIF frames', () => {
     expect(new Set(plan.delaysMs).size).toBeGreaterThan(1);
   });
 
+  it('applies the size to the long edge so portrait frames are not larger', () => {
+    const portrait = source({ displayWidth: 720, displayHeight: 1280 });
+    const settings = { ...autoGifSettings(portrait)!, size: 480 };
+    expect(gifDimensions(settings, portrait, undefined)).toEqual({ width: 270, height: 480 });
+  });
+
   it('keeps the aspect ratio, applies the crop, and uses even dimensions', () => {
-    const settings = { ...autoGifSettings(source())!, width: 320 };
+    const settings = { ...autoGifSettings(source())!, size: 320 };
     expect(gifDimensions(settings, source(), undefined)).toEqual({ width: 320, height: 180 });
     expect(gifDimensions(settings, source(), { rotate: 0, flip: false, crop: 'square' })).toEqual({
       width: 320,
       height: 320,
     });
     const odd = source({ displayWidth: 641, displayHeight: 359 });
-    const dimensions = gifDimensions({ ...settings, width: 480 }, odd, undefined);
+    const dimensions = gifDimensions({ ...settings, size: 480 }, odd, undefined);
     expect(dimensions.width % 2).toBe(0);
     expect(dimensions.height % 2).toBe(0);
   });
