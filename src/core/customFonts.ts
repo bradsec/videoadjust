@@ -22,6 +22,7 @@ export const customFontId = (font: string) => font.slice(CUSTOM_FONT_PREFIX.leng
 // Kept for this session too, so a font still works when the browser blocks IndexedDB.
 const session = new Map<string, CustomFont>();
 const registered = new Map<string, Promise<void>>();
+const faces = new Map<string, FontFace>();
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -95,6 +96,9 @@ export async function addCustomFont(file: File): Promise<{ font: CustomFont; sav
 export async function removeCustomFont(id: string): Promise<void> {
   session.delete(id);
   registered.delete(id);
+  const face = faces.get(id);
+  if (face) document.fonts.delete(face);
+  faces.delete(id);
   await transact('readwrite', (store) => store.delete(id));
 }
 
@@ -107,9 +111,13 @@ export function loadCustomFont(id: string): Promise<void> {
       if (!font)
         throw new Error('Your font is no longer saved in this browser. Choose another font.');
       const face = await new FontFace(customFontFamily(id), font.data).load();
+      if (registered.get(id) !== load) return;
+      faces.set(id, face);
       document.fonts.add(face);
     })();
-    load.catch(() => registered.delete(id));
+    load.catch(() => {
+      if (registered.get(id) === load) registered.delete(id);
+    });
     registered.set(id, load);
   }
   return load;
