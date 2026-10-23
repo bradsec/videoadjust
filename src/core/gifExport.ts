@@ -26,7 +26,9 @@ export const GIF_CHANGE_THRESHOLD: Record<GifCompression, number | null> = {
 };
 
 export const GIF_PIXEL_BUDGET = 80_000_000;
-export const GIF_MAX_FRAMES = 300;
+export const GIF_MAX_SECONDS = 30;
+// 30 seconds at the highest offered rate, 20 fps.
+export const GIF_MAX_FRAMES = 600;
 const RATES = [5, 10, 15, 20];
 
 export function gifUnavailable(source: SourceInfo): string | null {
@@ -148,7 +150,14 @@ export function gifFrameCount(trim: GifSettings['trim'], fps: number): number {
     : 0;
 }
 
-export function gifBudgetError(width: number, height: number, frames: number): string | null {
+export function gifBudgetError(
+  width: number,
+  height: number,
+  frames: number,
+  seconds = 0,
+): string | null {
+  if (seconds > GIF_MAX_SECONDS + 1e-6)
+    return `GIFs can be at most ${GIF_MAX_SECONDS} seconds. Trim the video to ${GIF_MAX_SECONDS} seconds or less.`;
   if (frames > 0 && frames <= GIF_MAX_FRAMES && width * height * frames <= GIF_PIXEL_BUDGET)
     return null;
   return `GIF export allows at most ${GIF_MAX_FRAMES} frames and ${GIF_PIXEL_BUDGET.toLocaleString()} total pixels. Trim shorter, lower the frame rate, or choose a smaller size.`;

@@ -1127,7 +1127,7 @@ export function createController(
     if (!settings) return;
     const { width, height } = gifDimensions(settings, prep.source, prep.settings.transform);
     const frames = gifFrameCount(settings.trim, settings.fps);
-    const budget = gifBudgetError(width, height, frames);
+    const budget = gifBudgetError(width, height, frames, settings.trim.end - settings.trim.start);
     if (budget) {
       toPrepare(prep, { tone: 'warn', title: 'GIF is too large', message: budget });
       return;

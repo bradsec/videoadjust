@@ -108,9 +108,10 @@ export function mountGifPanel(
         'Smaller files reuse more of the previous frame, which can leave faint trails in fast motion.',
       ),
     );
-  const warning = el('p', 'setting-reason');
+  // Beside the action, not inside Adjust, so a blocked export always says why.
+  const warning = el('p', 'export-warning');
   warning.setAttribute('role', 'status');
-  controls.append(warning);
+  spec.append(warning);
   card.append(spec, dock, details);
   host.replaceChildren(card);
 
@@ -154,7 +155,13 @@ export function mountGifPanel(
     heading.textContent = `${dimensions.width}x${dimensions.height} GIF`;
     sub.textContent = `${frames} frames · ${Number(next.fps.toFixed(2))} fps · ${formatDuration(next.trim.end - next.trim.start)}`;
     big.textContent = `${frames} frames · ${dimensions.width}x${dimensions.height}`;
-    warning.textContent = gifBudgetError(dimensions.width, dimensions.height, frames) ?? '';
+    warning.textContent =
+      gifBudgetError(
+        dimensions.width,
+        dimensions.height,
+        frames,
+        next.trim.end - next.trim.start,
+      ) ?? '';
     warning.hidden = !warning.textContent;
     button.disabled = !!warning.textContent;
   }

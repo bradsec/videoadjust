@@ -154,6 +154,8 @@ describe('GIF frames', () => {
 
   it('rejects an excessive pixel and frame budget with useful advice', () => {
     expect(gifBudgetError(320, 180, 10)).toBeNull();
+    expect(gifBudgetError(320, 180, 300, 30)).toBeNull();
+    expect(gifBudgetError(320, 180, 301, 30.1)).toMatch(/at most 30 seconds/);
     expect(gifBudgetError(1, 1, GIF_MAX_FRAMES)).toBeNull();
     expect(gifBudgetError(1, 1, GIF_MAX_FRAMES + 1)).toBeTruthy();
     expect(gifBudgetError(1000, 1000, GIF_PIXEL_BUDGET / 1_000_000)).toBeNull();
