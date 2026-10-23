@@ -22,6 +22,7 @@ import { el, icon } from './dom';
 import { mountDropZone } from './dropZone';
 import { formatBitrate, formatBytes, formatDuration } from './format';
 import { mountGifPanel } from './gifPanel';
+import { mountLivePreview } from './livePreview';
 import { mountProgress, sizeMeter } from './progress';
 import { mountSettings } from './settingsPanel';
 import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
@@ -327,6 +328,8 @@ function renderPrepare(
   let previewPlayable = canPlaySource(video, state.source.containerMime);
   let cropEditor: ReturnType<typeof mountCropEditor> | undefined;
   let overlayEditor: ReturnType<typeof mountOverlayEditor> | undefined;
+  let livePreview: ReturnType<typeof mountLivePreview> | undefined;
+  const previewHost = el('div');
   const trim = mountTrimBar(trimHost, {
     duration: state.source.durationSec,
     value: state.settings.trim,
@@ -347,6 +350,9 @@ function renderPrepare(
     trim.setPreviewPlayable(false);
     cropEditor?.setPlayable(false);
     overlayEditor?.setPlayable(false);
+    livePreview?.destroy();
+    livePreview = undefined;
+    previewHost.remove();
   };
   video.addEventListener('error', showPreviewUnplayable);
   const another = el('button', 'btn btn-text another', 'Choose another video');
@@ -364,7 +370,15 @@ function renderPrepare(
   const editorsHost = el('div', 'editors');
   canvas.append(toolsHost, head);
   if (previewPlayable) {
-    canvas.append(video, editorsHost, previewNote, editSection);
+    canvas.append(previewHost, editorsHost, previewNote, editSection);
+    if (state.source.video)
+      livePreview = mountLivePreview(
+        video,
+        previewHost,
+        { width: state.source.video.displayWidth, height: state.source.video.displayHeight },
+        state.source.durationSec,
+      );
+    else previewHost.append(video);
     video.src = url;
     if (state.source.video)
       cropEditor = mountCropEditor(
@@ -401,6 +415,21 @@ function renderPrepare(
     overlayEditor?.setTool(value.tool !== 'audio');
     overlayDetails.hidden = value.tool === 'audio' || !value.source.video;
     editSection.hidden = value.tool === 'audio' || !previewPlayable || !value.source.video;
+    const previewOutput =
+      value.tool === 'gif' && value.gifSettings
+        ? gifDimensions(value.gifSettings, value.source, value.settings.transform)
+        : value.settings.video;
+    if (value.source.video)
+      livePreview?.update({
+        transform: value.settings.transform,
+        overlays: value.settings.overlays,
+        assets: value.overlayAssets,
+        output: previewOutput ?? {
+          width: value.source.video.displayWidth,
+          height: value.source.video.displayHeight,
+        },
+        enabled: value.tool !== 'audio',
+      });
     overlayState.textContent = overlaySummary(
       value.settings.overlays,
       !!value.overlayAssets?.image,
@@ -427,6 +456,7 @@ function renderPrepare(
       trim.destroy();
       cropEditor?.destroy();
       overlayEditor?.destroy();
+      livePreview?.destroy();
       video.removeEventListener('error', showPreviewUnplayable);
       video.pause();
       video.removeAttribute('src');

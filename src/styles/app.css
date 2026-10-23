@@ -652,6 +652,7 @@ input[type='checkbox']:disabled {
 
 /* Phone: footage runs edge to edge; everything else keeps the gutter. */
 .preview-video,
+.live-preview-stage,
 .stage {
   display: block;
   width: calc(100% + 2 * var(--gutter));
@@ -662,6 +663,58 @@ input[type='checkbox']:disabled {
 }
 .preview-video {
   object-fit: contain;
+}
+.live-preview-stage {
+  position: relative;
+  overflow: hidden;
+}
+.live-preview-frame {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.live-preview .preview-video {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+.live-preview-frame.is-edited,
+.live-preview-frame.is-edited .preview-video {
+  position: absolute;
+}
+.live-preview-frame.is-edited .preview-video {
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+.live-preview-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.live-preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+.live-preview-bar > :not([hidden]) {
+  margin-top: var(--s-3);
+}
+.live-preview-bar > .edit-tool {
+  flex: 0 0 auto;
+}
+.live-preview-bar .scrub {
+  flex-wrap: wrap;
+}
+/* Editors replace the entire live stage, including its overlay and playback controls. */
+.canvas:has(.editors > :not([hidden])) .live-preview {
+  display: none;
 }
 /* The file now leads the canvas, so it sits on the preview rather than under a rule. */
 .canvas > .file-line {
@@ -2003,6 +2056,7 @@ table.stats {
     padding-block: var(--s-5) var(--s-7);
   }
   .preview-video,
+  .live-preview-stage,
   .stage {
     width: 100%;
     margin-inline: 0;
