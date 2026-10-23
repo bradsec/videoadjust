@@ -16,6 +16,7 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
@@ -36,6 +37,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -59,8 +61,10 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium webkit
+        timeout-minutes: 10
       - if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium webkit
+        timeout-minutes: 10
       - run: pnpm test:e2e --workers=2 --shard=${{ matrix.shard }}
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -81,6 +85,7 @@ jobs:
     if: ${{ !cancelled() }}
     needs: e2e
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
