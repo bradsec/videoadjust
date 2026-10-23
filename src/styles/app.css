@@ -696,6 +696,50 @@ footer a:hover {
 .crop-editor-bar .btn {
   align-self: end;
 }
+.overlay-editor {
+  width: 100%;
+}
+.overlay-editor[hidden],
+.overlay-fields[hidden],
+.overlay-adjust[hidden] {
+  display: none;
+}
+.overlay-stage {
+  position: relative;
+  margin-inline: auto;
+  background: var(--stage-bg);
+}
+.overlay-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.overlay-selection {
+  position: absolute;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 2px dashed var(--accent);
+  background: transparent;
+  cursor: move;
+  touch-action: none;
+}
+.overlay-selection[hidden] {
+  display: none;
+}
+.overlay-selection:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.overlay-fields {
+  display: grid;
+  gap: var(--s-3);
+}
+.overlay-setting textarea {
+  min-height: calc(3 * var(--tap));
+  resize: vertical;
+}
 .preview-note {
   margin-block: var(--s-3);
 }

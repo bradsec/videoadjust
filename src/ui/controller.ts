@@ -1,4 +1,10 @@
 import {
+  decodeOverlayImage,
+  hasOverlays,
+  normalizeOverlays,
+  type OverlayAssets,
+} from '../core/overlays';
+import {
   ConversionCanceledError,
   type canEncodeVideo,
   type Input,
@@ -74,6 +80,7 @@ export type Tool = 'shrink' | 'audio' | 'gif';
 
 /** The loaded source and its derived limits, carried from prepare through result. */
 interface Loaded {
+  overlayAssets?: OverlayAssets;
   file: File;
   source: SourceInfo;
   input: Input;
@@ -131,6 +138,7 @@ export type AppAction =
     }
   | { type: 'setTrim'; value: Settings['trim'] }
   | { type: 'setSettings'; value: Settings }
+  | { type: 'setOverlayImage'; file: File }
   | { type: 'setTool'; tool: Tool }
   | { type: 'setAudioSettings'; value: AudioExtractSettings }
   | { type: 'setGifSettings'; value: GifSettings }
@@ -352,6 +360,7 @@ export function validateSettings(
   source: SourceInfo,
 ): Settings {
   const fallback = auto.settings;
+  const overlays = normalizeOverlays(value.overlays);
   const container =
     availableVideoCodecs(value.container, caps).length &&
     (value.container !== 'webm' || !source.audio || caps.audio.opus)
@@ -435,6 +444,7 @@ export function validateSettings(
     (!audio || (audio.codec === source.audio?.codec && audio.copy));
   return applyTargetSize(
     {
+      overlays,
       targetSizeMB,
       targetRetryScale: value.targetRetryScale,
       container,
@@ -446,7 +456,8 @@ export function validateSettings(
           value.transform?.flip ||
           (value.transform?.crop ?? 'original') !== 'original' ||
           effectiveRect ||
-          value.keyFrameInterval
+          value.keyFrameInterval ||
+          hasOverlays(overlays)
         ),
       trim: clampTrim(value.trim, source.durationSec, 'end'),
       keyFrameInterval:
@@ -507,6 +518,8 @@ export function settingsChangeCount(
         )
       : null;
   return (
+    Number(!!current.overlays?.text.enabled) +
+    Number(!!current.overlays?.image.enabled) +
     Number(!!current.targetSizeMB) +
     Number(current.container !== automatic.container) +
     Number(current.video?.codec !== automatic.video?.codec) +
@@ -594,12 +607,14 @@ export function createController(
   let loadToken = 0;
   let caps: Promise<Capabilities> | undefined;
   let exportToken = 0;
+  let imageToken = 0;
   let cancelExport: (() => void) | undefined;
 
   // Any in-flight read is superseded: its late result is dropped and its Input disposed.
   // Any export in flight is canceled and its late result dropped.
   const cancelLoad = () => {
     loadToken++;
+    imageToken++;
     exportToken++;
     cancelExport?.();
     cancelExport = undefined;
@@ -615,6 +630,9 @@ export function createController(
     const prev = state;
     const prevInput = inputOf(prev);
     state = next;
+    const previousImage = prev.kind !== 'drop' ? prev.overlayAssets?.image : undefined;
+    const nextImage = next.kind !== 'drop' ? next.overlayAssets?.image : undefined;
+    if (previousImage && previousImage !== nextImage) previousImage.close();
     if (prevInput && inputOf(next) !== prevInput) prevInput.dispose();
     const prevUrl = prev.kind === 'result' ? prev.output.url : null;
     if (prevUrl && !(next.kind === 'result' && next.output.url === prevUrl))
@@ -649,6 +667,7 @@ export function createController(
       audioSettings,
       gifAuto,
       gifSettings,
+      overlayAssets: from.overlayAssets,
       notice,
     });
   }
@@ -759,6 +778,9 @@ export function createController(
           });
         }
         return;
+      case 'setOverlayImage':
+        if (state.kind === 'prepare' && !state.exporting) void loadOverlayImage(action.file);
+        return;
       case 'setSettings':
         if (state.kind === 'prepare') {
           supersedePending();
@@ -859,6 +881,54 @@ export function createController(
       case 'reset':
         cancelLoad();
         setState({ kind: 'drop' });
+    }
+  }
+
+  async function loadOverlayImage(file: File): Promise<void> {
+    if (state.kind !== 'prepare') return;
+    const input = state.input;
+    const token = ++imageToken;
+    try {
+      const image = await decodeOverlayImage(
+        file,
+        Math.max(
+          state.source.video?.displayWidth ?? 1920,
+          state.source.video?.displayHeight ?? 1080,
+        ),
+      );
+      if (
+        token !== imageToken ||
+        state.kind !== 'prepare' ||
+        state.input !== input ||
+        state.exporting
+      ) {
+        image.close();
+        return;
+      }
+      const overlays = normalizeOverlays(state.settings.overlays);
+      overlays.image.enabled = true;
+      setState({
+        ...state,
+        overlayAssets: { image },
+        settings: validateSettings(
+          { ...state.settings, overlays },
+          state.auto,
+          state.caps,
+          state.source,
+        ),
+        notice: undefined,
+      });
+    } catch (error) {
+      if (token !== imageToken || state.kind !== 'prepare' || state.input !== input) return;
+      setState({
+        ...state,
+        notice: {
+          tone: 'error',
+          title: 'Image could not be loaded',
+          message:
+            error instanceof Error ? error.message : 'Choose a PNG, JPEG, WebP or SVG image.',
+        },
+      });
     }
   }
 
@@ -1116,6 +1186,8 @@ export function createController(
         (progress) => {
           if (token === exportToken && state.kind === 'working') setState({ ...state, progress });
         },
+        base.settings.overlays,
+        base.overlayAssets,
       );
       if (token !== exportToken) return;
       const blob = await sink.finish(bytes);
@@ -1172,7 +1244,7 @@ export function createController(
       outputName,
       mime,
       estimate: estimateBytes(settings, source),
-      job: shrinkJob(settings, source),
+      job: shrinkJob(settings, source, prep.overlayAssets),
       format: (sinkKind) => createOutputFormat(settings.container, sinkKind),
       async preflight() {
         const v = settings.video;

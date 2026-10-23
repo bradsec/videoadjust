@@ -6,6 +6,8 @@ import { mountAudioPanel } from './audioPanel';
 import { mountAudioPlayer } from './audioPlayer';
 import { canPlaySource, mountCompare } from './compare';
 import { mountCropEditor } from './cropEditor';
+import { mountOverlayEditor } from './overlayEditor';
+import { mountOverlayPanel } from './overlayPanel';
 import {
   codecLabel,
   createController,
@@ -205,7 +207,21 @@ function renderPrepare(
   const panelHost = el('div', 'tool-panel');
   panelHost.id = TOOL_PANEL_ID;
   panelHost.setAttribute('role', 'tabpanel');
-  settingsHost.append(panelHost);
+  // Overlays apply to Shrink and GIF alike, so their controls sit below whichever panel shows.
+  const overlayDetails = el('details', 'adjust overlay-adjust');
+  const overlaySummary = el('summary');
+  overlaySummary.append('Overlay', icon('i-chev'));
+  overlayDetails.append(overlaySummary);
+  settingsHost.append(panelHost, overlayDetails);
+  let current = state;
+  const changeOverlays = (overlays: Settings['overlays']) =>
+    dispatch({ type: 'setSettings', value: { ...current.settings, overlays } });
+  const overlayPanel = mountOverlayPanel(
+    overlayDetails,
+    state.settings.overlays,
+    changeOverlays,
+    (file) => dispatch({ type: 'setOverlayImage', file }),
+  );
   const tabs = mountToolTabs(toolsHost, {
     value: state.tool,
     disabledReason: audioReason(state),
@@ -305,6 +321,7 @@ function renderPrepare(
   };
   let previewPlayable = canPlaySource(video, state.source.containerMime);
   let cropEditor: ReturnType<typeof mountCropEditor> | undefined;
+  let overlayEditor: ReturnType<typeof mountOverlayEditor> | undefined;
   const trim = mountTrimBar(trimHost, {
     duration: state.source.durationSec,
     value: state.settings.trim,
@@ -323,6 +340,7 @@ function renderPrepare(
     previewNote.hidden = false;
     trim.setPreviewPlayable(false);
     cropEditor?.setPlayable(false);
+    overlayEditor?.setPlayable(false);
   };
   video.addEventListener('error', showPreviewUnplayable);
   const another = el('button', 'btn btn-text another', 'Choose another video');
@@ -337,6 +355,14 @@ function renderPrepare(
       cropEditor = mountCropEditor(canvas, video, state.source.video, state.settings, (transform) =>
         changeTransform?.(transform),
       );
+    if (state.source.video)
+      overlayEditor = mountOverlayEditor(
+        canvas,
+        video,
+        state.source.video,
+        state.settings,
+        changeOverlays,
+      );
   } else {
     previewNote.hidden = false;
     canvas.append(previewNote);
@@ -347,8 +373,13 @@ function renderPrepare(
   function update(value: AppState): void {
     if (value.kind !== 'prepare') return;
     trim.update(value.settings.trim);
+    current = value;
     cropEditor?.update(value.settings);
     cropEditor?.setTool(value.tool !== 'audio');
+    overlayEditor?.update(value.settings, value.overlayAssets);
+    overlayEditor?.setTool(value.tool !== 'audio');
+    overlayDetails.hidden = value.tool === 'audio' || !value.source.video;
+    overlayPanel.update(value.settings.overlays);
     tabs.update(value.tool, audioReason(value), gifReason(value));
     if (value.tool !== shownTool) {
       showPanel(value);
@@ -368,6 +399,7 @@ function renderPrepare(
       root.style.removeProperty('--dock-space');
       trim.destroy();
       cropEditor?.destroy();
+      overlayEditor?.destroy();
       video.removeEventListener('error', showPreviewUnplayable);
       video.pause();
       video.removeAttribute('src');

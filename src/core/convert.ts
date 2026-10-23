@@ -13,9 +13,11 @@ import {
   type OutputFormat,
   type Target,
   type TrackType,
+  type VideoSample,
 } from 'mediabunny';
 import type { AudioExtractSettings, AudioFormat } from './audioExtract';
 import { registerFrameCrop } from './frameCrop';
+import { hasOverlays, renderOverlayLayer, type OverlayAssets } from './overlays';
 import type { SinkPlan } from './sink';
 import type { Container, Settings, SourceInfo } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
@@ -39,6 +41,7 @@ const quality = (bitrate: number) => new Quality({ bitrate: Math.round(bitrate) 
 export function toConversionOptions(
   s: Settings,
   source?: SourceInfo,
+  assets: OverlayAssets = {},
 ): Pick<ConversionOptions, 'video' | 'audio' | 'trim' | 'tags'> {
   const v = s.video;
   const a = s.audio;
@@ -56,7 +59,10 @@ export function toConversionOptions(
   const transformed =
     !!transform &&
     (transform.rotate !== 0 || transform.flip || transform.crop !== 'original' || !!crop);
-  const reencode = transformed || !!s.keyFrameInterval;
+  const overlay = s.overlays && hasOverlays(s.overlays) ? s.overlays : undefined;
+  const reencode = transformed || !!s.keyFrameInterval || !!overlay;
+  let canvas: OffscreenCanvas | undefined;
+  let layer: Promise<OffscreenCanvas | null> | undefined;
   const title = s.metadata?.title.trim();
   return {
     trim: { start: s.trim.start, end: s.trim.end },
@@ -79,7 +85,30 @@ export function toConversionOptions(
             // the export. The target's headroom and Try again smaller cover any overshoot.
             quality: quality(v.bitrate),
             ...(reencode || s.targetSizeMB ? { forceTranscode: true } : {}),
-            ...(transformed ? { allowTransformationMetadata: false } : {}),
+            ...(transformed || overlay ? { allowTransformationMetadata: false } : {}),
+            ...(overlay
+              ? {
+                  processedWidth: v.width,
+                  processedHeight: v.height,
+                  // Samples arrive rotated, flipped, cropped and resized, so overlays land in
+                  // output space. sample.draw reads the whole frame, which WebKit handles.
+                  process: async (sample: VideoSample) => {
+                    const overlayLayer = await (layer ??= renderOverlayLayer(
+                      v.width,
+                      v.height,
+                      overlay,
+                      assets,
+                    ));
+                    canvas ??= new OffscreenCanvas(v.width, v.height);
+                    const context = canvas.getContext('2d');
+                    if (!context) throw new Error('Canvas is unavailable for overlay export.');
+                    context.clearRect(0, 0, v.width, v.height);
+                    sample.draw(context, 0, 0, v.width, v.height);
+                    if (overlayLayer) context.drawImage(overlayLayer, 0, 0);
+                    return canvas;
+                  },
+                }
+              : {}),
             ...(s.keyFrameInterval ? { keyFrameInterval: s.keyFrameInterval } : {}),
             ...(transform?.rotate ? { rotate: transform.rotate } : {}),
             ...(transform?.flip ? { flip: true } : {}),
@@ -97,9 +126,9 @@ export function toConversionOptions(
   };
 }
 
-export function shrinkJob(s: Settings, source?: SourceInfo): ConversionJob {
+export function shrinkJob(s: Settings, source?: SourceInfo, assets?: OverlayAssets): ConversionJob {
   return {
-    options: toConversionOptions(s, source),
+    options: toConversionOptions(s, source, assets),
     keeps: { video: !!s.video, audio: !!s.audio },
   };
 }

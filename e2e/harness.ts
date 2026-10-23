@@ -59,7 +59,17 @@ export type GifResult =
 const fileInput = document.getElementById('file') as HTMLInputElement;
 
 // Decodes with Mediabunny rather than a <video> element, which can paint black before its first frame.
-async function sampleVideoPixels(blob: Blob): Promise<[number, number, number][]> {
+type PixelPoint = readonly [number, number];
+const centrePoints: PixelPoint[] = [
+  [0.1, 0.5],
+  [0.5, 0.5],
+  [0.9, 0.5],
+];
+
+async function sampleVideoPixels(
+  blob: Blob,
+  points = centrePoints,
+): Promise<[number, number, number][]> {
   const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
   try {
     const track = await input.getPrimaryVideoTrack();
@@ -70,9 +80,9 @@ async function sampleVideoPixels(blob: Blob): Promise<[number, number, number][]
     const context = canvas.getContext('2d') as
       CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
     if (!context) throw new Error('Canvas 2D context is unavailable');
-    return [0.1, 0.5, 0.9].map((fraction) => {
-      const x = Math.floor(canvas.width * fraction);
-      const y = Math.floor(canvas.height / 2);
+    return points.map(([fractionX, fractionY]) => {
+      const x = Math.floor(canvas.width * fractionX);
+      const y = Math.floor(canvas.height * fractionY);
       const pixel = context.getImageData(x, y, 1, 1).data;
       return [pixel[0], pixel[1], pixel[2]];
     });
@@ -114,7 +124,10 @@ function inspectGif(bytes: Uint8Array): { width: number; height: number; frames:
   return { width, height, frames };
 }
 
-async function sampleGifPixels(blob: Blob): Promise<[number, number, number][]> {
+async function sampleGifPixels(
+  blob: Blob,
+  points = centrePoints,
+): Promise<[number, number, number][]> {
   const url = URL.createObjectURL(blob);
   try {
     const image = new Image();
@@ -126,10 +139,10 @@ async function sampleGifPixels(blob: Blob): Promise<[number, number, number][]> 
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas 2D context is unavailable');
     context.drawImage(image, 0, 0);
-    return [0.1, 0.5, 0.9].map((fraction) => {
+    return points.map(([fractionX, fractionY]) => {
       const pixel = context.getImageData(
-        Math.floor(canvas.width * fraction),
-        Math.floor(canvas.height / 2),
+        Math.floor(canvas.width * fractionX),
+        Math.floor(canvas.height * fractionY),
         1,
         1,
       ).data;
@@ -158,7 +171,12 @@ async function ensureAudioEncoder(settings: Settings): Promise<void> {
 }
 
 const harness = {
-  async exportGif(settings: GifSettings, transform?: Settings['transform']): Promise<GifResult> {
+  async exportGif(
+    settings: GifSettings,
+    transform?: Settings['transform'],
+    overlays?: Settings['overlays'],
+    points = centrePoints,
+  ): Promise<GifResult> {
     let input: Input | undefined;
     try {
       const selected = selectedFile();
@@ -174,6 +192,7 @@ const harness = {
         (progress) => {
           lastProgress = progress;
         },
+        overlays,
       );
       const blob = new Blob([new Uint8Array(bytes)], { type: 'image/gif' });
       return {
@@ -181,7 +200,7 @@ const harness = {
         ...inspectGif(bytes),
         outputBytes: bytes.byteLength,
         lastProgress,
-        pixelSamples: await sampleGifPixels(blob),
+        pixelSamples: await sampleGifPixels(blob, points),
       };
     } catch (err) {
       return failure(err);
@@ -218,6 +237,7 @@ const harness = {
     settings: Settings,
     cancelAt: CancelAt = 'never',
     samplePixels = false,
+    points = centrePoints,
   ): Promise<ConvertResult> {
     try {
       const { input, info: source } = await readSource(selectedFile());
@@ -247,7 +267,7 @@ const harness = {
       const blob = await sink.finish();
       if (!blob) throw new Error('Memory sink returned no blob');
       const { info } = await readSource(new File([blob], 'out', { type: mime }));
-      const pixelSamples = samplePixels ? await sampleVideoPixels(blob) : undefined;
+      const pixelSamples = samplePixels ? await sampleVideoPixels(blob, points) : undefined;
       return {
         ok: true,
         output: info,

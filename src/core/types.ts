@@ -1,3 +1,5 @@
+import type { Overlays } from './overlays';
+
 export type Container = 'mp4' | 'webm';
 export type VideoCodecId = 'avc' | 'hevc' | 'av1' | 'vp9';
 export type AudioCodecId = 'aac' | 'opus';
@@ -39,6 +41,7 @@ export interface Capabilities {
 }
 
 export interface Settings {
+  overlays?: Overlays;
   container: Container;
   passthrough: boolean;
   /** Decimal megabytes; absent or null disables the target. */

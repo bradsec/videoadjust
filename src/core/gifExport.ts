@@ -1,5 +1,6 @@
 import { CanvasSink, type Input } from 'mediabunny';
 import { scaleToLongEdge } from './autoSettings';
+import { renderOverlayLayer, type OverlayAssets } from './overlays';
 import type { Settings, SourceInfo, Rotation, CropRect } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
 
@@ -165,6 +166,8 @@ export async function exportGif(
   transform: Settings['transform'],
   signal: AbortSignal,
   onProgress: (progress: number) => void,
+  overlays?: Settings['overlays'],
+  assets: OverlayAssets = {},
 ): Promise<Uint8Array> {
   const video = source.video;
   const track = await input.getPrimaryVideoTrack();
@@ -173,6 +176,7 @@ export async function exportGif(
   const count = gifFrameCount(settings.trim, settings.fps);
   const budget = gifBudgetError(width, height, count);
   if (budget) throw new Error(budget);
+  const overlayLayer = await renderOverlayLayer(width, height, overlays, assets);
   const { timestamps, delaysMs } = gifFramePlan(settings.trim, settings.fps);
   const rotated = rotatedSize(video.displayWidth, video.displayHeight, transform?.rotate ?? 0);
   const crop = normalizeCrop(
@@ -252,6 +256,7 @@ export async function exportGif(
       const context = (target ?? frame.canvas.getContext('2d')) as
         CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
       if (!context) throw new Error('Canvas is unavailable for GIF export.');
+      if (overlayLayer) context.drawImage(overlayLayer, 0, 0);
       // Copy pixels before the iterator can reuse its pooled canvas.
       const rgba = context.getImageData(0, 0, width, height).data;
       await send(

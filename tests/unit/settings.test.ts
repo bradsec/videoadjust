@@ -1,3 +1,4 @@
+import { defaultOverlays } from '../../src/core/overlays';
 import { describe, expect, it } from 'vitest';
 import { autoSettings, targetVideoBitrate } from '../../src/core/autoSettings';
 import { estimateBytes } from '../../src/core/estimate';
@@ -30,6 +31,32 @@ const source: SourceInfo = {
 
 describe('settings validation', () => {
   const auto = autoSettings(source, caps);
+  it('validates overlays and counts independently enabled layers', () => {
+    const overlays = defaultOverlays();
+    overlays.text.enabled = true;
+    overlays.text.content = 'a'.repeat(600);
+    overlays.text.opacity = 5;
+    overlays.text.fontSize = -1;
+    overlays.text.font = 'Remote font' as typeof overlays.text.font;
+    overlays.image.enabled = true;
+    overlays.image.position = { x: -1, y: 2 };
+    const settings = validateSettings(
+      { ...auto.settings, passthrough: true, overlays },
+      auto,
+      caps,
+      source,
+    );
+    expect(settings.passthrough).toBe(false);
+    expect(settings.overlays?.text.content).toHaveLength(500);
+    expect(settings.overlays?.text.opacity).toBe(1);
+    expect(settings.overlays?.text.fontSize).toBeGreaterThan(0);
+    expect(settings.overlays?.text.font).toBe('Inter');
+    expect(settings.overlays?.image.position).toEqual({ x: 0, y: 1 });
+    expect(settingsChangeCount(settings, auto, caps, source)).toBe(2);
+    settings.overlays!.text.enabled = false;
+    settings.overlays!.image.enabled = false;
+    expect(settingsChangeCount(settings, auto, caps, source)).toBe(0);
+  });
   it('disables video passthrough for shorter keyframe intervals', () => {
     for (const keyFrameInterval of [1, 2] as const) {
       const settings = validateSettings(

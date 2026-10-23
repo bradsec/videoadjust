@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 export const ALLOWED = new Set([
   'MIT',
+  'OFL-1.1',
   'BSD-2-Clause',
   'BSD-3-Clause',
   'ISC',
