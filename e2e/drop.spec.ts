@@ -39,8 +39,7 @@ test('shows the drop zone and says files stay on this device', async ({ page }) 
   await expect(page.getByText('Stays on this device')).toBeVisible();
   await expect(page.getByText('Nothing is uploaded')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
-  await expect(page.getByText('Free. Works offline after your first visit.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Licences' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'About VideoAdjust' })).toBeVisible();
 });
 
 test('opens the native picker from the Choose video button', async ({ page }) => {
@@ -101,13 +100,30 @@ test('a file at exactly 2 GB is read without a warning', async ({ page }) => {
   await expect(page.getByRole('alert').filter({ hasText: 'GB' })).toHaveCount(0);
 });
 
-test('footer shows the app version and links to the GitHub repo', async ({ page }) => {
+test('footer links to the GitHub repo and opens About with the version', async ({ page }) => {
   const { version } = JSON.parse(
     readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   ) as { version: string };
   await page.goto('/');
-  await expect(page.locator('footer')).toContainText(`v${version}`);
   const repo = page.getByRole('link', { name: 'github.com/bradsec/videoadjust' });
   await expect(repo).toHaveAttribute('href', 'https://github.com/bradsec/videoadjust');
   await expect(repo).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(page.locator('footer')).not.toContainText('Licences');
+
+  await page.getByRole('button', { name: 'About VideoAdjust' }).click();
+  const about = page.getByRole('dialog', { name: 'About VideoAdjust' });
+  await expect(about).toBeVisible();
+  await expect(about).toContainText(`Version ${version}`);
+  await expect(about).toContainText('works offline after your first visit');
+  await expect(about.getByRole('link', { name: 'View third-party licences' })).toHaveAttribute(
+    'href',
+    './THIRD-PARTY-LICENSES.txt',
+  );
+  const axe = await new AxeBuilder({ page }).analyze();
+  expect(axe.violations).toEqual([]);
+  await about.getByRole('button', { name: 'Close' }).click();
+  await expect(about).toBeHidden();
+  await page.getByRole('button', { name: 'About VideoAdjust' }).click();
+  await page.keyboard.press('Escape');
+  await expect(about).toBeHidden();
 });

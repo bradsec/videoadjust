@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <title>VideoAdjust share image</title>
-    <!-- Brand colours and fonts come from the app's own tokens (dark theme is the default). -->
+    <!-- Laid out like rastertrace's share image so the sibling apps read as a family. Colours
+         and fonts come from the app's own tokens. -->
     <link rel="stylesheet" href="../src/styles/tokens.css" />
     <style>
       * {
@@ -20,118 +21,64 @@
         overflow: hidden;
       }
       main {
-        position: relative;
-        width: 1200px;
-        height: 630px;
-        padding: 88px 96px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 36px;
-        background:
-          radial-gradient(900px 520px at 100% 0%, var(--accent-soft), transparent 70%), var(--bg);
-      }
-      .bar {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 12px;
-        height: 100%;
-        background: var(--accent);
-      }
-      .mark {
         display: flex;
         align-items: center;
-        gap: 28px;
-        font-size: 112px;
-        font-weight: 400;
-        letter-spacing: -0.02em;
-        line-height: 1;
-      }
-      .mark b {
-        font-weight: 800;
+        gap: 56px;
+        width: 1200px;
+        height: 630px;
+        padding: 0 100px 80px;
       }
       .logo {
-        width: 112px;
-        height: 112px;
-        color: var(--text);
+        flex: none;
+        width: 220px;
+        height: 220px;
       }
-      .signal {
-        fill: var(--accent);
+      h1 {
+        margin: 0 0 18px;
+        font-size: 92px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1;
       }
-      .tagline {
+      p {
         margin: 0;
-        max-width: 880px;
-        font-size: 44px;
-        line-height: 1.25;
+        font-size: 34px;
+        line-height: 1.3;
+      }
+      .what {
         color: var(--text-2);
       }
-      .tools {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 14px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-      }
-      .tools li {
-        padding: 10px 22px;
-        border: 2px solid var(--line);
-        border-radius: 999px;
-        background: var(--surface);
-        font-family: var(--font-ui);
-        font-size: 28px;
-        color: var(--accent-text);
-      }
-      .site {
-        position: absolute;
-        right: 96px;
-        bottom: 56px;
-        font-family: var(--font-ui);
-        font-size: 28px;
-        color: var(--text-3);
+      .how {
+        margin-top: 26px;
+        font-size: 26px;
+        color: var(--accent);
       }
     </style>
   </head>
   <body>
     <main>
-      <div class="bar"></div>
-      <div class="mark">
-        <svg class="logo" viewBox="0 0 26 26" aria-hidden="true">
-          <rect
-            x="1.5"
-            y="3.5"
-            width="23"
-            height="17"
-            rx="4"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-          <rect class="signal" x="11" y="10" width="10" height="7" rx="2" />
-          <path
-            d="M5.5 12 L10 12 L10 7.5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path d="M5 7.5 L10 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-        </svg>
-        <span>Video<b>Adjust</b></span>
+      <svg class="logo" viewBox="0 0 128 128" aria-hidden="true">
+        <rect width="128" height="128" rx="26" fill="#181c22" />
+        <rect
+          x="14"
+          y="14"
+          width="100"
+          height="100"
+          rx="18"
+          fill="#20252c"
+          stroke="#c6ef3a"
+          stroke-width="5"
+        />
+        <path
+          fill="#d4f56a"
+          d="M50.03 74.81 42 53.03H48.22L51.88 64.33Q52.54 66.46 53.04 68.62Q53.54 70.78 54.06 73.1H52.81Q53.32 70.78 53.81 68.62Q54.3 66.46 54.96 64.33L58.58 53.03H64.72L56.67 74.81ZM73.9 75.24Q71.83 75.24 70.19 74.51Q68.54 73.78 67.6 72.33Q66.65 70.88 66.65 68.72Q66.65 66.9 67.32 65.68Q67.99 64.45 69.15 63.71Q70.31 62.97 71.78 62.58Q73.26 62.19 74.87 62.03Q76.76 61.84 77.92 61.67Q79.08 61.51 79.62 61.15Q80.15 60.78 80.15 60.08V59.99Q80.15 59.05 79.76 58.41Q79.37 57.76 78.6 57.42Q77.84 57.08 76.74 57.08Q75.61 57.08 74.78 57.42Q73.94 57.76 73.41 58.33Q72.89 58.89 72.63 59.6L67.27 58.72Q67.84 56.81 69.14 55.48Q70.45 54.16 72.39 53.46Q74.33 52.76 76.76 52.76Q78.52 52.76 80.17 53.18Q81.83 53.59 83.15 54.47Q84.46 55.35 85.23 56.76Q86 58.17 86 60.14V74.81H80.47V71.79H80.27Q79.74 72.81 78.87 73.58Q77.99 74.35 76.75 74.8Q75.52 75.24 73.9 75.24ZM75.56 71.13Q76.94 71.13 77.98 70.59Q79.02 70.04 79.61 69.11Q80.19 68.17 80.19 67.02V64.66Q79.94 64.86 79.41 65.01Q78.89 65.17 78.24 65.29Q77.6 65.4 76.98 65.5Q76.35 65.6 75.87 65.66Q74.8 65.81 73.98 66.16Q73.16 66.51 72.71 67.09Q72.26 67.66 72.26 68.56Q72.26 69.4 72.69 69.97Q73.12 70.55 73.86 70.84Q74.6 71.13 75.56 71.13Z"
+        />
+      </svg>
+      <div>
+        <h1>videoadjust</h1>
+        <p class="what">Shrink, convert, caption and make GIFs.</p>
+        <p class="how">Private. Free. In your browser.</p>
       </div>
-      <p class="tagline">
-        Free video tools that run privately in your browser. Nothing is uploaded.
-      </p>
-      <ul class="tools">
-        <li>Compress</li>
-        <li>Convert</li>
-        <li>Resize</li>
-        <li>Trim</li>
-        <li>Extract audio</li>
-      </ul>
-      <div class="site">videoadjust.com</div>
     </main>
   </body>
 </html>

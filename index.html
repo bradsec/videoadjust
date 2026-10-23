@@ -8,9 +8,8 @@
       content="default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; worker-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'"
     />
     <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#0e0f0d" />
+    <meta name="theme-color" content="#111419" />
     <link rel="canonical" href="https://videoadjust.com/" />
-    <script src="/theme-init.js"></script>
     <link rel="icon" href="./favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png" />
@@ -83,27 +82,21 @@
   <body>
     <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
       <defs>
-        <symbol id="i-logo" viewBox="0 0 26 26">
+        <symbol id="i-logo" viewBox="0 0 128 128">
           <rect
-            x="1.5"
-            y="3.5"
-            width="23"
-            height="17"
-            rx="4"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
+            x="5"
+            y="5"
+            width="118"
+            height="118"
+            rx="24"
+            fill="#20252c"
+            stroke="#c6ef3a"
+            stroke-width="9"
           />
-          <rect class="logo-signal" x="11" y="10" width="10" height="7" rx="2" />
           <path
-            d="M5.5 12 L10 12 L10 7.5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
+            fill="#d4f56a"
+            d="M43.68 79.73 32 48.04H41.04L46.37 64.48Q47.33 67.57 48.06 70.72Q48.78 73.86 49.54 77.24H47.73Q48.47 73.86 49.18 70.72Q49.88 67.57 50.85 64.48L56.12 48.04H65.05L53.34 79.73ZM78.4 80.35Q75.39 80.35 73 79.29Q70.6 78.23 69.23 76.12Q67.85 74.01 67.85 70.86Q67.85 68.22 68.83 66.44Q69.81 64.65 71.5 63.57Q73.18 62.5 75.32 61.93Q77.46 61.36 79.82 61.14Q82.57 60.85 84.25 60.61Q85.94 60.37 86.72 59.85Q87.5 59.32 87.5 58.3V58.16Q87.5 56.8 86.93 55.87Q86.36 54.93 85.24 54.43Q84.12 53.94 82.54 53.94Q80.89 53.94 79.67 54.43Q78.46 54.93 77.69 55.75Q76.92 56.57 76.56 57.59L68.76 56.32Q69.58 53.54 71.48 51.61Q73.38 49.69 76.2 48.67Q79.02 47.65 82.57 47.65Q85.12 47.65 87.53 48.26Q89.93 48.86 91.85 50.14Q93.76 51.42 94.88 53.47Q96 55.53 96 58.39V79.73H87.95V75.34H87.67Q86.9 76.81 85.63 77.93Q84.35 79.05 82.55 79.7Q80.75 80.35 78.4 80.35ZM80.81 74.37Q82.82 74.37 84.34 73.58Q85.85 72.79 86.7 71.43Q87.55 70.07 87.55 68.39V64.96Q87.19 65.25 86.42 65.47Q85.65 65.7 84.72 65.87Q83.78 66.04 82.88 66.18Q81.97 66.32 81.26 66.41Q79.7 66.64 78.51 67.15Q77.32 67.66 76.67 68.49Q76.02 69.33 76.02 70.63Q76.02 71.85 76.64 72.69Q77.26 73.52 78.34 73.95Q79.42 74.37 80.81 74.37Z"
           />
-          <path d="M5 7.5 L10 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
         </symbol>
         <!-- App icons: one family on a 24x24 artboard. Stroke, caps and joins come from svg.i
              in app.css, so no symbol sets its own; only the play triangle is filled. -->
@@ -177,15 +170,6 @@
         </symbol>
         <symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6" /></symbol>
         <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" /></symbol>
-        <symbol id="i-sun" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="4" />
-          <path
-            d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"
-          />
-        </symbol>
-        <symbol id="i-moon" viewBox="0 0 24 24">
-          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
-        </symbol>
       </defs>
     </svg>
     <header class="top">
@@ -193,32 +177,20 @@
         <div class="brand">
           <span class="mark"
             ><svg class="logo" aria-hidden="true"><use href="#i-logo" /></svg
-            ><span class="wordmark">Video<b>Adjust</b></span></span
+            ><span class="wordmark">videoadjust</span></span
           >
           <span class="local"
             ><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Stays on this
             device</span
           >
         </div>
-        <button
-          class="theme"
-          type="button"
-          role="switch"
-          aria-checked="false"
-          aria-label="Light theme"
-          title="Light theme"
-        >
-          <svg class="i sun" aria-hidden="true"><use href="#i-sun" /></svg
-          ><svg class="i moon" aria-hidden="true"><use href="#i-moon" /></svg>
-        </button>
       </div>
     </header>
     <main id="app" class="shell"></main>
     <footer>
       <div class="shell foot-in">
-        <span>Free. Works offline after your first visit.</span>
+        <button type="button" class="about-link" aria-haspopup="dialog">About VideoAdjust</button>
         <span class="footer-links">
-          <a href="./THIRD-PARTY-LICENSES.txt">Licences</a>
           <a
             class="repo-link"
             href="https://github.com/bradsec/videoadjust"
@@ -230,10 +202,53 @@
               /></svg
             >github.com/bradsec/videoadjust</a
           >
-          <span class="app-version">v__VA_APP_VERSION__</span>
         </span>
       </div>
     </footer>
+    <dialog id="about-dialog" class="about-dialog" aria-labelledby="about-title">
+      <form method="dialog" class="dialog-form">
+        <div class="dialog-heading">
+          <h2 id="about-title">About VideoAdjust</h2>
+          <p>Version __VA_APP_VERSION__</p>
+        </div>
+        <p>
+          Compress, convert, trim, crop and resize videos, add text or a watermark, extract audio
+          and make GIFs locally in your browser. Videos remain on your device.
+        </p>
+        <p>Free to use, and it works offline after your first visit.</p>
+        <p>
+          Created by Mark Bradley (<a
+            href="https://github.com/bradsec"
+            target="_blank"
+            rel="noopener noreferrer"
+            >BRADSEC</a
+          >).
+        </p>
+        <p>
+          Video processing is powered by the open-source
+          <a href="https://mediabunny.dev/" target="_blank" rel="noopener noreferrer">Mediabunny</a>
+          library, with GIF encoding by
+          <a href="https://github.com/mattdesl/gifenc" target="_blank" rel="noopener noreferrer"
+            >gifenc</a
+          >.
+          <a href="./THIRD-PARTY-LICENSES.txt" target="_blank" rel="noopener noreferrer"
+            >View third-party licences</a
+          >.
+        </p>
+        <a
+          class="about-repo-link"
+          href="https://github.com/bradsec/videoadjust"
+          target="_blank"
+          rel="noopener noreferrer"
+          >View VideoAdjust on GitHub</a
+        >
+        <p>
+          If you find this useful, please consider starring the repository. It helps others discover
+          the project.
+        </p>
+        <div class="dialog-actions"><button class="btn" value="close">Close</button></div>
+      </form>
+    </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

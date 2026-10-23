@@ -1,38 +1,35 @@
-/* VideoAdjust design tokens. Spec: docs/design/2026-10-22-videoadjust-design-system.md
-   (Palette A, "Ink and Chartreuse"). Dark is the default for everyone; [data-theme='light']
-   (set by public/theme-init.js and the header switch) overrides it. The system colour
-   scheme is deliberately ignored. System fonts only, and no monospace: numbers use
-   tabular figures from the UI font.
-   Contrast, dark: text-3 is 4.8:1 on --raised, --ctl 3.4:1 on --raised, on-accent 14:1 on
-   --accent. Light: text-3 5.1:1 on --raised, --ctl 3.4:1 on --raised, on-accent 6.2:1. */
+/* VideoAdjust design tokens. Dark only. The greys match rastertrace (bradsec's sibling app)
+   so the apps read as a family; the chartreuse accent is VideoAdjust's own. System fonts only,
+   and no monospace: numbers use tabular figures from the UI font.
+   Contrast: text-3 is 6:1 on --raised, --ctl 3.6:1 on --raised, on-accent 14:1 on --accent. */
 :root {
   color-scheme: dark;
 
-  --bg: #0e0f0d;
-  --surface: #171916;
-  --raised: #21241f;
-  --raised-hover: #2a2e27;
-  --line: #30342d; /* decorative dividers only */
-  --ctl: #71776a; /* control borders, 3:1 or more on bg, surface and raised */
-  --text: #f1f3ec;
-  --text-2: #b6bbad;
-  --text-3: #8b9182;
+  --bg: #111419;
+  --surface: #181c22;
+  --raised: #20252c;
+  --raised-hover: #282e37;
+  --line: #343c47; /* decorative dividers only */
+  --ctl: #6e7c8d; /* control borders, 3:1 or more on bg, surface and raised */
+  --text: #e9ecef;
+  --text-2: #c7cdd5;
+  --text-3: #98a3b0;
   --accent: #c6ef3a; /* fills, selection, focus and trim handles; text uses --accent-text */
   --accent-hover: #d4f556;
   --accent-press: #b5dc2c;
   --on-accent: #11140a;
   --accent-text: #d4f56a;
-  --accent-soft: #242a16;
+  --accent-soft: #2a3220;
   --ok: #5cc98f;
   --warn: #e2b84b;
   --error: #ff6b6b;
-  --warn-soft: #2a2614;
-  --error-soft: #2e1817;
+  --warn-soft: #2b2a1e;
+  --error-soft: #301c1f;
 
-  /* The video stage stays near-black in both themes so footage looks the same. */
-  --stage-bg: #0b0c0a;
-  --stage-text: #f1f3ec;
-  --scrim: rgb(11 12 10 / 72%);
+  /* The video stage stays near-black so footage reads true. */
+  --stage-bg: #0d1013;
+  --stage-text: #e9ecef;
+  --scrim: rgb(7 9 12 / 72%);
 
   --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
@@ -62,32 +59,6 @@
   --content: 1280px;
   --inset: 24px; /* every inspector block */
   --dur: 140ms;
-}
-
-:root[data-theme='light'] {
-  color-scheme: light;
-
-  --bg: #f6f7f2;
-  --surface: #ffffff;
-  --raised: #eceee6;
-  --raised-hover: #e2e5da;
-  --line: #dcdfd3;
-  --ctl: #7c8274;
-  --text: #161813;
-  --text-2: #4b5044;
-  --text-3: #5f6557;
-  --accent: #4a6b00;
-  /* Hover darkens in light: a lighter accent would drop white text below 4.5:1. */
-  --accent-hover: #3d5900;
-  --accent-press: #334b00;
-  --on-accent: #ffffff;
-  --accent-text: #3f5c00;
-  --accent-soft: #eaf0d6;
-  --ok: #1e7a4c;
-  --warn: #7a5600;
-  --error: #b42318;
-  --warn-soft: #fbf4e0;
-  --error-soft: #fcecea;
 }
 
 @media (min-width: 700px) {

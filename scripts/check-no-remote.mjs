@@ -19,11 +19,19 @@ export const JS_URL_ALLOWLIST = new Set([
   'https://rolldown.rs/in-depth/bundling-cjs#require-external-modules', // bundler message text
 ]);
 
-// The footer links to the source repo. A link the user clicks navigates the tab and sends no
-// media, so it is allowed, but only as this exact anchor href in HTML.
+// The footer and About dialog link to the repo, the author and the libraries. A link the user
+// clicks navigates away and sends no media, so these are allowed, but only as exact anchor
+// hrefs in HTML.
 export const REPO_URL = 'https://github.com/bradsec/videoadjust';
-const REPO_HREF = new RegExp(
-  String.raw`(<a\s[^>]*\bhref=")${REPO_URL.replaceAll('.', '\\.')}(")`,
+export const LINK_URLS = [
+  REPO_URL,
+  'https://github.com/bradsec',
+  'https://mediabunny.dev/',
+  'https://github.com/mattdesl/gifenc',
+];
+const escape = (url) => url.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+const LINK_HREF = new RegExp(
+  String.raw`(<a\s[^>]*\bhref=")(?:${LINK_URLS.map(escape).join('|')})(")`,
   'g',
 );
 
@@ -72,7 +80,7 @@ export function checkRemote(files) {
     const isJs = /\.m?js$/.test(rel);
     const text = withoutSiteMetadata(
       rel,
-      rel.endsWith('.html') ? source.replace(REPO_HREF, '$1$2') : source,
+      rel.endsWith('.html') ? source.replace(LINK_HREF, '$1$2') : source,
     );
     for (const raw of text.match(ABSOLUTE) ?? []) {
       const url = normalise(raw);

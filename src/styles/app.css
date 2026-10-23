@@ -61,9 +61,6 @@ select {
 .sprite {
   position: absolute;
 }
-.logo-signal {
-  fill: var(--accent);
-}
 /* The one icon family: 24px artboard, 2px stroke, round caps and joins, no fills. */
 svg.i {
   width: 20px;
@@ -118,12 +115,8 @@ svg.i .i-fill {
 }
 .wordmark {
   font-size: var(--fs-18);
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-weight: 600;
   line-height: 1;
-}
-.wordmark b {
-  font-weight: 650;
 }
 .local {
   display: inline-flex;
@@ -137,29 +130,6 @@ svg.i .i-fill {
   width: 16px;
   height: 16px;
   color: var(--accent-text);
-}
-.theme {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--tap);
-  height: var(--tap);
-  padding: 0;
-  border-radius: var(--r-md);
-  border: 1px solid var(--ctl);
-  background: var(--raised);
-  cursor: pointer;
-  transition: background-color var(--dur);
-}
-.theme:hover {
-  background: var(--raised-hover);
-}
-.theme .moon,
-.theme[aria-checked='true'] .sun {
-  display: none;
-}
-.theme[aria-checked='true'] .moon {
-  display: block;
 }
 
 main {
@@ -208,15 +178,80 @@ footer a {
   text-decoration-color: var(--ctl);
   text-underline-offset: 3px;
 }
+.about-link {
+  min-height: var(--tap);
+  margin-block: -12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--ctl);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.about-link:hover {
+  text-decoration-color: currentColor;
+}
+.about-dialog {
+  width: min(420px, calc(100% - 2 * var(--gutter)));
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--ctl);
+  border-radius: var(--r-lg);
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 50%);
+}
+/* The page behind blurs slightly, as in rastertrace. */
+.about-dialog::backdrop {
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
+}
+.dialog-form {
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-5);
+}
+.dialog-form p {
+  margin: 0;
+  color: var(--text-2);
+}
+.dialog-heading {
+  display: grid;
+  gap: var(--s-1);
+}
+.dialog-heading h2 {
+  font-size: var(--fs-18);
+  font-weight: 650;
+}
+.dialog-heading p {
+  font-size: var(--fs-14);
+  font-variant-numeric: tabular-nums;
+}
+/* Underlined, not only coloured, so links in running text stand out without colour. */
+.dialog-form a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+}
+.dialog-form a:hover {
+  text-decoration-color: currentColor;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+}
 footer a:hover {
   text-decoration-color: currentColor;
 }
 .repo-link svg {
   flex: none;
-}
-.app-version {
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
 }
 
 /* Buttons: one system of three tiers. Secondary is the base .btn. */

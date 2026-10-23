@@ -6,9 +6,14 @@ import { startConversion } from './core/convert';
 import { openSink } from './core/sink';
 import { readSource } from './core/source';
 import { createApp } from './ui/app';
-import { mountThemeSwitch } from './ui/theme';
 
-mountThemeSwitch(document.querySelector<HTMLButtonElement>('.theme')!);
+// The About dialog is static markup; a click on the backdrop (the dialog box itself, outside
+// its form) closes it like Escape does.
+const about = document.querySelector<HTMLDialogElement>('#about-dialog')!;
+document.querySelector('.about-link')!.addEventListener('click', () => about.showModal());
+about.addEventListener('click', (event) => {
+  if (event.target === about) about.close();
+});
 
 const caps = probeCapabilities();
 

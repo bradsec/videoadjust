@@ -10,7 +10,8 @@ test('ships third-party licences and links them', async ({ page, request }) => {
   expect(text).toContain('Mozilla Public License Version 2.0');
 
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'Licences' })).toHaveAttribute(
+  await page.getByRole('button', { name: 'About VideoAdjust' }).click();
+  await expect(page.getByRole('link', { name: 'View third-party licences' })).toHaveAttribute(
     'href',
     './THIRD-PARTY-LICENSES.txt',
   );
