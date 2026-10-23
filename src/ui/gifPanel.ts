@@ -2,6 +2,7 @@ import {
   gifBudgetError,
   gifDimensions,
   gifFrameCount,
+  gifFrameRates,
   gifFrameSize,
   type GifSettings,
 } from '../core/gifExport';
@@ -136,9 +137,7 @@ export function mountGifPanel(
       }),
     );
     size.value = String(next.size);
-    const rates = [
-      ...new Set([5, 10, 15, 20].map((n) => Math.min(n, opts.source.video?.fps ?? n))),
-    ];
+    const rates = gifFrameRates(opts.source.video?.fps);
     fps.replaceChildren(
       ...rates.map((n) => {
         const option = el('option', undefined, `${Number(n.toFixed(2))} fps`);

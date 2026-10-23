@@ -31,6 +31,10 @@ export const GIF_MAX_SECONDS = 30;
 export const GIF_MAX_FRAMES = 600;
 const RATES = [5, 10, 15, 20];
 
+export function gifFrameRates(sourceFps = 20): number[] {
+  return [...new Set(RATES.map((n) => Math.min(n, sourceFps)))];
+}
+
 export function gifUnavailable(source: SourceInfo): string | null {
   if (!source.video) return 'This file has no video track';
   if (!source.video.decodable) return 'This browser cannot decode the video in this file';
@@ -77,7 +81,9 @@ export function validateGifSettings(
       : auto.size;
   const frame = gifFrameSize(source, transform);
   const fps =
-    Number.isFinite(value.fps) && value.fps > 0 && RATES.includes(value.fps) ? value.fps : auto.fps;
+    Number.isFinite(value.fps) && value.fps > 0 && gifFrameRates(sourceFps).includes(value.fps)
+      ? value.fps
+      : auto.fps;
   return {
     trim: value.trim,
     size: longEdge(Math.min(size, Math.max(frame.width, frame.height))),

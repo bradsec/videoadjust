@@ -5,6 +5,7 @@ import {
   gifCropGeometry,
   gifDimensions,
   gifFramePlan,
+  gifFrameRates,
   GIF_MAX_FRAMES,
   GIF_PIXEL_BUDGET,
   validateGifSettings,
@@ -80,6 +81,13 @@ describe('GIF settings', () => {
       loop: 'once',
       colors: 64,
     });
+  });
+
+  it('preserves the offered source rate for a 12 fps video', () => {
+    const src = source({ fps: 12 });
+    const auto = autoGifSettings(src)!;
+    expect(gifFrameRates(src.video!.fps)).toEqual([5, 10, 12]);
+    expect(validateGifSettings({ ...auto, fps: 12 }, auto, src).fps).toBe(12);
   });
 });
 
