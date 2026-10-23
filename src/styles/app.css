@@ -149,6 +149,7 @@ main {
 /* Footer */
 footer {
   border-top: 1px solid var(--line);
+  font-size: var(--fs-14);
 }
 .foot-in {
   display: flex;
@@ -177,6 +178,10 @@ footer a {
   text-decoration: underline;
   text-decoration-color: var(--ctl);
   text-underline-offset: 3px;
+}
+.app-version {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .about-link {
   min-height: var(--tap);
@@ -216,6 +221,8 @@ footer a {
   display: grid;
   gap: var(--s-4);
   padding: var(--s-5);
+  font-size: var(--fs-14);
+  line-height: 1.45;
 }
 .dialog-form p {
   margin: 0;

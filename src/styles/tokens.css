@@ -31,7 +31,8 @@
   --stage-text: #e9ecef;
   --scrim: rgb(7 9 12 / 72%);
 
-  --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-ui:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
   --fs-12: 12px;
   --fs-14: 14px;

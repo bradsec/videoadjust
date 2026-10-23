@@ -109,6 +109,7 @@ test('footer links to the GitHub repo and opens About with the version', async (
   await expect(repo).toHaveAttribute('href', 'https://github.com/bradsec/videoadjust');
   await expect(repo).toHaveAttribute('rel', 'noopener noreferrer');
   await expect(page.locator('footer')).not.toContainText('Licences');
+  await expect(page.locator('footer .footer-links')).toContainText(`v${version}`);
 
   await page.getByRole('button', { name: 'About VideoAdjust' }).click();
   const about = page.getByRole('dialog', { name: 'About VideoAdjust' });
