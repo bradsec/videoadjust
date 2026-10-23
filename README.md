@@ -124,9 +124,11 @@ Cloudflare Pages, using its Git integration on this repo. Build settings:
 so it also runs under a subpath. No asset may exceed 25 MiB (Cloudflare Pages limit);
 `pnpm check:size` verifies every built file.
 
-`.github/workflows/tests.yml` runs checks, unit tests, browser tests and a build on pushes and pull
-requests. Cloudflare deploys on every push to `main` independently of the Tests workflow, so a red
-Tests run does not block a deploy.
+`.github/workflows/tests.yml` runs on pushes to `main`, pull requests and manual dispatches. Checks,
+unit tests and the production build run in parallel with browser tests, which use two workers and
+cache browsers by Playwright version. A newer run cancels an older run on the same ref. Cloudflare
+deploys on every push to `main` independently of the Tests workflow, so a red Tests run does not block
+a deploy.
 
 ## Browser support
 
