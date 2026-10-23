@@ -67,6 +67,19 @@ test.describe('with a video loaded', () => {
   });
 
   test('preview error falls back after the source was accepted', async ({ page }) => {
+    // A real error ends loading first. Tearing the <video> down mid-load instead can wedge
+    // WebKit's Linux media backend, which hangs dispatchEvent until the test times out.
+    await expect
+      .poll(() =>
+        page
+          .locator('.preview-video')
+          .evaluate(
+            (v: HTMLVideoElement) =>
+              v.readyState === HTMLMediaElement.HAVE_ENOUGH_DATA &&
+              v.networkState !== HTMLMediaElement.NETWORK_LOADING,
+          ),
+      )
+      .toBe(true);
     await page.locator('.preview-video').dispatchEvent('error');
     await expect(page.locator('.preview-note')).toBeVisible();
     await expect(page.locator('.preview-video')).toHaveCount(0);
