@@ -2,7 +2,8 @@
 // The two tokens below are replaced at build time by the precache plugin in vite.config.ts.
 // Navigations are network-first and revalidate with the server (cache: 'no-cache'), so the
 // host's max-age cannot hand back an old index.html after a deploy; if the network is down or
-// slower than NAV_TIMEOUT_MS the cached page is used. Hashed build assets are cache-first.
+// slower than NAV_TIMEOUT_MS the precached page is used. Network HTML never replaces it,
+// so each offline page keeps the assets from its build. Hashed build assets are cache-first.
 // On activate the previous version's cache is kept (only older ones are deleted) and lookups
 // search every cache, so a tab opened before a deploy can still import its lazy AAC chunk.
 const VERSION = '__VA_VERSION__';
@@ -51,11 +52,7 @@ async function cachedPage(request) {
 }
 
 async function networkFirst(request) {
-  const cache = await caches.open(CACHE);
-  const network = fetch(request, { cache: 'no-cache' }).then(async (response) => {
-    if (response.ok) await cache.put(request, response.clone());
-    return response;
-  });
+  const network = fetch(request, { cache: 'no-cache' });
   const fallback = await cachedPage(request);
   if (!fallback) return network;
   const timeout = new Promise((resolve) => setTimeout(() => resolve(fallback), NAV_TIMEOUT_MS));
