@@ -66,6 +66,21 @@ test('Adjust leaves rotation, crop and mirroring to the editor', async ({ page }
   await expect(card).toContainText('changes');
 });
 
+test('GIF rotation and crop preserve overlays edited after switching tools', async ({ page }) => {
+  await page.getByRole('tab', { name: 'GIF' }).click();
+  await page.locator('.overlay-adjust > summary').click();
+  await page.getByLabel('Text overlay', { exact: true }).check();
+  const text = page.getByLabel('Overlay text', { exact: true });
+  await text.fill('Keep this overlay');
+  await text.blur();
+  await page.getByRole('button', { name: 'Crop and rotate' }).click();
+  await page.getByLabel('Editor rotation').selectOption('90');
+  await expect(text).toHaveValue('Keep this overlay');
+  await page.getByLabel('Crop aspect ratio').selectOption('square');
+  await expect(text).toHaveValue('Keep this overlay');
+  await expect(page.getByLabel('Text overlay', { exact: true })).toBeChecked();
+});
+
 test('crop editor moves and resizes the square guide', async ({ page }) => {
   const card = page.getByRole('region', { name: 'Export summary' });
   await card.locator('summary').click();

@@ -273,7 +273,7 @@ function renderPrepare(
         onExport,
       });
       changeTransform = (transform) =>
-        dispatch({ type: 'setSettings', value: { ...value.settings, transform } });
+        dispatch({ type: 'setSettings', value: { ...current.settings, transform } });
       panel = {
         update: (s) => s.gifSettings && gif.update(s.gifSettings, s.settings.transform),
         setBusy: gif.setBusy,
