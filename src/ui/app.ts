@@ -97,6 +97,9 @@ export function createApp(
     if (noticeSlot.parentElement !== root) root.prepend(noticeSlot);
     mountedKind = s.kind;
     dropZone = undefined;
+    // A new screen starts at the top; a shorter one would otherwise keep the previous
+    // screen's scroll offset and show empty space. Mounting may then focus and scroll.
+    window.scrollTo(0, 0);
     switch (s.kind) {
       case 'drop':
         dropZone = mountDropZone(view, (file) => dispatch({ type: 'pick', file }));

@@ -156,8 +156,11 @@ test('exports 1080p30 to a result with the reduction and two videos to compare',
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations).toEqual([]);
 
+  // A short drop screen must not inherit the long result page's scroll position.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await page.getByRole('button', { name: 'Start over' }).click();
-  await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Choose video' })).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
   expect(crossOriginRequests).toEqual([]);
 });
 
