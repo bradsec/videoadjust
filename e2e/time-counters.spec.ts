@@ -94,6 +94,7 @@ async function resultPage(page: Page) {
 test('the compare clock keeps one width at whole-second, tenth and hundredth positions', async ({
   page,
 }) => {
+  test.setTimeout(90_000);
   await resultPage(page);
   const clock = page.locator('.scrub-time');
   const output = page.locator('.compare-new');

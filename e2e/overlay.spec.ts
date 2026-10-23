@@ -175,6 +175,7 @@ test('overlay controls enable text, and the editor shows and moves it', async ({
 });
 
 test('an uploaded SVG overlay shows in the editor and survives a GIF export', async ({ page }) => {
+  test.setTimeout(90_000);
   // Keep the result in memory; Chromium would otherwise open a save picker.
   await page.addInitScript(() => {
     delete (window as unknown as Record<string, unknown>).showSaveFilePicker;

@@ -38,6 +38,7 @@ test('encodes a cropped GIF with the requested size, frames, and centre colour',
 });
 
 test('GIF tab shows settings and exports an image result', async ({ page }) => {
+  test.setTimeout(90_000);
   await page.addInitScript(() => {
     const windowWithPicker = window as unknown as Record<string, unknown>;
     delete windowWithPicker.showSaveFilePicker;

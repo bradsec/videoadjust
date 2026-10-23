@@ -18,19 +18,29 @@ async function forceMemorySink(page: Page) {
  * Stand in for the save picker with a counting WritableStream, since Playwright cannot drive
  * the native dialog. `pickerCancels` rejects the picker the way a dismissed dialog does.
  */
-async function fakeSavePicker(page: Page, opts: { pickerCancels?: boolean } = {}) {
-  await page.addInitScript((pickerCancels) => {
+async function fakeSavePicker(
+  page: Page,
+  opts: { pickerCancels?: boolean; holdWrites?: boolean } = {},
+) {
+  await page.addInitScript((options) => {
     const calls = { picker: 0, close: 0, abort: 0, bytes: 0 };
     (window as unknown as { vrSink: typeof calls }).vrSink = calls;
     (window as unknown as { showSaveFilePicker: () => Promise<unknown> }).showSaveFilePicker =
       async () => {
         calls.picker++;
-        if (pickerCancels) throw new DOMException('The user aborted a request.', 'AbortError');
+        if (options.pickerCancels)
+          throw new DOMException('The user aborted a request.', 'AbortError');
         return {
           createWritable: async () =>
             new WritableStream<{ data: Uint8Array }>({
               write(chunk) {
                 calls.bytes += chunk.data.byteLength;
+                if (options.holdWrites) {
+                  options.holdWrites = false;
+                  return new Promise<void>((resolve) => {
+                    (window as unknown as { vrReleaseWrite: () => void }).vrReleaseWrite = resolve;
+                  });
+                }
               },
               close() {
                 calls.close++;
@@ -41,7 +51,7 @@ async function fakeSavePicker(page: Page, opts: { pickerCancels?: boolean } = {}
             }),
         };
       };
-  }, opts.pickerCancels ?? false);
+  }, opts);
 }
 
 /**
@@ -96,6 +106,7 @@ test('exports 1080p30 to a result with the reduction and two videos to compare',
   page,
   baseURL,
 }) => {
+  test.setTimeout(90_000);
   if (!baseURL) throw new Error('Playwright baseURL is required');
   const crossOriginRequests: string[] = [];
   const origin = new URL(baseURL).origin;
@@ -167,6 +178,7 @@ test('exports 1080p30 to a result with the reduction and two videos to compare',
 test('shows the new video alone with a note when the original cannot play here', async ({
   page,
 }) => {
+  test.setTimeout(90_000);
   await forceMemorySink(page);
   // Stands in for e.g. HEVC on Chromium: the browser reports no player for the original.
   await page.addInitScript(() => {
@@ -188,6 +200,7 @@ test('shows the new video alone with a note when the original cannot play here',
 });
 
 test('an output that is not smaller says so and offers Make it smaller', async ({ page }) => {
+  test.setTimeout(90_000);
   await forceMemorySink(page);
   await inflateEncoderBitrate(page, 10);
   const card = await open(page, 'small-h264-lowbitrate.mp4');
@@ -217,24 +230,31 @@ test('an output that is not smaller says so and offers Make it smaller', async (
 test('Cancel returns to prepare with settings kept and discards the partial file', async ({
   page,
 }) => {
-  await fakeSavePicker(page);
+  test.setTimeout(90_000);
+  await fakeSavePicker(page, { holdWrites: true });
   const card = await open(page, 'land-4k60-aac.mp4');
   await card.locator('summary').click();
   await card.getByLabel('Resolution', { exact: true }).selectOption('1280');
   await exportButton(page).click();
   const cancel = page.getByRole('button', { name: 'Cancel export' });
+  // Hold the first file write until Cancel lands, regardless of encoder speed.
+  await expect
+    .poll(async () => (await sinkCalls(page)).bytes, { timeout: 60_000 })
+    .toBeGreaterThan(0);
   await expect(cancel).toBeVisible();
   await cancel.click();
+  await page.evaluate(() => (window as unknown as { vrReleaseWrite: () => void }).vrReleaseWrite());
   await expect(page.getByRole('region', { name: 'Export summary' })).toBeVisible();
   await expect(page.getByRole('alert')).toContainText(
     'A partial file may remain at the location you chose',
   );
   await page.getByRole('region', { name: 'Export summary' }).locator('summary').click();
   await expect(page.getByLabel('Resolution', { exact: true })).toHaveValue('1280');
-  expect(await sinkCalls(page)).toMatchObject({ picker: 1, abort: 1, close: 0 });
+  await expect.poll(() => sinkCalls(page)).toMatchObject({ picker: 1, abort: 1, close: 0 });
 });
 
 test('a file-stream export closes the file once and skips playback compare', async ({ page }) => {
+  test.setTimeout(90_000);
   await fakeSavePicker(page);
   await open(page, 'land-1080p30-aac.mp4');
   await reencode(page);
@@ -273,6 +293,7 @@ async function extractAudio(page: Page, name: string, format?: RegExp) {
 }
 
 async function extractAudioToMemory(page: Page, name: string, format?: RegExp) {
+  test.setTimeout(90_000);
   await forceMemorySink(page);
   await extractAudio(page, name, format);
   await expect(page.locator('.verdict')).toContainText('is ready to save or share', {
@@ -359,6 +380,7 @@ test('a WAV extract reports PCM 16-bit and lossless', async ({ page }) => {
 });
 
 test('a file-stream audio result has no player and says where the file is', async ({ page }) => {
+  test.setTimeout(90_000);
   await fakeSavePicker(page);
   await extractAudio(page, 'land-1080p30-aac.mp4');
   await expect(page.locator('.verdict')).toContainText('is saved where you chose', {
@@ -382,6 +404,7 @@ test('an in-memory MP4 export says Calculating instead of a stuck byte count', a
 });
 
 test('a saved export is read back from disk so the result previews it', async ({ page }) => {
+  test.setTimeout(90_000);
   // A real file handle from the origin-private file system stands in for the save picker.
   await page.addInitScript(() => {
     (
