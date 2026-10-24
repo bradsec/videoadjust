@@ -817,8 +817,8 @@ input[type='checkbox']:disabled {
 }
 .crop-handle {
   position: absolute;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border: 2px solid var(--accent);
   background: var(--stage-bg);
   border-radius: 50%;
@@ -923,8 +923,8 @@ input[type='checkbox']:disabled {
 .overlay-selection {
   position: absolute;
   box-sizing: border-box;
-  min-width: 0;
-  min-height: 0;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
   border: 2px dashed var(--accent);
   background: transparent;
