@@ -19,7 +19,7 @@ export const JS_URL_ALLOWLIST = new Set([
   'https://rolldown.rs/in-depth/bundling-cjs#require-external-modules', // bundler message text
 ]);
 
-// The footer and About dialog link to the repo, the author and the libraries. A link the user
+// The footer and About dialog link to the repo, the author, the libraries and a support page. A link the user
 // clicks navigates away and sends no media, so these are allowed, but only as exact anchor
 // hrefs in HTML.
 export const REPO_URL = 'https://github.com/bradsec/videoadjust';
@@ -28,6 +28,7 @@ export const LINK_URLS = [
   'https://github.com/bradsec',
   'https://mediabunny.dev/',
   'https://github.com/mattdesl/gifenc',
+  'https://buymeacoffee.com/markbradley',
 ];
 const escape = (url) => url.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 const LINK_HREF = new RegExp(
