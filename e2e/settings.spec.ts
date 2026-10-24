@@ -102,10 +102,10 @@ test('crop editor moves and resizes the square guide', { tag: '@mobile' }, async
   await page.keyboard.press('Alt+ArrowLeft');
   await expect(guide).not.toHaveAttribute('aria-label', moved!);
   const beforeClick = await guide.getAttribute('aria-label');
-  await page.getByRole('button', { name: 'Move right' }).click();
+  await page.getByRole('group', { name: 'Move' }).getByRole('button', { name: 'Right' }).click();
   await expect(guide).not.toHaveAttribute('aria-label', beforeClick!);
   const beforeResize = await guide.getAttribute('aria-label');
-  await page.getByRole('button', { name: 'Narrower' }).click();
+  await page.getByRole('group', { name: 'Size' }).getByRole('button', { name: 'Narrower' }).click();
   await expect(guide).not.toHaveAttribute('aria-label', beforeResize!);
   await expect(
     card.getByLabel('Resolution', { exact: true }).locator('option:checked'),

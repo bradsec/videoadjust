@@ -106,30 +106,50 @@ export function mountCropEditor(
     'setting-help',
     'Drag the crop or its handles, use the buttons, or use arrow keys. Shift moves farther; Alt and arrows resize.',
   );
+  // Buttons give a pointer alternative to dragging (WCAG 2.5.7), one step like Shift+arrow.
   const clickControls = el('div', 'crop-click-controls');
-  clickControls.setAttribute('role', 'group');
-  clickControls.setAttribute('aria-label', 'Adjust crop without dragging');
-  for (const [label, dx, dy, resize] of [
-    ['Move left', -20, 0, false],
-    ['Move right', 20, 0, false],
-    ['Move up', 0, -20, false],
-    ['Move down', 0, 20, false],
-    ['Narrower', -20, 0, true],
-    ['Wider', 20, 0, true],
-    ['Shorter', 0, -20, true],
-    ['Taller', 0, 20, true],
+  for (const [title, resize, buttons] of [
+    [
+      'Move',
+      false,
+      [
+        ['Left', -20, 0],
+        ['Right', 20, 0],
+        ['Up', 0, -20],
+        ['Down', 0, 20],
+      ],
+    ],
+    [
+      'Size',
+      true,
+      [
+        ['Narrower', -20, 0],
+        ['Wider', 20, 0],
+        ['Shorter', 0, -20],
+        ['Taller', 0, 20],
+      ],
+    ],
   ] as const) {
-    const button = el('button', 'btn', label);
-    button.type = 'button';
-    button.addEventListener('click', () => {
-      const { width, height } = frame();
-      const current = rect();
-      const next = resize
-        ? resizeCrop(current, dx ? 'e' : 's', dx, dy, width, height, transform.crop)
-        : moveCrop(current, dx, dy, width, height);
-      onTransform({ ...transform, rect: next });
-    });
-    clickControls.append(button);
+    const row = el('div', 'crop-click-row');
+    row.setAttribute('role', 'group');
+    const name = el('span', 'crop-click-name', title);
+    name.id = `crop-click-${title.toLowerCase()}`;
+    row.setAttribute('aria-labelledby', name.id);
+    row.append(name);
+    for (const [label, dx, dy] of buttons) {
+      const button = el('button', 'btn', label);
+      button.type = 'button';
+      button.addEventListener('click', () => {
+        const { width, height } = frame();
+        const current = rect();
+        const next = resize
+          ? resizeCrop(current, dx ? 'e' : 's', dx, dy, width, height, transform.crop)
+          : moveCrop(current, dx, dy, width, height);
+        onTransform({ ...transform, rect: next });
+      });
+      row.append(button);
+    }
+    clickControls.append(row);
   }
   const status = el('p', 'sr');
   status.setAttribute('aria-live', 'polite');
