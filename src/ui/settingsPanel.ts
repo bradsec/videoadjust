@@ -440,8 +440,10 @@ export function mountSettings(
       slider.step = '1';
       slider.value = String(percent);
       slider.setAttribute('aria-label', 'Quality');
+      slider.setAttribute('aria-valuetext', `${percent}% of auto`);
       slider.addEventListener('input', () => {
         sliderText.textContent = `Quality: ${slider.value}% of auto`;
+        slider.setAttribute('aria-valuetext', `${slider.value}% of auto`);
       });
       slider.addEventListener('change', () => {
         const current = value.video!;
@@ -605,6 +607,7 @@ export function mountSettings(
       if (slider) {
         slider.max = String(maxPercent);
         slider.value = String(percent);
+        slider.setAttribute('aria-valuetext', `${percent}% of auto`);
       }
       const qualityValue = controls.querySelector('.quality-value');
       if (qualityValue) qualityValue.textContent = `Quality: ${percent}% of auto`;

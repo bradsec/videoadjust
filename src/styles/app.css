@@ -965,6 +965,23 @@ input[type='checkbox']:disabled {
   gap: var(--s-1);
   min-width: 0;
 }
+.overlay-percentage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3.5rem auto;
+  gap: var(--s-1);
+  align-items: center;
+}
+.overlay-percentage .setting-range {
+  min-width: 0;
+}
+.overlay-setting .overlay-percentage input[type='number'] {
+  min-width: 0;
+  padding-inline: var(--s-1);
+}
+/* The settings column is narrow at every width, so a paired slider's track gets too short to drag. */
+.field-pair:has(.overlay-percentage) {
+  grid-template-columns: minmax(0, 1fr);
+}
 .overlay-setting input[type='number'],
 .overlay-setting textarea {
   width: 100%;

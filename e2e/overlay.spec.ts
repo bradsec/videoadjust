@@ -63,6 +63,58 @@ async function load(page: Page) {
   await page.setInputFiles('#file', fixture);
 }
 
+test('overlay percentage sliders link precision values and update the preview live', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  await page.locator('.overlay-adjust > summary').click();
+  await page.getByLabel('Text overlay', { exact: true }).check();
+  await page.getByLabel('Overlay text', { exact: true }).fill('Opacity');
+  await page.getByLabel('Text effect', { exact: true }).selectOption('none');
+  const slider = page.getByRole('slider', { name: 'Text opacity (%)', exact: true });
+  const number = page.getByRole('spinbutton', { name: 'Text opacity (%) value', exact: true });
+  const previewAlpha = () =>
+    page.locator('canvas.live-preview-overlay').evaluate((canvas: HTMLCanvasElement) => {
+      const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+      let alpha = 0;
+      for (let i = 3; i < pixels.length; i += 4) alpha = Math.max(alpha, pixels[i]!);
+      return alpha;
+    });
+  await expect(slider).toBeVisible();
+  await slider.focus();
+  await slider.press('End');
+  await slider.press('ArrowLeft');
+  await expect(number).toHaveValue('99');
+  await expect(slider).toBeFocused();
+  await expect(slider).toHaveAttribute('aria-valuetext', '99%');
+  await expect.poll(previewAlpha).toBe(252);
+  await number.fill('70');
+  await number.press('Tab');
+  await expect(slider).toHaveValue('70');
+  await expect.poll(previewAlpha).toBe(179);
+  await number.fill('120');
+  await number.press('Tab');
+  await expect(number).toHaveValue('100');
+  await expect(slider).toHaveValue('100');
+  await number.fill('-10');
+  await number.press('Tab');
+  await expect(number).toHaveValue('0');
+  await expect(slider).toHaveValue('0');
+  await number.fill('');
+  await number.press('Tab');
+  await expect(number).toHaveValue('0');
+  await expect(slider).toHaveValue('0');
+  await expect.poll(previewAlpha).toBe(0);
+  for (const control of [slider, number]) {
+    const box = await control.boundingBox();
+    expect(box!.width).toBeGreaterThan(0);
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+  }
+});
+
 function ok<T extends ConvertResult | GifResult>(r: T): Extract<T, { ok: true }> {
   if (!r.ok) throw new Error(`${r.error.name}: ${r.error.message}`);
   return r as Extract<T, { ok: true }>;

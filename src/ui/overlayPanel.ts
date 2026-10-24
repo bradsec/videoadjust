@@ -64,17 +64,46 @@ export function mountOverlayPanel(
     min = 0,
     max = 100,
   ): void {
+    // The slider gives quick live adjustment; the linked number field allows an exact value.
+    const slider = el('input', 'setting-range');
+    slider.type = 'range';
     const input = el('input', 'setting-select');
     input.type = 'number';
-    input.min = String(min);
-    input.max = String(max);
-    input.step = '1';
-    input.addEventListener('change', () => {
-      if (Number.isFinite(input.valueAsNumber)) set(input.valueAsNumber / 100);
+    for (const control of [slider, input]) {
+      control.min = String(min);
+      control.max = String(max);
+      control.step = '1';
+    }
+    slider.setAttribute('aria-label', name);
+    input.setAttribute('aria-label', `${name} value`);
+    slider.addEventListener('input', () => {
+      input.value = slider.value;
+      slider.setAttribute('aria-valuetext', `${slider.value}%`);
+      set(slider.valueAsNumber / 100);
     });
-    field(parent, name, input);
+    input.addEventListener('change', () => {
+      if (!Number.isFinite(input.valueAsNumber)) {
+        input.value = String(Math.round(get() * 100));
+        return;
+      }
+      const percent = Math.min(max, Math.max(min, Math.round(input.valueAsNumber)));
+      input.value = String(percent);
+      slider.value = input.value;
+      slider.setAttribute('aria-valuetext', `${percent}%`);
+      set(percent / 100);
+    });
+    const label = el('label', 'setting-label', name);
+    const controls = el('span', 'overlay-percentage');
+    const unit = el('span', undefined, '%');
+    unit.setAttribute('aria-hidden', 'true');
+    controls.append(slider, input, unit);
+    label.append(controls);
+    parent.append(label);
     patches.push(() => {
-      if (document.activeElement !== input) input.value = String(Math.round(get() * 100));
+      const percent = String(Math.round(get() * 100));
+      if (document.activeElement !== input) input.value = percent;
+      if (document.activeElement !== slider) slider.value = percent;
+      slider.setAttribute('aria-valuetext', `${slider.value}%`);
     });
   }
   function select<T extends string>(
