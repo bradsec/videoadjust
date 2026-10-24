@@ -1,4 +1,5 @@
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from '../core/overlays';
+import { createStyleRenderer, hasStyle, type StyleSettings } from '../core/style';
 import type { Settings } from '../core/types';
 import { normalizeCrop, rotatedSize } from '../core/videoGeometry';
 import { el, icon } from './dom';
@@ -46,14 +47,15 @@ function looksDifferent(a: PreviewSettings, b: PreviewSettings): boolean {
   return (
     a.enabled !== b.enabled ||
     a.assets?.image !== b.assets?.image ||
-    JSON.stringify([a.transform, a.overlays, a.output]) !==
-      JSON.stringify([b.transform, b.overlays, b.output])
+    JSON.stringify([a.transform, a.overlays, a.output, a.style]) !==
+      JSON.stringify([b.transform, b.overlays, b.output, b.style])
   );
 }
 
 interface PreviewSettings {
   transform: Settings['transform'];
   overlays: Settings['overlays'];
+  style: StyleSettings | undefined;
   output: Size;
   assets?: OverlayAssets;
   enabled: boolean;
@@ -64,13 +66,17 @@ export function mountLivePreview(
   host: HTMLElement,
   source: Size,
   duration: number,
+  onStyleUnavailable: () => void,
 ): { update(settings: PreviewSettings): void; destroy(): void } {
   const stage = el('div', 'live-preview-stage');
   const frame = el('div', 'live-preview-frame');
+  const styleCanvas = el('canvas', 'live-preview-style');
+  styleCanvas.setAttribute('aria-hidden', 'true');
+  styleCanvas.hidden = true;
   const overlay = el('canvas', 'live-preview-overlay');
   overlay.setAttribute('aria-hidden', 'true');
   overlay.hidden = true;
-  frame.append(video, overlay);
+  frame.append(video, styleCanvas, overlay);
   stage.append(frame);
   const bar = el('div', 'live-preview-bar');
   const controls = el('div', 'scrub');
@@ -102,6 +108,85 @@ export function mountLivePreview(
   let active = false;
   let version = 0;
   let destroyed = false;
+  let styleRenderer: ReturnType<typeof createStyleRenderer> | undefined;
+  const styleSource = document.createElement('canvas');
+  const styleContext = styleSource.getContext('2d');
+  let styleFailed = false;
+  let frameCallback = 0;
+
+  function drawStyle(time = video.currentTime): void {
+    if (!active || !settings || !hasStyle(settings.style) || styleFailed) return;
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+    try {
+      if (!styleContext) throw new Error('Canvas is unavailable for Video Style preview.');
+      const output = settings.output;
+      const transform = settings.transform;
+      const rotate = transform?.rotate ?? 0;
+      const rotated = rotatedSize(source.width, source.height, rotate);
+      const crop = normalizeCrop(
+        rotated.width,
+        rotated.height,
+        transform?.crop ?? 'original',
+        transform?.rect,
+      );
+      const frame = crop ?? { left: 0, top: 0, ...rotated };
+      if (styleSource.width !== output.width) styleSource.width = output.width;
+      if (styleSource.height !== output.height) styleSource.height = output.height;
+      styleContext.setTransform(
+        output.width / frame.width,
+        0,
+        0,
+        output.height / frame.height,
+        (-frame.left * output.width) / frame.width,
+        (-frame.top * output.height) / frame.height,
+      );
+      styleContext.clearRect(frame.left, frame.top, frame.width, frame.height);
+      styleContext.translate(rotated.width / 2, rotated.height / 2);
+      styleContext.scale(transform?.flip ? -1 : 1, 1);
+      styleContext.rotate((rotate * Math.PI) / 180);
+      styleContext.drawImage(
+        video,
+        -source.width / 2,
+        -source.height / 2,
+        source.width,
+        source.height,
+      );
+      styleRenderer ??= createStyleRenderer(styleCanvas);
+      styleRenderer.draw(styleSource, output.width, output.height, time, settings.style!);
+      styleCanvas.hidden = false;
+      video.style.opacity = '0';
+    } catch {
+      styleFailed = true;
+      styleCanvas.hidden = true;
+      video.style.removeProperty('opacity');
+      onStyleUnavailable();
+    }
+  }
+
+  function scheduleStyle(): void {
+    if (
+      !active ||
+      !settings ||
+      !hasStyle(settings.style) ||
+      styleFailed ||
+      !('requestVideoFrameCallback' in video) ||
+      frameCallback
+    )
+      return;
+    frameCallback = video.requestVideoFrameCallback((_now, metadata) => {
+      frameCallback = 0;
+      drawStyle(metadata.mediaTime);
+      if (!video.paused && !destroyed) scheduleStyle();
+    });
+  }
+
+  styleCanvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    styleFailed = true;
+    styleCanvas.hidden = true;
+    video.style.removeProperty('opacity');
+    onStyleUnavailable();
+  });
 
   function syncPlayback(): void {
     const paused = video.paused;
@@ -166,6 +251,8 @@ export function mountLivePreview(
     video.style.width = `${geometry.videoWidth}px`;
     video.style.height = `${geometry.videoHeight}px`;
     video.style.transform = geometry.transform;
+    styleCanvas.style.width = '100%';
+    styleCanvas.style.height = '100%';
   }
 
   function refresh(): void {
@@ -176,6 +263,7 @@ export function mountLivePreview(
       (!!settings.transform?.rotate ||
         !!settings.transform?.flip ||
         !!geometry?.crop ||
+        hasStyle(settings.style) ||
         (!!settings.overlays && hasOverlays(settings.overlays)));
     if (!edited) showingOriginal = false;
     active = edited && !showingOriginal;
@@ -185,6 +273,12 @@ export function mountLivePreview(
     controls.hidden = !edited;
     video.controls = !edited;
     frame.classList.toggle('is-edited', active);
+    if ((!active || !hasStyle(settings.style)) && frameCallback) {
+      video.cancelVideoFrameCallback(frameCallback);
+      frameCallback = 0;
+    }
+    styleCanvas.hidden = true;
+    video.style.removeProperty('opacity');
     if (active) {
       const rotated = rotatedSize(source.width, source.height, settings.transform?.rotate ?? 0);
       const size = geometry?.crop ?? rotated;
@@ -196,9 +290,12 @@ export function mountLivePreview(
         frame.style.removeProperty(property);
       // Editors own display; leave it untouched when switching between live and original.
       for (const property of ['width', 'height', 'transform']) video.style.removeProperty(property);
+      for (const property of ['width', 'height']) styleCanvas.style.removeProperty(property);
     }
     status.hidden = true;
     void drawOverlay();
+    drawStyle();
+    if (active && hasStyle(settings.style)) scheduleStyle();
     syncPlayback();
   }
 
@@ -216,6 +313,12 @@ export function mountLivePreview(
     'loadedmetadata',
   ] as const;
   for (const event of playbackEvents) video.addEventListener(event, syncPlayback);
+  video.addEventListener('play', scheduleStyle);
+  video.addEventListener('seeked', () => drawStyle());
+  video.addEventListener('loadeddata', () => drawStyle());
+  video.addEventListener('timeupdate', () => {
+    if (!('requestVideoFrameCallback' in video)) drawStyle();
+  });
   syncPlayback();
   return {
     update(next) {
@@ -228,6 +331,10 @@ export function mountLivePreview(
       destroyed = true;
       version++;
       observer.disconnect();
+      if (frameCallback) video.cancelVideoFrameCallback(frameCallback);
+      styleRenderer?.destroy();
+      video.style.removeProperty('opacity');
+      video.removeEventListener('play', scheduleStyle);
       for (const event of playbackEvents) video.removeEventListener(event, syncPlayback);
     },
   };

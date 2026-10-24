@@ -2,6 +2,7 @@ import { CanvasSink } from 'mediabunny';
 import { AUDIO_FORMATS, audioUnavailable, type AudioExtractSettings } from '../core/audioExtract';
 import { writesWhileEncoding } from '../core/convert';
 import { gifDimensions, gifUnavailable } from '../core/gifExport';
+import { hasStyle, normalizeStyle } from '../core/style';
 import type { Settings, SourceInfo } from '../core/types';
 import { mountAudioPanel } from './audioPanel';
 import { mountAudioPlayer } from './audioPlayer';
@@ -25,6 +26,7 @@ import { mountGifPanel } from './gifPanel';
 import { mountLivePreview } from './livePreview';
 import { mountProgress, sizeMeter } from './progress';
 import { mountSettings } from './settingsPanel';
+import { mountStylePanel } from './stylePanel';
 import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
 import { mountTrimBar } from './trimBar';
 import { computePeaks } from './waveform';
@@ -211,14 +213,22 @@ function renderPrepare(
   const panelHost = el('div', 'tool-panel');
   panelHost.id = TOOL_PANEL_ID;
   panelHost.setAttribute('role', 'tabpanel');
+  const styleDetails = el('details', 'adjust style-adjust');
+  let styleUnavailable = '';
+  const probe = document.createElement('canvas').getContext('webgl2');
+  if (!probe) styleUnavailable = 'Video styles need WebGL2 in this browser.';
+  else probe.getExtension('WEBGL_lose_context')?.loseContext();
   // Overlays apply to Shrink and GIF alike, so their controls sit below whichever panel shows.
   const overlayDetails = el('details', 'adjust overlay-adjust');
   const overlayHeading = el('summary');
   const overlayState = el('span', 'adjust-state');
   overlayHeading.append('Overlay', overlayState, icon('i-chev'));
   overlayDetails.append(overlayHeading);
-  settingsHost.append(panelHost, overlayDetails);
+  settingsHost.append(panelHost, styleDetails, overlayDetails);
   let current = state;
+  const stylePanel = mountStylePanel(styleDetails, state.settings.style, (style) =>
+    dispatch({ type: 'setSettings', value: { ...current.settings, style } }),
+  );
   const changeOverlays = (overlays: Settings['overlays']) =>
     dispatch({ type: 'setSettings', value: { ...current.settings, overlays } });
   const overlayPanel = mountOverlayPanel(
@@ -376,6 +386,15 @@ function renderPrepare(
         previewHost,
         { width: state.source.video.displayWidth, height: state.source.video.displayHeight },
         state.source.durationSec,
+        () => {
+          styleUnavailable = 'Video styles stopped because the graphics context was lost.';
+          if (hasStyle(current.settings.style))
+            dispatch({
+              type: 'setSettings',
+              value: { ...current.settings, style: normalizeStyle() },
+            });
+          else stylePanel.update(current.settings.style, styleUnavailable);
+        },
       );
     else previewHost.append(video);
     video.src = url;
@@ -414,6 +433,8 @@ function renderPrepare(
     overlayEditor?.update(value.settings, value.overlayAssets);
     overlayEditor?.setTool(value.tool !== 'audio');
     overlayDetails.hidden = value.tool === 'audio' || !value.source.video;
+    styleDetails.hidden = value.tool === 'audio' || !value.source.video;
+    stylePanel.update(value.settings.style, styleUnavailable);
     editSection.hidden = value.tool === 'audio' || !previewPlayable || !value.source.video;
     const previewOutput =
       value.tool === 'gif' && value.gifSettings
@@ -422,6 +443,7 @@ function renderPrepare(
     if (value.source.video)
       livePreview?.update({
         transform: value.settings.transform,
+        style: value.settings.style,
         overlays: value.settings.overlays,
         assets: value.overlayAssets,
         output: previewOutput ?? {

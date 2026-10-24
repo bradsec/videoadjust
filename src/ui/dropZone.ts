@@ -16,9 +16,9 @@ export function mountDropZone(
   grid.innerHTML = `
     <div class="hero">
       <h1>Video tools that <span class="hl">stay on your device</span>.</h1>
-      <p>Shrink, trim, crop and convert videos, add text or a watermark, or turn them into GIFs. Everything runs in this browser and nothing is uploaded.</p>
+      <p>Shrink, trim, crop and convert videos, apply a style, add text or a watermark, or turn them into GIFs. Everything runs in this browser and nothing is uploaded.</p>
       <ul class="tool-tags" aria-label="Tools">
-        <li>Shrink</li><li>Trim</li><li>Crop</li><li>Convert</li><li>Text and watermark</li><li>GIF</li><li>Extract audio</li>
+        <li>Shrink</li><li>Trim</li><li>Crop</li><li>Convert</li><li>Styles</li><li>Text and watermark</li><li>GIF</li><li>Extract audio</li>
       </ul>
     </div>
     <div class="dropzone">

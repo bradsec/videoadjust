@@ -43,6 +43,7 @@ import {
   type GifSettings,
 } from '../core/gifExport';
 import { normalizeCrop, outputSize, rotatedSize, videoFrameSize } from '../core/videoGeometry';
+import { hasStyle, normalizeStyle } from '../core/style';
 import { UnsupportedSourceError, type readSource as readSourceFn } from '../core/source';
 import {
   chooseSink,
@@ -361,6 +362,7 @@ export function validateSettings(
 ): Settings {
   const fallback = auto.settings;
   const overlays = normalizeOverlays(value.overlays);
+  const style = normalizeStyle(value.style);
   const container =
     availableVideoCodecs(value.container, caps).length &&
     (value.container !== 'webm' || !source.audio || caps.audio.opus)
@@ -445,6 +447,7 @@ export function validateSettings(
   return applyTargetSize(
     {
       overlays,
+      style,
       targetSizeMB,
       targetRetryScale: value.targetRetryScale,
       container,
@@ -457,7 +460,8 @@ export function validateSettings(
           (value.transform?.crop ?? 'original') !== 'original' ||
           effectiveRect ||
           value.keyFrameInterval ||
-          hasOverlays(overlays)
+          hasOverlays(overlays) ||
+          hasStyle(style)
         ),
       trim: clampTrim(value.trim, source.durationSec, 'end'),
       keyFrameInterval:
@@ -520,6 +524,7 @@ export function settingsChangeCount(
   return (
     Number(!!current.overlays?.text.enabled) +
     Number(!!current.overlays?.image.enabled) +
+    Number(hasStyle(current.style)) +
     Number(!!current.targetSizeMB) +
     Number(current.container !== automatic.container) +
     Number(current.video?.codec !== automatic.video?.codec) +
@@ -1188,6 +1193,7 @@ export function createController(
         },
         base.settings.overlays,
         base.overlayAssets,
+        base.settings.style,
       );
       if (token !== exportToken) return;
       const blob = await sink.finish(bytes);

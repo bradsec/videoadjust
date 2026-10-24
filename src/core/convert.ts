@@ -18,6 +18,7 @@ import {
 import type { AudioExtractSettings, AudioFormat } from './audioExtract';
 import { registerFrameCrop } from './frameCrop';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from './overlays';
+import { createStyleRenderer, hasStyle } from './style';
 import type { SinkPlan } from './sink';
 import type { Container, Settings, SourceInfo } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
@@ -33,6 +34,7 @@ export class ConversionInvalidError extends Error {
 export type ConversionJob = {
   options: Pick<ConversionOptions, 'video' | 'audio' | 'trim' | 'tags'>;
   keeps: { video: boolean; audio: boolean };
+  cleanup?: () => void;
 };
 
 // Quality rejects non-integer bitrates; source bitrates come from packet statistics and can be fractional.
@@ -60,9 +62,13 @@ export function shrinkJob(
     !!transform &&
     (transform.rotate !== 0 || transform.flip || transform.crop !== 'original' || !!crop);
   const overlay = s.overlays && hasOverlays(s.overlays) ? s.overlays : undefined;
-  const reencode = transformed || !!s.keyFrameInterval || !!overlay;
+  const styled = hasStyle(s.style);
+  const reencode = transformed || !!s.keyFrameInterval || !!overlay || styled;
   const copiesVideo = !!v && s.passthrough && !reencode;
   let canvas: OffscreenCanvas | undefined;
+  let styleCanvas: OffscreenCanvas | undefined;
+  let styleRenderer: ReturnType<typeof createStyleRenderer> | undefined;
+  let styleUnavailable = false;
   let layer: Promise<OffscreenCanvas | null> | undefined;
   const title = s.metadata?.title.trim();
   const options: ConversionJob['options'] = {
@@ -86,25 +92,39 @@ export function shrinkJob(
             // the export. The target's headroom and Try again smaller cover any overshoot.
             quality: quality(v.bitrate),
             ...(reencode || s.targetSizeMB ? { forceTranscode: true } : {}),
-            ...(transformed || overlay ? { allowTransformationMetadata: false } : {}),
-            ...(overlay
+            ...(transformed || overlay || styled ? { allowTransformationMetadata: false } : {}),
+            ...(overlay || styled
               ? {
                   processedWidth: v.width,
                   processedHeight: v.height,
                   // Samples arrive rotated, flipped, cropped and resized, so overlays land in
                   // output space. sample.draw reads the whole frame, which WebKit handles.
                   process: async (sample: VideoSample) => {
-                    const overlayLayer = await (layer ??= renderOverlayLayer(
-                      v.width,
-                      v.height,
-                      overlay,
-                      assets,
-                    ));
+                    const overlayLayer = overlay
+                      ? await (layer ??= renderOverlayLayer(v.width, v.height, overlay, assets))
+                      : null;
                     canvas ??= new OffscreenCanvas(v.width, v.height);
                     const context = canvas.getContext('2d');
                     if (!context) throw new Error('Canvas is unavailable for overlay export.');
                     context.clearRect(0, 0, v.width, v.height);
                     sample.draw(context, 0, 0, v.width, v.height);
+                    if (styled && s.style && !styleUnavailable) {
+                      try {
+                        styleCanvas ??= new OffscreenCanvas(v.width, v.height);
+                        styleRenderer ??= createStyleRenderer(styleCanvas);
+                        styleRenderer.draw(
+                          canvas,
+                          v.width,
+                          v.height,
+                          sample.timestamp + s.trim.start,
+                          s.style,
+                        );
+                        context.drawImage(styleCanvas, 0, 0);
+                      } catch (error) {
+                        styleUnavailable = true;
+                        console.warn('Video Style disabled during export:', error);
+                      }
+                    }
                     if (overlayLayer) context.drawImage(overlayLayer, 0, 0);
                     return canvas;
                   },
@@ -125,7 +145,12 @@ export function shrinkJob(
             { codec: a.codec, forceTranscode: false }
           : { codec: a.codec, quality: quality(a.bitrate), numberOfChannels: a.channels },
   };
-  return { options, keeps: { video: !!v, audio: !!a }, copiesVideo };
+  return {
+    options,
+    keeps: { video: !!v, audio: !!a },
+    copiesVideo,
+    ...(styled ? { cleanup: () => styleRenderer?.destroy() } : {}),
+  };
 }
 
 export function toConversionOptions(
@@ -253,6 +278,7 @@ export function startConversion(args: {
       throw err;
     } finally {
       stopListening();
+      args.job.cleanup?.();
     }
   })();
 

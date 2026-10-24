@@ -697,13 +697,18 @@ input[type='checkbox']:disabled {
   border-radius: 0;
 }
 .live-preview-frame.is-edited,
-.live-preview-frame.is-edited .preview-video {
+.live-preview-frame.is-edited .preview-video,
+.live-preview-frame.is-edited .live-preview-style {
   position: absolute;
 }
-.live-preview-frame.is-edited .preview-video {
+.live-preview-frame.is-edited .preview-video,
+.live-preview-frame.is-edited .live-preview-style {
   left: 0;
   top: 0;
   transform-origin: 0 0;
+}
+.live-preview-style {
+  pointer-events: none;
 }
 .live-preview-overlay {
   position: absolute;
@@ -982,6 +987,24 @@ input[type='checkbox']:disabled {
   display: grid;
   gap: var(--s-3);
   padding-bottom: var(--s-4);
+}
+.style-controls {
+  display: grid;
+  gap: var(--s-3);
+  padding-bottom: var(--s-4);
+}
+.style-controls .setting-label {
+  display: grid;
+  gap: var(--s-1);
+}
+.style-colors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+.style-controls input[type='color'] {
+  width: 100%;
+  height: var(--tap);
 }
 .overlay-group {
   display: grid;

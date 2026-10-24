@@ -1,4 +1,5 @@
 import type { Overlays } from './overlays';
+import type { StyleSettings } from './style';
 
 export type Container = 'mp4' | 'webm';
 export type VideoCodecId = 'avc' | 'hevc' | 'av1' | 'vp9';
@@ -42,6 +43,7 @@ export interface Capabilities {
 
 export interface Settings {
   overlays?: Overlays;
+  style?: StyleSettings;
   container: Container;
   passthrough: boolean;
   /** Decimal megabytes; absent or null disables the target. */

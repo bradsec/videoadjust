@@ -1,6 +1,7 @@
 import { CanvasSink, type Input } from 'mediabunny';
 import { scaleToLongEdge } from './autoSettings';
 import { renderOverlayLayer, type OverlayAssets } from './overlays';
+import { createStyleRenderer, hasStyle } from './style';
 import type { Settings, SourceInfo, Rotation, CropRect } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
 
@@ -183,6 +184,7 @@ export async function exportGif(
   onProgress: (progress: number) => void,
   overlays?: Settings['overlays'],
   assets: OverlayAssets = {},
+  style?: Settings['style'],
 ): Promise<Uint8Array> {
   const video = source.video;
   const track = await input.getPrimaryVideoTrack();
@@ -203,6 +205,9 @@ export async function exportGif(
   const rotation = ((video.rotation + (transform?.rotate ?? 0)) % 360) as Rotation;
   const geometry = crop ? gifCropGeometry(rotated, crop, width) : null;
   const target = geometry ? new OffscreenCanvas(width, height).getContext('2d') : null;
+  let styleCanvas: OffscreenCanvas | undefined;
+  let styleRenderer: ReturnType<typeof createStyleRenderer> | undefined;
+  let styleUnavailable = false;
   if (geometry && !target) throw new Error('Canvas is unavailable for GIF export.');
   const sink = new CanvasSink(track, {
     width: geometry?.width ?? width,
@@ -281,6 +286,17 @@ export async function exportGif(
       const context = (target ?? frame.canvas.getContext('2d')) as
         CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
       if (!context) throw new Error('Canvas is unavailable for GIF export.');
+      if (hasStyle(style) && style && !styleUnavailable) {
+        try {
+          styleCanvas ??= new OffscreenCanvas(width, height);
+          styleRenderer ??= createStyleRenderer(styleCanvas);
+          styleRenderer.draw(context.canvas, width, height, timestamps[i], style);
+          context.drawImage(styleCanvas, 0, 0);
+        } catch (error) {
+          styleUnavailable = true;
+          console.warn('Video Style disabled during GIF export:', error);
+        }
+      }
       if (overlayLayer) context.drawImage(overlayLayer, 0, 0);
       // Copy pixels before the iterator can reuse its pooled canvas.
       const rgba = context.getImageData(0, 0, width, height).data;
@@ -304,6 +320,7 @@ export async function exportGif(
     if (!bytes) throw new Error('GIF encoder returned no bytes.');
     return bytes;
   } finally {
+    styleRenderer?.destroy();
     await frames.return();
     worker.terminate();
     worker.removeEventListener('error', onError);
