@@ -39,7 +39,7 @@ test('shows the drop zone and says files stay on this device', async ({ page }) 
   await expect(page.getByText('Stays on this device')).toBeVisible();
   await expect(page.getByText('Nothing is uploaded')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'About videoadjust' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'About', exact: true })).toBeVisible();
 });
 
 test('opens the native picker from the Choose video button', async ({ page }) => {
@@ -117,7 +117,7 @@ test('footer links to the GitHub repo and opens About with the version', async (
   await expect(page.locator('footer')).not.toContainText('Licences');
   await expect(page.locator('footer .footer-links')).toContainText(`v${version}`);
 
-  await page.getByRole('button', { name: 'About videoadjust' }).click();
+  await page.getByRole('button', { name: 'About', exact: true }).click();
   const about = page.getByRole('dialog', { name: 'About videoadjust' });
   await expect(about).toBeVisible();
   await expect(about).toContainText(`Version ${version}`);
@@ -130,7 +130,7 @@ test('footer links to the GitHub repo and opens About with the version', async (
   expect(axe.violations).toEqual([]);
   await about.getByRole('button', { name: 'Close' }).click();
   await expect(about).toBeHidden();
-  await page.getByRole('button', { name: 'About videoadjust' }).click();
+  await page.getByRole('button', { name: 'About', exact: true }).click();
   await page.keyboard.press('Escape');
   await expect(about).toBeHidden();
 });
