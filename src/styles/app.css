@@ -185,21 +185,22 @@ footer a {
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
-.about-link {
-  min-height: var(--tap);
-  margin-block: -12px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  text-decoration: underline;
-  text-decoration-color: var(--ctl);
-  text-underline-offset: 3px;
-  cursor: pointer;
+/* A compact .btn; the ::before keeps a 44px hit area around the 36px pill. */
+footer .about-link {
+  min-height: 36px;
+  padding: 0 var(--s-4) 0 var(--s-3);
+  border-radius: 999px;
+  font-size: var(--fs-14);
 }
-.about-link:hover {
-  text-decoration-color: currentColor;
+footer .about-link::before {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+footer .about-link svg.i {
+  width: 16px;
+  height: 16px;
+  color: var(--accent-text);
 }
 .about-dialog {
   width: min(420px, calc(100% - 2 * var(--gutter)));

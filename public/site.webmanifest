@@ -1,6 +1,6 @@
 {
-  "name": "VideoAdjust",
-  "short_name": "VideoAdjust",
+  "name": "videoadjust",
+  "short_name": "videoadjust",
   "description": "Compress, convert, trim, crop and resize videos, add text or a watermark, extract audio and make GIFs. Free and private: runs in your browser, no upload.",
   "start_url": "./",
   "scope": "./",

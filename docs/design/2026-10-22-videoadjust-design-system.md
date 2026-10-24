@@ -1,8 +1,8 @@
-# VideoAdjust design system (redesign brief)
+# videoadjust design system (redesign brief)
 
 ## Product
 
-VideoAdjust (videoadjust.com): free, private video tools that run entirely in the browser. Nothing is uploaded. Tools: Shrink video (resize, codec, quality; auto settings with an optional Adjust panel), Trim (shared by both tools), Compare original vs new (wipe slider), Extract audio (MP3 default, M4A, WAV). Audience: ordinary people on phone, tablet and desktop who need a video smaller, trimmed or audio-only; some power users open Adjust. JTBD: "Make this video small enough / short enough / audio-only, then save or share it, without uploading it."
+videoadjust (videoadjust.com): free, private video tools that run entirely in the browser. Nothing is uploaded. Tools: Shrink video (resize, codec, quality; auto settings with an optional Adjust panel), Trim (shared by both tools), Compare original vs new (wipe slider), Extract audio (MP3 default, M4A, WAV). Audience: ordinary people on phone, tablet and desktop who need a video smaller, trimmed or audio-only; some power users open Adjust. JTBD: "Make this video small enough / short enough / audio-only, then save or share it, without uploading it."
 
 ## Screens and flow (frozen)
 
@@ -10,7 +10,7 @@ VideoAdjust (videoadjust.com): free, private video tools that run entirely in th
 2. Prepare: video preview, trim bar (start/end handles, thumbnails, "Start here" / "End here" buttons, start/end/kept times), tool switch "Shrink video | Extract audio", summary (target format line, estimate "est. 18-24 MB from 212 MB"), one primary action ("Export" or "Extract audio"), "Adjust" disclosure with overrides (each shows auto value and Reset to auto).
 3. Working: progress percent, elapsed, remaining, Cancel.
 4. Result: size and reduction headline, Download (primary), Share, compare (video wipe slider, or audio player with waveform for audio), stats table original vs new, "Make it smaller" / "Lower bitrate", "Start over".
-   Header: VideoAdjust logo + wordmark, privacy line, light/dark theme toggle (dark default). Footer: "Free. Works offline after your first visit.", Licences link, github.com/bradsec/videoadjust link, version.
+   Header: videoadjust logo + wordmark, privacy line, light/dark theme toggle (dark default). Footer: "Free. Works offline after your first visit.", Licences link, github.com/bradsec/videoadjust link, version.
    Copy voice: plain, short, sentence case. Keep all labels above verbatim.
 
 ## Typography

@@ -1,4 +1,4 @@
-# VideoAdjust UI overhaul
+# videoadjust UI overhaul
 
 Mode: full overhaul of the web UI. Screens, flow, features and copy voice
 stay frozen. Layout, hierarchy, header, footer and the whole palette change.
@@ -27,7 +27,7 @@ stats table, all copy.
 
 Designing: a local video utility for ordinary phone and desktop users doing
 "make this video smaller, trimmed or audio-only and send it", vibe darkroom
-workbench, on mobile and desktop web, design system new (VideoAdjust tokens
+workbench, on mobile and desktop web, design system new (videoadjust tokens
 below).
 
 - VARIANCE 4: an editor-style asymmetric desktop (canvas plus flush
@@ -156,7 +156,7 @@ Phone, 390px. Drop
 
 ```
 ┌────────────────────────────────────┐
-│ [logo] VideoAdjust            [sun]│
+│ [logo] videoadjust            [sun]│
 │        lock Stays on this device   │
 ├────────────────────────────────────┤
 │ ┌ ┐                          ┌ ┐   │  drop target, panel, accent
@@ -179,7 +179,7 @@ Phone. Prepare, Shrink video (Extract audio identical except the inspector)
 
 ```
 ┌────────────────────────────────────┐
-│ [logo] VideoAdjust            [sun]│
+│ [logo] videoadjust            [sun]│
 │        lock Stays on this device   │
 ├─────────────────┬──────────────────┤
 │ [] Shrink video │  ||| Extract audio│ tabs 52px, active: panel fill
@@ -269,7 +269,7 @@ Desktop, 1440px. Drop
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ [logo] VideoAdjust                                              [sun]│
+│ [logo] videoadjust                                              [sun]│
 │        lock Stays on this device                                     │
 ├──────────────────────────────────────────────────────────────────────┤
 │ FREE ONLINE VIDEO TOOLS        ┌ ┐                              ┌ ┐  │
@@ -289,7 +289,7 @@ Desktop. Prepare (Adjust open, one change)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ [logo] VideoAdjust      [] Shrink video   ||| Extract audio     [sun]│
+│ [logo] videoadjust      [] Shrink video   ||| Extract audio     [sun]│
 │        lock Stays...    ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀                              │
 ├──────────────────────────────────────────────┬───────────────────────┤
 │ ┌──────────────────────────────────────────┐ │ READY TO EXPORT       │

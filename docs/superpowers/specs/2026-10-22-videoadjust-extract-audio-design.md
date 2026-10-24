@@ -1,4 +1,4 @@
-# VideoAdjust: rename and extract audio
+# videoadjust: rename and extract audio
 
 Date: 2026-10-22
 Builds on: `2026-10-22-videoadjust-design.md` (the v1 design; its constraints still apply).
@@ -7,7 +7,7 @@ Status: built (v0.3.0). Extract audio ships as specified.
 ## Intent
 
 The app only shrank video. The owner wants it to
-grow into a general in-browser video tool, so it is now **VideoAdjust**. The
+grow into a general in-browser video tool, so it is now **videoadjust**. The
 first new tool is **Extract audio**: take the soundtrack out of a video as an
 audio file, privately and locally, with the same trim control.
 
@@ -91,7 +91,7 @@ audio file, privately and locally, with the same trim control.
   in this browser").
 - **Tab control.** A segmented control with `role="tablist"`, arrow-key
   navigation, 44 px touch targets, selected state not shown by colour alone.
-- **Tagline.** README and page subtitle describe VideoAdjust as a set of
+- **Tagline.** README and page subtitle describe videoadjust as a set of
   private in-browser video tools: shrink and extract audio for now.
 
 ## Errors and limits

@@ -1,4 +1,4 @@
-# VideoAdjust
+# videoadjust
 
 [![Tests](https://github.com/bradsec/videoadjust/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/bradsec/videoadjust/actions/workflows/tests.yml)
 [![Version](https://img.shields.io/github/package-json/v/bradsec/videoadjust)](package.json)
@@ -35,9 +35,9 @@ Compress, convert, trim, crop and resize videos, add text or a watermark, extrac
 - The result screen compares original and new in a table and, for in-memory video exports, with a wipe view (drag the divider or use the arrow keys on it; Frame mode steps one frame at a time). GIF results show an image preview.
 - If a new video or audio file is not smaller, the result says so and Make it smaller moves to the next smaller size, or lowers quality one step when no smaller size is left.
 - Privacy: No video is uploaded and nothing is sent anywhere. The page is static, has no analytics, web fonts or CDN assets, and makes no requests to other origins. Its CSP only allows `'self'`, `blob:` and workers. `scripts/check-no-remote.mjs` (`pnpm check:remote`, part of `pnpm build`) fails the build if any built file contains a URL outside a short, commented allowlist (spec links in bundled comments). It does not need `SharedArrayBuffer` or COOP/COEP headers.
-- Look: The app is dark only, with the same cool greys as rastertrace (`#111419` background, `#20252c` raised surfaces, `#e9ecef` text) and VideoAdjust's chartreuse accent (`#c6ef3a`). It uses system sans-serif fonts with tabular figures for times and sizes. Checkboxes draw as sliding switches. The logo is a lowercase va monogram in a chartreuse-framed rounded square, drawn as Inter Bold outlines, beside the lowercase name videoadjust, matching rastertrace's rt mark. The app stores nothing in `localStorage`; only the overlay fonts you add are kept, in IndexedDB.
+- Look: The app is dark only, with the same cool greys as rastertrace (`#111419` background, `#20252c` raised surfaces, `#e9ecef` text) and videoadjust's chartreuse accent (`#c6ef3a`). It uses system sans-serif fonts with tabular figures for times and sizes. Checkboxes draw as sliding switches. The logo is a lowercase va monogram in a chartreuse-framed rounded square, drawn as Inter Bold outlines, beside the lowercase name videoadjust, matching rastertrace's rt mark. The app stores nothing in `localStorage`; only the overlay fonts you add are kept, in IndexedDB.
 - Phones: Quick taps never trigger double-tap zoom, and every text field and menu uses at least 16px text so iOS does not zoom the page when one takes focus. Pinch zoom still works.
-- About: The footer's About VideoAdjust opens a dialog with the version, what the app does, offline use, credits, the libraries, a link to the third-party licences and a Buy Me a Coffee support link. The GitHub icon and version in the footer link to the repo.
+- About: The footer's About videoadjust opens a dialog with the version, what the app does, offline use, credits, the libraries, a link to the third-party licences and a Buy Me a Coffee support link. The GitHub icon and version in the footer link to the repo.
 - Size guidance: Designed and tested for inputs up to 2 GB. Above 2 GB the app warns and lets you continue. Where there is no save picker (iOS Safari, Firefox) the output stays in memory until you download or share it, and a large estimate asks before it starts.
 - Offline: A service worker (`public/sw.js`, registered only in production builds) precaches every built file, including the lazy AAC and MP3 encoder chunks. Navigations are network-first, revalidated with the server (so the host's max-age cannot serve an old page), with the precached page used when offline or after 4 s; network responses never overwrite that page, keeping its HTML and assets from the same build. Hashed assets are cache-first. The previous version's cache is kept until the next update so an open tab can still load the AAC chunk. The build fills in the file list and a cache version at build time.
 
@@ -212,7 +212,7 @@ Licence audit (version 1.62.0, 2026-10-22):
 
 ## License
 
-VideoAdjust is licensed under [MIT](LICENSE).
+videoadjust is licensed under [MIT](LICENSE).
 
 Full notices, including the MPL-2.0, LGPL-2.1 and LGPL-2.0 texts, are in `THIRD-PARTY-LICENSES.txt`. The build
 copies it to `dist/THIRD-PARTY-LICENSES.txt` and the About dialog links to it. `pnpm check:licenses` reads

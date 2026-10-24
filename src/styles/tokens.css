@@ -1,5 +1,5 @@
-/* VideoAdjust design tokens. Dark only. The greys match rastertrace (bradsec's sibling app)
-   so the apps read as a family; the chartreuse accent is VideoAdjust's own. System fonts only,
+/* videoadjust design tokens. Dark only. The greys match rastertrace (bradsec's sibling app)
+   so the apps read as a family; the chartreuse accent is videoadjust's own. System fonts only,
    and no monospace: numbers use tabular figures from the UI font.
    Contrast: text-3 is 6:1 on --raised, --ctl 3.6:1 on --raised, on-accent 14:1 on --accent. */
 :root {
