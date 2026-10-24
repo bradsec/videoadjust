@@ -63,6 +63,51 @@ async function load(page: Page) {
   await page.setInputFiles('#file', fixture);
 }
 
+test('desktop overlay settings scroll without hiding the preview', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  const inspector = page.locator('.prepare-regions .inspector');
+  await expect(inspector).toBeVisible();
+  const canvas = (await page.locator('.prepare-regions .canvas').boundingBox())!;
+  const panel = (await inspector.boundingBox())!;
+  expect(panel.y).toBeCloseTo(canvas.y, 0);
+  expect(panel.y + panel.height).toBeLessThanOrEqual(800);
+
+  await page.locator('.overlay-adjust > summary').click();
+  await page.getByLabel('Text overlay', { exact: true }).check();
+  await page.getByLabel('Overlay text', { exact: true }).fill('Desktop preview');
+  await page.getByLabel('Image overlay', { exact: true }).check();
+  const lastSlider = page.locator('.overlay-adjust input[type="range"]').last();
+  await lastSlider.scrollIntoViewIfNeeded();
+  await expect(lastSlider).toBeInViewport({ ratio: 1 });
+  await expect(page.locator('.live-preview-stage')).toBeInViewport({ ratio: 1 });
+  expect(await page.evaluate(() => window.scrollY)).toBeLessThanOrEqual(1);
+  const scroll = await inspector.evaluate((node) => ({
+    height: node.clientHeight,
+    content: node.scrollHeight,
+    top: node.scrollTop,
+    width: node.clientWidth,
+    contentWidth: node.scrollWidth,
+  }));
+  expect(scroll.content).toBeGreaterThan(scroll.height);
+  expect(scroll.top).toBeGreaterThan(0);
+  expect(scroll.contentWidth).toBe(scroll.width);
+
+  await page.getByLabel('Image anchor', { exact: true }).focus();
+  await inspector.evaluate((node) => (node.scrollTop = 0));
+  await page.keyboard.press('Tab');
+  await expect(lastSlider).toBeFocused();
+  await expect(lastSlider).toBeInViewport({ ratio: 1 });
+  await expect(page.locator('.live-preview-stage')).toBeInViewport({ ratio: 1 });
+  const axe = await new AxeBuilder({ page }).analyze();
+  expect(axe.violations).toEqual([]);
+
+  const exportButton = inspector.getByRole('button', { name: /^Export/ });
+  await exportButton.focus();
+  await expect(exportButton).toBeInViewport({ ratio: 1 });
+});
+
 test('overlay percentage sliders link precision values and update the preview live', async ({
   page,
 }) => {

@@ -2172,6 +2172,20 @@ table.stats {
   .inspector {
     grid-column: 9 / span 4;
   }
+  .prepare-regions > .inspector {
+    /* Match the header (including its border) and main's top padding. */
+    --inspector-top: calc(var(--s-8) + 1px + var(--s-5));
+    position: sticky;
+    top: var(--inspector-top);
+    align-self: start;
+    max-height: calc(100vh - var(--inspector-top) - var(--s-5));
+    max-height: calc(100dvh - var(--inspector-top) - var(--s-5));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ctl) var(--surface);
+  }
   .export-summary .spec,
   .export-summary .dock {
     display: contents;
