@@ -45,3 +45,6 @@ ff -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:samp
 # Green centre is exactly the square crop of this 16:9 frame; red and blue reveal stretching.
 ff -f lavfi -i "color=c=green:s=640x360:r=30:d=1,drawbox=x=0:y=0:w=140:h=360:color=red:t=fill,drawbox=x=500:y=0:w=140:h=360:color=blue:t=fill" \
   -an -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p "$out/crop-bands.mp4"
+# 31 s, past the GIF length limit, so the GIF tab shows its blocked-export warning.
+ff -f lavfi -i "color=c=gray:s=320x180:r=10:d=31" \
+  -an -c:v libx264 -preset veryfast -crf 30 -pix_fmt yuv420p "$out/long-31s.mp4"

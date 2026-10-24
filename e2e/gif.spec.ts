@@ -64,3 +64,26 @@ test('GIF tab shows settings and exports an image result', { tag: '@mobile' }, a
   await expect(result).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole('link', { name: /Download .*\.gif/i })).toBeVisible();
 });
+
+test(
+  'a blocked GIF export says why beside the docked action',
+  { tag: '@mobile' },
+  async ({ page, isMobile }) => {
+    await page.goto('/');
+    await page.setInputFiles(
+      '#file',
+      new URL('../tests/fixtures/long-31s.mp4', import.meta.url).pathname,
+    );
+    await page.getByRole('tab', { name: 'GIF' }).click();
+    const panel = page.getByRole('tabpanel');
+    await expect(panel.getByRole('button', { name: 'Export GIF' })).toBeDisabled();
+    const warning = panel.locator('.export-warning');
+    await expect(warning).toContainText('at most 30 seconds');
+    const note = panel.locator('.dock-note');
+    if (!isMobile) return;
+    await expect(note).toBeVisible();
+    await note.getByRole('button', { name: 'See why' }).click();
+    await expect(warning).toBeFocused();
+    await expect(warning).toBeInViewport();
+  },
+);

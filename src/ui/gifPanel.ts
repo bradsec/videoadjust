@@ -42,7 +42,18 @@ export function mountGifPanel(
   button.addEventListener('click', () => {
     if (button.getAttribute('aria-disabled') !== 'true') opts.onExport();
   });
-  dock.append(count, button);
+  // Where the dock floats over the page (phone and tablet), the warning above can be off
+  // screen while Export GIF is disabled, so the dock says why in one line with a way to reach it.
+  const dockNote = el('div', 'dock-note');
+  dockNote.hidden = true;
+  const seeWhy = el('button', 'btn-link', 'See why');
+  seeWhy.type = 'button';
+  seeWhy.addEventListener('click', () => {
+    warning.scrollIntoView({ block: 'center' });
+    warning.focus({ preventScroll: true });
+  });
+  dockNote.append(icon('i-warn'), el('span', undefined, 'This GIF is too long or large.'), seeWhy);
+  dock.append(dockNote, count, button);
 
   const details = el('details', 'adjust');
   const disclosure = el('summary');
@@ -127,6 +138,7 @@ export function mountGifPanel(
   // Beside the action, not inside Adjust, so a blocked export always says why.
   const warning = el('p', 'export-warning');
   warning.setAttribute('role', 'status');
+  warning.tabIndex = -1;
   spec.append(warning);
   card.append(spec, dock, details);
   host.replaceChildren(card);
@@ -177,6 +189,7 @@ export function mountGifPanel(
         next.trim.end - next.trim.start,
       ) ?? '';
     warning.hidden = !warning.textContent;
+    dockNote.hidden = !warning.textContent;
     button.disabled = !!warning.textContent;
   }
   function setBusy(busy: boolean): void {
