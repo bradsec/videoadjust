@@ -270,6 +270,13 @@ test(
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 40);
     await page.mouse.up();
     await expect.poll(async () => (await selection.boundingBox())!.y).toBeLessThan(box.y);
+    await selection.click();
+    await expect(selection).toHaveAttribute('aria-pressed', 'true');
+    const beforeTap = await settledBox(selection);
+    const canvas = page.locator('.overlay-stage canvas');
+    const canvasBox = await settledBox(canvas);
+    await canvas.click({ position: { x: canvasBox.width * 0.9, y: canvasBox.height * 0.2 } });
+    await expect.poll(async () => (await selection.boundingBox())!.x).toBeGreaterThan(beforeTap.x);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   },

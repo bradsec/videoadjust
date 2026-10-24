@@ -37,6 +37,7 @@ export function mountOverlayEditor(
   toggle.setAttribute('aria-pressed', 'false');
   const editor = el('section', 'overlay-editor');
   editor.hidden = true;
+  editor.tabIndex = -1;
   editor.setAttribute('aria-label', 'Overlay editor');
   const stage = el('div', 'overlay-stage');
   const canvas = el('canvas');
@@ -47,6 +48,13 @@ export function mountOverlayEditor(
     text: el('button', 'overlay-selection'),
     image: el('button', 'overlay-selection'),
   };
+  // Tap an overlay, then tap the preview: a pointer alternative to dragging (WCAG 2.5.7).
+  let selected: 'text' | 'image' | null = null;
+  function select(kind: 'text' | 'image' | null): void {
+    selected = kind;
+    for (const [name, button] of Object.entries(selections))
+      button.setAttribute('aria-pressed', String(name === kind));
+  }
   // Hidden until the first draw positions them, so they never show at the stage origin.
   selections.text.hidden = true;
   selections.image.hidden = true;
@@ -60,7 +68,11 @@ export function mountOverlayEditor(
   const bar = el('div', 'overlay-editor-bar');
   const notes = el('div');
   notes.append(
-    el('p', 'setting-help', 'Drag an overlay. Arrow keys nudge; Shift moves farther.'),
+    el(
+      'p',
+      'setting-help',
+      'Drag an overlay, or tap it then tap the preview to place it. Arrow keys nudge; Shift moves farther.',
+    ),
     status,
   );
   bar.append(notes, reset, done);
@@ -86,11 +98,18 @@ export function mountOverlayEditor(
     selection.setAttribute('aria-label', `Move ${kind} overlay`);
     stage.append(selection);
     let drag: { x: number; y: number; left: number; top: number } | undefined;
+    // A drag ends with a click; it must not also arm tap-to-place.
+    let dragged = false;
+    selection.addEventListener('click', () => {
+      if (dragged) dragged = false;
+      else select(selected === kind ? null : kind);
+    });
     selection.addEventListener('pointerdown', (event) => {
       const box = bounds[kind];
       if (event.button !== 0 || !box) return;
       event.preventDefault();
       selection.focus();
+      dragged = false;
       drag = {
         x: event.clientX,
         y: event.clientY,
@@ -101,6 +120,8 @@ export function mountOverlayEditor(
     });
     selection.addEventListener('pointermove', (event) => {
       if (!drag || !selection.hasPointerCapture(event.pointerId)) return;
+      if (event.clientX === drag.x && event.clientY === drag.y) return;
+      dragged = true;
       const rect = canvas.getBoundingClientRect();
       move(
         kind,
@@ -134,6 +155,18 @@ export function mountOverlayEditor(
       );
     });
   }
+  stage.addEventListener('click', (event) => {
+    if (event.target !== canvas || !selected) return;
+    const box = bounds[selected];
+    const rect = canvas.getBoundingClientRect();
+    if (!box || !rect.width || !rect.height) return;
+    move(
+      selected,
+      (event.clientX - rect.left) / rect.width - box.width / canvas.width / 2,
+      (event.clientY - rect.top) / rect.height - box.height / canvas.height / 2,
+    );
+    select(null);
+  });
   async function draw(): Promise<void> {
     const current = ++version;
     if (!editing || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
@@ -202,6 +235,7 @@ export function mountOverlayEditor(
     editor.hidden = !editing;
     toggle.setAttribute('aria-pressed', String(editing));
     video.style.display = editing ? 'none' : '';
+    select(null);
     if (editing) {
       const cropToggle = toolbar.querySelector<HTMLButtonElement>(
         '.crop-edit-toggle[aria-pressed="true"]',
@@ -212,6 +246,7 @@ export function mountOverlayEditor(
       video.preload = 'auto';
       // The toggle sits below the editor, so on a phone the editor can open above the screen.
       editor.scrollIntoView({ block: 'nearest' });
+      editor.focus({ preventScroll: true });
       void draw();
     }
   }

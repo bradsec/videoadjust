@@ -940,6 +940,9 @@ input[type='checkbox']:disabled {
 .overlay-selection[hidden] {
   display: none;
 }
+.overlay-selection[aria-pressed='true'] {
+  border-style: solid;
+}
 .overlay-selection:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 2px;
