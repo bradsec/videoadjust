@@ -255,3 +255,78 @@ test('target size stays available for a trimmed copy', async ({ page }) => {
   await reset.click();
   await expect(card.getByLabel('Target size', { exact: true })).toHaveValue('off');
 });
+
+test('settings and edit controls explain themselves with native hover tips', async ({ page }) => {
+  const card = page.getByRole('region', { name: 'Export summary' });
+  await card.locator('summary').click();
+  for (const name of ['Target size', 'Quality', 'Resolution', 'Frame rate']) {
+    await expect(
+      card
+        .getByLabel(name, { exact: true })
+        .locator(
+          'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " setting ")][1]',
+        ),
+    ).toHaveAttribute('title', /\S/);
+  }
+  await card.getByLabel('Target size', { exact: true }).selectOption('custom');
+  await expect(card.getByLabel('Custom target (MB)').locator('..')).toHaveAttribute('title', /\S/);
+  await page.locator('.overlay-adjust > summary').click();
+  await page.getByLabel('Text overlay', { exact: true }).check();
+  await page.getByLabel('Overlay text', { exact: true }).fill('Hover tips');
+  for (const name of [
+    'Text opacity (%)',
+    'Text size (% of height)',
+    'Text anchor',
+    'Add your font',
+  ]) {
+    await expect(
+      page.getByLabel(name, { exact: true }).locator('xpath=ancestor::label'),
+    ).toHaveAttribute('title', /\S/);
+  }
+  for (const name of [
+    'Show original',
+    'Crop and rotate',
+    'Position overlay',
+    'Start here',
+    'End here',
+  ]) {
+    await expect(page.getByRole('button', { name, exact: true })).toHaveAttribute('title', /\S/);
+  }
+  await expect(page.getByRole('slider', { name: 'Start', exact: true })).toHaveAttribute(
+    'title',
+    /\S/,
+  );
+  await page.getByRole('button', { name: 'Crop and rotate' }).click();
+  await expect(page.getByLabel('Crop aspect ratio').locator('..')).toHaveAttribute('title', /\S/);
+  await expect(
+    page.getByRole('button', { name: 'Reset crop, rotation and mirror' }),
+  ).toHaveAttribute('title', /\S/);
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.getByRole('button', { name: 'Position overlay' }).click();
+  await expect(page.getByRole('button', { name: 'Reset positions' })).toHaveAttribute(
+    'title',
+    /\S/,
+  );
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.getByRole('tab', { name: 'GIF', exact: true }).click();
+  const gif = page.getByRole('region', { name: 'GIF summary' });
+  await gif.locator('summary').click();
+  for (const name of ['Size', 'Frame rate', 'Colours', 'File size', 'Loop']) {
+    await expect(
+      gif.getByLabel(name, { exact: true }).locator('xpath=ancestor::label'),
+    ).toHaveAttribute('title', /\S/);
+  }
+  await page.getByRole('tab', { name: 'Extract audio', exact: true }).click();
+  const audio = page.getByRole('region', { name: 'Audio summary' });
+  await audio.locator('summary').click();
+  await expect(audio.locator('label.choice')).toHaveCount(3);
+  for (const row of await audio.locator('label.choice').all()) {
+    await expect(row).toHaveAttribute('title', /\S/);
+  }
+  for (const name of ['Bitrate in kbps', 'Channels']) {
+    await expect(audio.getByRole('group', { name, exact: true }).locator('..')).toHaveAttribute(
+      'title',
+      /\S/,
+    );
+  }
+});

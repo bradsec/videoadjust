@@ -32,6 +32,8 @@ export function mountOverlayEditor(
   const toggle = el('button', 'btn edit-tool crop-edit-toggle');
   toggle.append(icon('i-text'), 'Position overlay');
   toggle.type = 'button';
+  toggle.title =
+    'Open the editor to drag overlays or nudge them with arrow keys. Dragged positions override anchor presets';
   toggle.setAttribute('aria-pressed', 'false');
   const editor = el('section', 'overlay-editor');
   editor.hidden = true;
@@ -50,6 +52,9 @@ export function mountOverlayEditor(
   selections.image.hidden = true;
   const status = el('p', 'setting-help');
   status.setAttribute('role', 'status');
+  const reset = el('button', 'btn editor-reset', 'Reset positions');
+  reset.type = 'button';
+  reset.title = 'Return both overlays to their selected anchors and margins';
   const done = el('button', 'btn editor-done', 'Done');
   done.type = 'button';
   const bar = el('div', 'overlay-editor-bar');
@@ -58,7 +63,7 @@ export function mountOverlayEditor(
     el('p', 'setting-help', 'Drag an overlay. Arrow keys nudge; Shift moves farther.'),
     status,
   );
-  bar.append(notes, done);
+  bar.append(notes, reset, done);
   editor.append(stage, bar);
   toolbar.append(toggle);
   host.append(editor);
@@ -224,6 +229,13 @@ export function mountOverlayEditor(
   };
   toolbar.addEventListener('click', closeForCrop);
   toggle.addEventListener('click', () => setEditing(!editing));
+  reset.addEventListener('click', () => {
+    const value = overlays();
+    onChange({
+      text: { ...value.text, position: null },
+      image: { ...value.image, position: null },
+    });
+  });
   done.addEventListener('click', () => {
     setEditing(false);
     toggle.focus();

@@ -50,6 +50,7 @@ export function mountTrimBar(
   const handles = (['start', 'end'] as const).map((side) => {
     const handle = el('button', `trim-handle ${side}`);
     handle.type = 'button';
+    handle.title = `Set the ${side} of the kept clip. Drag to trim, or use arrow keys for 0.1-second steps; hold Shift for 1-second steps`;
     handle.setAttribute('role', 'slider');
     handle.setAttribute('aria-label', side === 'start' ? 'Start' : 'End');
     handle.addEventListener('keydown', (event) => {
@@ -151,7 +152,9 @@ export function mountTrimBar(
     previewPlayable = next;
     for (const button of playheadButtons) {
       button.disabled = !previewPlayable;
-      button.title = previewPlayable ? '' : 'Requires a playable preview';
+      button.title = previewPlayable
+        ? `Set the ${button === playheadButtons[0] ? 'start' : 'end'} of the kept clip to the preview playhead`
+        : 'Requires a playable preview';
     }
   }
   function onTimeUpdate(): void {

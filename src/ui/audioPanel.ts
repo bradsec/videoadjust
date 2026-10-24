@@ -114,6 +114,11 @@ export function mountAudioPanel(
   const hints = new Map<AudioFormat, HTMLElement>();
   for (const id of FORMATS) {
     const label = el('label', 'choice');
+    label.title = {
+      mp3: 'Encode audio as MP3 for broad player support. Lower the bitrate for a smaller file',
+      m4a: 'Save AAC audio in an M4A file. Can copy source AAC at or below the automatic bitrate when channels match; changing bitrate forces encoding',
+      wav: 'Encode audio as uncompressed 16-bit PCM. Files are large and there is no bitrate control',
+    }[id];
     const input = el('input');
     input.type = 'radio';
     input.name = 'audio-format';
@@ -139,6 +144,8 @@ export function mountAudioPanel(
     AUDIO_BITRATE_STEPS.map((bps) => ({ value: String(bps), label: String(bps / 1000) })),
     (bps) => change({ bitrate: Number(bps), copy: false }),
   );
+  bitrate.section.title =
+    'Bits per second for MP3 or AAC audio. Lower for a smaller file; raise to preserve more sound detail';
   bitrateSeg.node.classList.add('num');
   const bitrateHelp = el('p', 'setting-help');
   bitrate.section.append(bitrateSeg.node, bitrateHelp);
@@ -164,6 +171,7 @@ export function mountAudioPanel(
     ],
     (n) => change({ channels: Number(n) as 1 | 2 }),
   );
+  channels.section.title = 'Keep stereo separation or mix down to mono. Mono sources stay mono';
   channels.section.append(channelSeg.node);
   if (monoSource) channels.section.append(el('p', 'setting-reason', 'The original audio is mono.'));
 

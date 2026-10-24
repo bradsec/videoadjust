@@ -52,11 +52,13 @@ export function mountGifPanel(
 
   function select<T extends string>(
     label: string,
+    tip: string,
     choices: { value: T; label: string }[],
     change: (choice: T) => void,
   ): HTMLSelectElement {
     const section = el('div', 'setting');
     const fieldLabel = el('label', 'setting-label', label);
+    fieldLabel.title = tip;
     const wrapper = el('span', 'field');
     const field = el('select', 'setting-select');
     field.setAttribute('aria-label', label);
@@ -72,10 +74,21 @@ export function mountGifPanel(
     controls.append(section);
     return field;
   }
-  const size = select('Size', [], (n) => opts.onChange({ ...value, size: Number(n) }));
-  const fps = select('Frame rate', [], (n) => opts.onChange({ ...value, fps: Number(n) }));
+  const size = select(
+    'Size',
+    'Set the long edge in pixels while keeping the frame proportions. Lower for a smaller GIF; frames are never upscaled',
+    [],
+    (n) => opts.onChange({ ...value, size: Number(n) }),
+  );
+  const fps = select(
+    'Frame rate',
+    'Frames per second in the GIF, never above the source rate. Lower for a smaller file; raise for smoother motion',
+    [],
+    (n) => opts.onChange({ ...value, fps: Number(n) }),
+  );
   const loop = select(
     'Loop',
+    'Choose whether the GIF repeats forever or plays once',
     [
       { value: 'forever', label: 'Loop forever' },
       { value: 'once', label: 'Play once' },
@@ -84,6 +97,7 @@ export function mountGifPanel(
   );
   const colors = select(
     'Colours',
+    'Maximum colours per frame. Fewer colours can make a smaller file but lose subtle shades',
     [
       { value: '256', label: '256 colours' },
       { value: '128', label: '128 colours' },
@@ -93,6 +107,7 @@ export function mountGifPanel(
   );
   const compression = select(
     'File size',
+    'Best quality writes full frames; Balanced stores changed pixels. Smallest file reuses more pixels and can leave faint trails in fast motion',
     [
       { value: 'quality', label: 'Best quality' },
       { value: 'balanced', label: 'Balanced' },

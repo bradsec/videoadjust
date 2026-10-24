@@ -875,6 +875,13 @@ input[type='checkbox']:disabled {
   margin-left: auto;
   min-width: 120px;
 }
+/* Reset sits beside Done at the far end of the bar. */
+.editor-reset {
+  margin-left: auto;
+}
+.editor-reset + .editor-done {
+  margin-left: 0;
+}
 .crop-editor-bar .setting-label {
   min-width: 110px;
 }
@@ -936,6 +943,22 @@ input[type='checkbox']:disabled {
   gap: var(--s-3);
   padding-bottom: var(--s-4);
 }
+.overlay-group {
+  display: grid;
+  gap: var(--s-3);
+  min-width: 0;
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--raised);
+}
+.overlay-group-title {
+  font-size: var(--fs-12);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
 /* The Text overlay and Image overlay switches head their groups. */
 .overlay-setting > .switch-row {
   font-weight: 650;
@@ -947,18 +970,6 @@ input[type='checkbox']:disabled {
 }
 .overlay-fields .switch-row {
   color: var(--text-2);
-}
-.field-pair {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--s-3);
-  align-items: end;
-}
-.field-pair.wide-first {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-}
-.field-pair[hidden] {
-  display: none;
 }
 .overlay-setting .setting-label {
   display: grid;
@@ -977,10 +988,6 @@ input[type='checkbox']:disabled {
 .overlay-setting .overlay-percentage input[type='number'] {
   min-width: 0;
   padding-inline: var(--s-1);
-}
-/* The settings column is narrow at every width, so a paired slider's track gets too short to drag. */
-.field-pair:has(.overlay-percentage) {
-  grid-template-columns: minmax(0, 1fr);
 }
 .overlay-setting input[type='number'],
 .overlay-setting textarea {

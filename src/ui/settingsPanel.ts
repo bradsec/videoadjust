@@ -86,6 +86,8 @@ export function mountSettings(
     ),
   );
   const reencodeLabel = el('label', 'reencode-toggle');
+  reencodeLabel.title =
+    'Encode this already small video again to apply compression settings instead of making a trimmed copy';
   const reencode = el('input') as HTMLInputElement;
   reencode.type = 'checkbox';
   reencode.setAttribute('aria-label', 'Re-encode anyway');
@@ -168,8 +170,9 @@ export function mountSettings(
       video: { ...video, ...outputSize(source, transform.rotate, transform.crop, edge, rect) },
     });
   }
-  function group(name: string, automatic: string, reset: () => void): HTMLElement {
+  function group(name: string, tip: string, automatic: string, reset: () => void): HTMLElement {
     const section = el('div', 'setting');
+    section.title = tip;
     const head = el('div', 'setting-head');
     head.append(el('strong', undefined, name), el('span', 'setting-auto', `Auto: ${automatic}`));
     const button = el('button', 'setting-reset', 'Reset to auto');
@@ -222,8 +225,11 @@ export function mountSettings(
   let preferredEdge: number | null = null;
   function renderControls(): void {
     const groups: HTMLElement[] = [];
-    const format = group('Format', opts.auto.settings.container.toUpperCase(), () =>
-      change({ ...value, container: opts.auto.settings.container }),
+    const format = group(
+      'Format',
+      'Choose the output file container. MP4 with H.264 and AAC suits most players; WebM uses VP9 or AV1 with Opus audio',
+      opts.auto.settings.container.toUpperCase(),
+      () => change({ ...value, container: opts.auto.settings.container }),
     );
     select(
       format,
@@ -240,12 +246,17 @@ export function mountSettings(
     );
     groups.push(format);
 
-    const target = group('Target size', 'Off', () => {
-      customTarget = false;
-      customDraft = undefined;
-      invalidTarget = false;
-      change({ ...value, targetSizeMB: null });
-    });
+    const target = group(
+      'Target size',
+      'Aim the whole file at this size by choosing the encoding bitrate. Tight targets can also lower resolution and audio bitrate; the final size may vary',
+      'Off',
+      () => {
+        customTarget = false;
+        customDraft = undefined;
+        invalidTarget = false;
+        change({ ...value, targetSizeMB: null });
+      },
+    );
     target.classList.add('target-setting');
     select(
       target,
@@ -270,6 +281,8 @@ export function mountSettings(
     target.append(el('p', 'setting-help', 'Decimal MB: 1 MB = 1,000,000 bytes.'));
     if (customTarget) {
       const label = el('label', 'setting-label');
+      label.title =
+        'Set a whole-file target from 0.05 to 4096 decimal MB. One MB is 1,000,000 bytes';
       label.append(el('span', undefined, 'Custom target (MB)'));
       const input = el('input', 'setting-select') as HTMLInputElement;
       input.type = 'number';
@@ -313,8 +326,11 @@ export function mountSettings(
         Math.max(autoVideo.width, autoVideo.height),
         rect,
       );
-      const codec = group('Video codec', codecLabel(autoVideo.codec), () =>
-        change({ ...value, video: { ...value.video!, codec: autoVideo.codec } }),
+      const codec = group(
+        'Video codec',
+        'Choose how video is compressed. H.264 suits most players; other codecs can save space but need player support',
+        codecLabel(autoVideo.codec),
+        () => change({ ...value, video: { ...value.video!, codec: autoVideo.codec } }),
       );
       select(
         codec,
@@ -329,13 +345,18 @@ export function mountSettings(
       );
       groups.push(codec);
 
-      const size = group('Resolution', `${Math.min(autoSize.width, autoSize.height)}p`, () => {
-        preferredEdge = null;
-        change({
-          ...value,
-          video: { ...value.video!, ...autoSize },
-        });
-      });
+      const size = group(
+        'Resolution',
+        'Choose the output frame dimensions. Lower for fewer pixels and a smaller file; frames are never upscaled',
+        `${Math.min(autoSize.width, autoSize.height)}p`,
+        () => {
+          preferredEdge = null;
+          change({
+            ...value,
+            video: { ...value.video!, ...autoSize },
+          });
+        },
+      );
       const sourceEdge = Math.max(frameSize.width, frameSize.height);
       const edges = [...new Set([sourceEdge, ...opts.auto.sizeSteps])]
         .filter((edge) => edge <= sourceEdge)
@@ -364,8 +385,11 @@ export function mountSettings(
       );
       groups.push(size);
 
-      const frame = group('Frame rate', `${formatFps(autoVideo.fps)} fps`, () =>
-        change({ ...value, video: { ...value.video!, fps: autoVideo.fps } }),
+      const frame = group(
+        'Frame rate',
+        'Frames per second in the export. Lower for a smaller file and less smooth motion; frame rate is never raised above the source',
+        `${formatFps(autoVideo.fps)} fps`,
+        () => change({ ...value, video: { ...value.video!, fps: autoVideo.fps } }),
       );
       const rates = [...new Set([15, 24, 30, autoVideo.fps, opts.source.video.fps])]
         .filter((fps) => fps > 0 && fps <= opts.source.video!.fps)
@@ -379,8 +403,11 @@ export function mountSettings(
       );
       groups.push(frame);
 
-      const seekability = group('Seekability', 'Default', () =>
-        change({ ...value, keyFrameInterval: null }),
+      const seekability = group(
+        'Seekability',
+        'Set the time between keyframes. Shorter intervals improve seeking but can increase file size',
+        'Default',
+        () => change({ ...value, keyFrameInterval: null }),
       );
       seekability.classList.add('seek-setting');
       select(
@@ -408,22 +435,26 @@ export function mountSettings(
         targetVideoBitrate(video.codec, video.width, video.height, video.fps),
         opts.source.video.bitrate ?? Infinity,
       );
-      const quality = group('Quality', '100%', () =>
-        change({
-          ...value,
-          video: {
-            ...value.video!,
-            bitrate: Math.min(
-              targetVideoBitrate(
-                value.video!.codec,
-                value.video!.width,
-                value.video!.height,
-                value.video!.fps,
+      const quality = group(
+        'Quality',
+        'Video bitrate as a percentage of the automatic bitrate. Lower for a smaller file; raise for more detail, with Target size off',
+        '100%',
+        () =>
+          change({
+            ...value,
+            video: {
+              ...value.video!,
+              bitrate: Math.min(
+                targetVideoBitrate(
+                  value.video!.codec,
+                  value.video!.width,
+                  value.video!.height,
+                  value.video!.fps,
+                ),
+                opts.source.video!.bitrate ?? Infinity,
               ),
-              opts.source.video!.bitrate ?? Infinity,
-            ),
-          },
-        }),
+            },
+          }),
       );
       quality.classList.add('quality-setting');
       const maxPercent = Math.min(
@@ -471,11 +502,16 @@ export function mountSettings(
       groups.push(quality);
     }
 
-    const metadata = group('Metadata', 'Keep source tags', () =>
-      change({ ...value, metadata: { title: '', strip: false } }),
+    const metadata = group(
+      'Metadata',
+      'Keep source tags or replace the title. Strip source metadata to remove inherited tags',
+      'Keep source tags',
+      () => change({ ...value, metadata: { title: '', strip: false } }),
     );
     metadata.classList.add('metadata-setting');
     const titleLabel = el('label', 'setting-label');
+    titleLabel.title =
+      'Set the title stored inside the output file. Leave blank to keep the source title unless source metadata is stripped';
     titleLabel.append(el('span', undefined, 'Title'));
     const titleInput = el('input', 'setting-select') as HTMLInputElement;
     titleInput.type = 'text';
@@ -491,6 +527,8 @@ export function mountSettings(
     titleLabel.append(titleInput);
     metadata.append(titleLabel);
     const stripLabel = el('label', 'setting-label');
+    stripLabel.title =
+      'Remove source metadata tags from the export. A title you enter above is still included';
     const stripInput = el('input') as HTMLInputElement;
     stripInput.type = 'checkbox';
     stripInput.checked = value.metadata?.strip ?? false;
@@ -507,11 +545,15 @@ export function mountSettings(
 
     if (opts.source.audio && opts.auto.settings.audio) {
       const automatic = opts.auto.settings.audio;
-      const audio = group('Audio codec', audioLabels[automatic.codec], () =>
-        change({
-          ...value,
-          audio: { ...(value.audio ?? automatic), codec: automatic.codec, copy: automatic.copy },
-        }),
+      const audio = group(
+        'Audio codec',
+        'Choose how audio is compressed, or remove it. AAC suits most MP4 players; WebM requires Opus audio',
+        audioLabels[automatic.codec],
+        () =>
+          change({
+            ...value,
+            audio: { ...(value.audio ?? automatic), codec: automatic.codec, copy: automatic.copy },
+          }),
       );
       const audioOptions: { value: string; label: string; disabled: boolean }[] = audioCodecs.map(
         (id) => ({
@@ -532,11 +574,15 @@ export function mountSettings(
       );
       groups.push(audio);
       if (value.audio) {
-        const bitrate = group('Audio bitrate', formatBitrate(automatic.bitrate), () =>
-          change({
-            ...value,
-            audio: { ...value.audio!, bitrate: automatic.bitrate, copy: automatic.copy },
-          }),
+        const bitrate = group(
+          'Audio bitrate',
+          'Bits per second used for audio. Lower for a smaller file; raise to preserve more sound detail',
+          formatBitrate(automatic.bitrate),
+          () =>
+            change({
+              ...value,
+              audio: { ...value.audio!, bitrate: automatic.bitrate, copy: automatic.copy },
+            }),
         );
         const max = opts.source.audio.bitrate ?? Infinity;
         const rates = [

@@ -42,6 +42,15 @@ export function livePreviewGeometry(
   };
 }
 
+function looksDifferent(a: PreviewSettings, b: PreviewSettings): boolean {
+  return (
+    a.enabled !== b.enabled ||
+    a.assets?.image !== b.assets?.image ||
+    JSON.stringify([a.transform, a.overlays, a.output]) !==
+      JSON.stringify([b.transform, b.overlays, b.output])
+  );
+}
+
 interface PreviewSettings {
   transform: Settings['transform'];
   overlays: Settings['overlays'];
@@ -78,6 +87,8 @@ export function mountLivePreview(
   controls.hidden = true;
   const original = el('button', 'btn edit-tool', 'Show original');
   original.type = 'button';
+  original.title =
+    'Show the source without crop, rotation, mirroring or overlays. Changing any of these returns to the edited view';
   original.hidden = true;
   original.setAttribute('aria-pressed', 'false');
   const status = el('p', 'note');
@@ -170,8 +181,9 @@ export function mountLivePreview(
     active = edited && !showingOriginal;
     original.hidden = !edited;
     original.setAttribute('aria-pressed', String(showingOriginal));
-    controls.hidden = !active;
-    video.controls = !active;
+    // The same controls serve both views, so Show original never moves or swaps them.
+    controls.hidden = !edited;
+    video.controls = !edited;
     frame.classList.toggle('is-edited', active);
     if (active) {
       const rotated = rotatedSize(source.width, source.height, settings.transform?.rotate ?? 0);
@@ -207,6 +219,8 @@ export function mountLivePreview(
   syncPlayback();
   return {
     update(next) {
+      // A change to what the preview shows ends Show original, so the change is visible at once.
+      if (showingOriginal && settings && looksDifferent(settings, next)) showingOriginal = false;
       settings = next;
       refresh();
     },

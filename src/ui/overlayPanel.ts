@@ -27,28 +27,36 @@ export function mountOverlayPanel(
     onChange({ ...value, text: { ...value.text, ...patch } });
   const image = (patch: Partial<Overlays['image']>) =>
     onChange({ ...value, image: { ...value.image, ...patch } });
-  function field(parent: HTMLElement, name: string, input: HTMLElement): void {
+  function field(parent: HTMLElement, name: string, input: HTMLElement, tip?: string): void {
     const label = el('label', 'setting-label', name);
+    if (tip) label.title = tip;
     input.setAttribute('aria-label', name);
     label.append(input);
     parent.append(label);
   }
-  // Two short related fields share a row, so the panel reads as groups rather than one long list.
-  function pair(parent: HTMLElement, wideFirst = false): HTMLElement {
-    const row = el('div', wideFirst ? 'field-pair wide-first' : 'field-pair');
-    parent.append(row);
-    return row;
+  // Related fields share a titled card, so a long panel scans as a few sections.
+  function group(parent: HTMLElement, title: string, name: string): HTMLElement {
+    const box = el('div', 'overlay-group');
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', name);
+    const heading = el('p', 'overlay-group-title', title);
+    heading.setAttribute('aria-hidden', 'true');
+    box.append(heading);
+    parent.append(box);
+    return box;
   }
   function check(
     parent: HTMLElement,
     name: string,
     get: () => boolean,
     set: (v: boolean) => void,
+    tip?: string,
   ): void {
     const input = el('input');
     input.type = 'checkbox';
     input.addEventListener('change', () => set(input.checked));
     const label = el('label', 'switch-row', name);
+    if (tip) label.title = tip;
     input.setAttribute('aria-label', name);
     label.append(input);
     parent.append(label);
@@ -63,6 +71,7 @@ export function mountOverlayPanel(
     set: (v: number) => void,
     min = 0,
     max = 100,
+    tip?: string,
   ): void {
     // The slider gives quick live adjustment; the linked number field allows an exact value.
     const slider = el('input', 'setting-range');
@@ -93,6 +102,7 @@ export function mountOverlayPanel(
       set(percent / 100);
     });
     const label = el('label', 'setting-label', name);
+    if (tip) label.title = tip;
     const controls = el('span', 'overlay-percentage');
     const unit = el('span', undefined, '%');
     unit.setAttribute('aria-hidden', 'true');
@@ -113,6 +123,7 @@ export function mountOverlayPanel(
     get: () => T,
     set: (v: T) => void,
     labels: Partial<Record<T, string>> = {},
+    tip?: string,
   ): void {
     const input = el('select', 'setting-select');
     for (const choice of choices) {
@@ -125,7 +136,7 @@ export function mountOverlayPanel(
       input.append(option);
     }
     input.addEventListener('change', () => set(input.value as T));
-    field(parent, name, input);
+    field(parent, name, input, tip);
     patches.push(() => {
       input.value = get();
     });
@@ -135,18 +146,18 @@ export function mountOverlayPanel(
     name: string,
     get: () => string,
     set: (v: string) => void,
+    tip?: string,
   ): void {
     const input = el('input');
     input.type = 'color';
     input.addEventListener('input', () => set(input.value));
-    field(parent, name, input);
+    field(parent, name, input, tip);
     patches.push(() => {
       input.value = get();
     });
   }
   function position(parent: HTMLElement, kind: 'text' | 'image'): void {
     const name = kind === 'text' ? 'Text' : 'Image';
-    parent = pair(parent, true);
     select(
       parent,
       name + ' anchor',
@@ -157,6 +168,8 @@ export function mountOverlayPanel(
         if (kind === 'text') text(patch);
         else image(patch);
       },
+      {},
+      'Place the overlay at one of nine positions. Dragging in the Overlay editor overrides this until you pick a new anchor or use Reset positions',
     );
     number(
       parent,
@@ -168,6 +181,7 @@ export function mountOverlayPanel(
       },
       0,
       45,
+      'Inset from the edges as a percentage of the final rotated and cropped frame width and height. Raise to move anchored overlays farther inward',
     );
   }
   check(
@@ -175,13 +189,20 @@ export function mountOverlayPanel(
     'Text overlay',
     () => value.text.enabled,
     (enabled) => text({ enabled }),
+    'Burn text into the exported video or GIF',
   );
   const textFields = el('div', 'overlay-fields');
+  const textContent = group(textFields, 'Content', 'Text content');
   const content = el('textarea', 'setting-select');
   content.maxLength = 500;
   content.rows = 3;
   content.addEventListener('input', () => text({ content: content.value }));
-  field(textFields, 'Overlay text', content);
+  field(
+    textContent,
+    'Overlay text',
+    content,
+    'Text to place over the video. Use line breaks to split it into lines',
+  );
   patches.push(() => {
     textFields.hidden = !value.text.enabled;
     if (document.activeElement !== content) content.value = value.text.content;
@@ -198,16 +219,28 @@ export function mountOverlayPanel(
     const font = fontSelect.value as OverlayFont;
     text({ font, weight: font === 'Anton' ? 400 : value.text.weight });
   });
-  field(textFields, 'Text font', fontSelect);
+  field(
+    textContent,
+    'Text font',
+    fontSelect,
+    'Choose the overlay typeface. Anton has regular weight only, so Bold text is hidden for it',
+  );
   const fontFile = el('input');
   fontFile.type = 'file';
   fontFile.accept = '.ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2';
-  field(textFields, 'Add your font', fontFile);
+  field(
+    textContent,
+    'Add your font',
+    fontFile,
+    'Add a TTF, OTF, WOFF or WOFF2 font up to 10 MB. Custom fonts stay in this browser and are never uploaded',
+  );
   const removeFont = el('button', 'btn btn-text', 'Remove this font');
   removeFont.type = 'button';
+  removeFont.title =
+    'Delete the selected custom font from this browser and switch the text to Inter';
   const fontStatus = el('p', 'setting-reason');
   fontStatus.setAttribute('role', 'status');
-  textFields.append(
+  textContent.append(
     removeFont,
     fontStatus,
     el(
@@ -271,95 +304,111 @@ export function mountOverlayPanel(
     'Bold text',
     () => value.text.weight === 700,
     (enabled) => text({ weight: enabled ? 700 : 400 }),
+    'Use a heavier text weight to make the overlay stand out',
   );
-  textFields.append(bold);
+  textContent.append(bold);
   patches.push(() => {
     bold.hidden = value.text.font === 'Anton';
   });
-  const colourRow = pair(textFields);
+  const textStyle = group(textFields, 'Style', 'Text style');
   color(
-    colourRow,
+    textStyle,
     'Text colour',
     () => value.text.color,
     (color) => text({ color }),
+    'Choose the text colour. Use a colour that contrasts with the video',
   );
   number(
-    colourRow,
+    textStyle,
     'Text opacity (%)',
     () => value.text.opacity,
     (opacity) => text({ opacity }),
+    0,
+    100,
+    'How solid the text looks. Lower makes it more transparent; raise to make it stand out',
   );
-  const sizeRow = pair(textFields);
   number(
-    sizeRow,
+    textStyle,
     'Text size (% of height)',
     () => value.text.fontSize,
     (fontSize) => text({ fontSize }),
     1,
     50,
-  );
-  number(
-    sizeRow,
-    'Text box width (%)',
-    () => value.text.boxWidth,
-    (boxWidth) => text({ boxWidth }),
-    5,
-    100,
-  );
-  check(
-    textFields,
-    'Auto fit text',
-    () => value.text.autoFit,
-    (autoFit) => text({ autoFit }),
-  );
-  const fitRow = pair(textFields);
-  number(
-    fitRow,
-    'Text max height (%)',
-    () => value.text.maxHeight,
-    (maxHeight) => text({ maxHeight }),
-    5,
-    100,
+    'Text size as a percentage of the final rotated and cropped frame height. Raise for larger text',
   );
   select(
-    fitRow,
-    'Text alignment',
-    ['left', 'center', 'right'],
-    () => value.text.align,
-    (align) => text({ align }),
-  );
-  select(
-    textFields,
+    textStyle,
     'Text effect',
     ['none', 'outline', 'shadow', 'box'],
     () => value.text.legibility,
     (legibility) => text({ legibility }),
     { none: 'No effect', box: 'Box behind text' },
+    'Add an outline, shadow or box to help text stand out against the video',
   );
-  const legibility = el('div', 'field-pair');
+  const legibility = el('div', 'overlay-fields');
   color(
     legibility,
     'Effect colour',
     () => value.text.legibilityColor,
     (legibilityColor) => text({ legibilityColor }),
+    'Choose the outline, shadow or box colour. Use a colour that contrasts with the text',
   );
   number(
     legibility,
     'Effect opacity (%)',
     () => value.text.legibilityOpacity,
     (legibilityOpacity) => text({ legibilityOpacity }),
+    0,
+    100,
+    'How solid the outline, shadow or box looks. Lower softens the effect; raise for stronger contrast',
   );
   patches.push(() => {
     legibility.hidden = value.text.legibility === 'none';
   });
-  textFields.append(legibility);
-  position(textFields, 'text');
+  textStyle.append(legibility);
+  const textLayout = group(textFields, 'Layout', 'Text layout');
+  number(
+    textLayout,
+    'Text box width (%)',
+    () => value.text.boxWidth,
+    (boxWidth) => text({ boxWidth }),
+    5,
+    100,
+    'Text wrapping width as a percentage of the final rotated and cropped frame width, limited by the margins. Lower for shorter lines',
+  );
+  check(
+    textLayout,
+    'Auto fit text',
+    () => value.text.autoFit,
+    (autoFit) => text({ autoFit }),
+    'Shrink text when needed to fit the box width and maximum height',
+  );
+  number(
+    textLayout,
+    'Text max height (%)',
+    () => value.text.maxHeight,
+    (maxHeight) => text({ maxHeight }),
+    5,
+    100,
+    'Maximum text height for auto fit, as a percentage of the final rotated and cropped frame height, limited by the margins. Lower to shrink long text more',
+  );
+  select(
+    textLayout,
+    'Text alignment',
+    ['left', 'center', 'right'],
+    () => value.text.align,
+    (align) => text({ align }),
+    {},
+    'Align lines left, centre or right within the text box',
+  );
+  position(textLayout, 'text');
   section.append(textFields);
   check(
     section,
     'Image overlay',
     () => value.image.enabled,
     (enabled) => image({ enabled }),
+    'Burn an image or watermark into the exported video or GIF',
   );
   const imageFields = el('div', 'overlay-fields');
   const file = el('input');
@@ -369,26 +418,36 @@ export function mountOverlayPanel(
     const selected = file.files?.[0];
     if (selected) onImage(selected);
   });
-  field(imageFields, 'Overlay image', file);
-  imageFields.append(
+  const imageContent = group(imageFields, 'Image', 'Image file');
+  field(
+    imageContent,
+    'Overlay image',
+    file,
+    'Choose a PNG, JPEG, WebP or SVG overlay. The image stays in memory on this device and is never uploaded',
+  );
+  imageContent.append(
     el('p', 'setting-help', 'PNG, JPEG, WebP or SVG. Kept in memory on this device.'),
   );
-  const imageRow = pair(imageFields);
   number(
-    imageRow,
+    imageContent,
+    'Image opacity (%)',
+    () => value.image.opacity,
+    (opacity) => image({ opacity }),
+    0,
+    100,
+    'How solid the image looks. Lower for a subtle watermark; raise for a stronger image',
+  );
+  const imageLayout = group(imageFields, 'Layout', 'Image layout');
+  number(
+    imageLayout,
     'Image width (%)',
     () => value.image.scale,
     (scale) => image({ scale }),
     1,
     100,
+    'Image width as a percentage of the final rotated and cropped frame width, limited to fit the frame height. Raise for a larger image',
   );
-  number(
-    imageRow,
-    'Image opacity (%)',
-    () => value.image.opacity,
-    (opacity) => image({ opacity }),
-  );
-  position(imageFields, 'image');
+  position(imageLayout, 'image');
   section.append(imageFields);
   patches.push(() => {
     imageFields.hidden = !value.image.enabled;

@@ -43,6 +43,7 @@ export function mountCropEditor(
   const toggle = el('button', 'btn edit-tool crop-edit-toggle');
   toggle.append(icon('i-crop'), 'Crop and rotate');
   toggle.type = 'button';
+  toggle.title = 'Open the editor to crop, rotate or mirror the video before export';
   toggle.setAttribute('aria-pressed', 'false');
   const editor = el('section', 'crop-editor');
   editor.setAttribute('aria-label', 'Crop and rotate editor');
@@ -68,6 +69,8 @@ export function mountCropEditor(
   const bar = el('div', 'crop-editor-bar');
   const ratioLabel = el('label', 'setting-label', 'Aspect ratio');
   const ratioSelect = el('select', 'setting-select');
+  ratioLabel.title =
+    'Lock the crop to a shape, or choose Free to resize freely. Original uses the rotated frame ratio';
   ratioSelect.setAttribute('aria-label', 'Crop aspect ratio');
   for (const item of ratios) {
     const option = el('option', undefined, item.label);
@@ -77,6 +80,7 @@ export function mountCropEditor(
   ratioLabel.append(ratioSelect);
   const rotateLabel = el('label', 'setting-label', 'Rotate clockwise');
   const rotateSelect = el('select', 'setting-select');
+  rotateLabel.title = 'Rotate the frame clockwise before cropping and resizing';
   rotateSelect.setAttribute('aria-label', 'Editor rotation');
   for (const angle of [0, 90, 180, 270]) {
     const option = el('option', undefined, `${angle}°`);
@@ -86,12 +90,17 @@ export function mountCropEditor(
   rotateLabel.append(rotateSelect);
   const mirrorLabel = el('label', 'setting-label crop-editor-mirror');
   const mirrorInput = el('input') as HTMLInputElement;
+  mirrorLabel.title = 'Flip the rotated frame horizontally before cropping';
   mirrorInput.type = 'checkbox';
   mirrorInput.setAttribute('aria-label', 'Editor mirror');
   mirrorLabel.append(mirrorInput, document.createTextNode('Mirror'));
+  const reset = el('button', 'btn editor-reset', 'Reset');
+  reset.type = 'button';
+  reset.title = 'Remove the crop and restore the original rotation and mirroring';
+  reset.setAttribute('aria-label', 'Reset crop, rotation and mirror');
   const done = el('button', 'btn editor-done', 'Done');
   done.type = 'button';
-  bar.append(ratioLabel, rotateLabel, mirrorLabel, done);
+  bar.append(ratioLabel, rotateLabel, mirrorLabel, reset, done);
   const help = el(
     'p',
     'setting-help',
@@ -193,6 +202,9 @@ export function mountCropEditor(
   );
   rotateSelect.addEventListener('change', () =>
     onTransform({ ...transform, rotate: Number(rotateSelect.value) as Rotation }),
+  );
+  reset.addEventListener('click', () =>
+    onTransform({ rotate: 0, flip: false, crop: 'original', rect: null }),
   );
   mirrorInput.addEventListener('change', () =>
     onTransform({ ...transform, flip: mirrorInput.checked }),
