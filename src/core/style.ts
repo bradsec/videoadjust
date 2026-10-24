@@ -309,30 +309,47 @@ void main() {
     c = base + g * 0.22 * mix(0.3, 1.0, 4.0 * l * (1.0 - l));
   } else if (kind == 3) {
     float amt = intensity;
-    float row = floor(uv.y * 240.0);
     float tracking = 0.4 + detail * 1.6;
-    float wobble = sin(uv.y * 18.0 + mediaTime * 1.7) * 0.0012 + (hash(vec2(row, frame)) - 0.5) * 0.0012;
+    // Occasional small vertical hop, like the deck briefly losing sync.
+    vec2 q = vec2(uv.x, uv.y + step(0.97, hash(vec2(frame, 21.0))) * texel.y * 2.0 * scale * amt);
+    float row = floor(q.y * 240.0);
+    float wobble = sin(q.y * 18.0 + mediaTime * 1.7) * 0.0012 + (hash(vec2(row, frame)) - 0.5) * 0.0012;
     // A tracking band rolls up the frame and drags lines sideways; head-switching skew sits
     // on the bottom edge.
-    float band = 1.0 - smoothstep(0.0, 0.05, abs(uv.y - fract(-mediaTime * 0.07)));
+    float band = 1.0 - smoothstep(0.0, 0.05, abs(q.y - fract(-mediaTime * 0.07)));
     float tear = band * (hash(vec2(row, frame + 3.0)) - 0.3) * 0.02;
-    float head = 1.0 - smoothstep(0.0, 0.03, uv.y);
+    float head = 1.0 - smoothstep(0.0, 0.03, q.y);
     float headShift = head * (0.01 + hash(vec2(row, frame + 9.0)) * 0.02);
-    vec2 p = uv + vec2((wobble + tear) * tracking + headShift, 0.0) * amt;
-    // Composite video: slightly soft luma, chroma smeared wide and lagging to the right.
-    vec2 dx = vec2(texel.x * scale, 0.0);
-    float y = toYiq(readAt(p - dx)).x * 0.25 + toYiq(readAt(p)).x * 0.5 + toYiq(readAt(p + dx)).x * 0.25;
+    // Tape crease: now and then a thin band of noise drifts down the frame.
+    float creaseTick = floor(mediaTime * 0.5);
+    float creaseY = fract(hash(vec2(creaseTick, 8.3)) - mediaTime * 0.15);
+    float crease = step(1.0 - 0.25 * detail, hash(vec2(creaseTick, 4.1)))
+      * (1.0 - smoothstep(0.0, 0.012, abs(q.y - creaseY)));
+    float creaseShift = crease * (hash(vec2(row, frame + 11.0)) - 0.5) * 0.02;
+    vec2 p = q + vec2((wobble + tear) * tracking + headShift + creaseShift, 0.0) * amt;
+    // Composite video: soft luma with the overshoot halo of a deck's sharpening circuit,
+    // chroma smeared wide and lagging to the right.
+    vec2 dx = vec2(texel.x * 1.5 * scale, 0.0);
+    float yNear = (toYiq(readAt(p - dx)).x + toYiq(readAt(p + dx)).x) * 0.5;
+    float yFar = (toYiq(readAt(p - dx * 3.0)).x + toYiq(readAt(p + dx * 3.0)).x) * 0.5;
+    float y = mix(toYiq(readAt(p)).x, yNear, 0.5 * amt);
+    y += (y - yFar) * 0.6 * amt;
     float bleed = 0.003 + 0.004 * amt;
     vec2 iq = vec2(0.0);
     for (int i = 0; i < 6; i++) iq += toYiq(readAt(p - vec2((float(i) - 1.5) * bleed, 0.0))).yz;
     iq = mix(toYiq(readAt(p)).yz, iq / 6.0, amt) * mix(1.0, 0.82, amt);
+    // Chroma noise: blotchy colour streaks stretched along each line.
+    vec2 streak = vec2(px.x / (40.0 * scale), row);
+    iq += (vec2(valueNoise(streak, frame), valueNoise(streak + 17.0, frame)) - 0.5) * 0.04 * amt;
     c = fromYiq(vec3(y, iq));
-    // Tape contrast with lifted blacks, scanlines, and fine noise that varies per line.
+    // Tape contrast with lifted blacks, a faint rolling hum bar and frame flicker.
     c = mix(c, (c - 0.5) * 1.06 + 0.53, amt);
+    float hum = sin((q.y + mediaTime * 0.12) * 6.2831853);
+    c *= 1.0 + (hum * 0.02 + (hash(vec2(frame, 2.0)) - 0.5) * 0.02) * amt;
     float lines = 0.5 + 0.5 * cos(px.y * 6.2831853 / max(4.0 * scale, 2.0));
     c *= 1.0 - 0.12 * amt * lines;
     float noise = (hash(px + frame * 13.0) - 0.5) * 0.05 + (hash(vec2(row, frame + 5.0)) - 0.5) * 0.015;
-    c += noise * (1.0 + head) * amt;
+    c += (noise * (1.0 + head) + crease * (hash(px + frame) - 0.5) * 0.25) * amt;
   } else if (kind == 4) {
     c = 1.0 - (1.0 - base) * (1.0 - clamp(texture(glowTex, uv).rgb * 2.2, 0.0, 1.0));
   } else if (kind == 5) {
