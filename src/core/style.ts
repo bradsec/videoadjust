@@ -166,8 +166,7 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
-// First step of the glow pyramid. Four bilinear taps cover a 4x4 block so the half-size
-// copy does not shimmer; bloom keeps only the brights through a soft-knee threshold.
+// Threshold each bilinear tap before averaging so small highlights survive the half-size copy.
 const PREFILTER = `#version 300 es
 precision highp float;
 in vec2 uv;
@@ -175,21 +174,20 @@ uniform sampler2D sourceTex;
 uniform vec2 srcTexel;
 uniform int kind;
 out vec4 outColor;
+vec3 bright(vec3 c) {
+  float peak = max(c.r, max(c.g, c.b));
+  float threshold = kind == 4 ? 0.5 : 0.48;
+  float knee = 0.2;
+  float soft = clamp(peak - threshold + knee, 0.0, 2.0 * knee);
+  soft = soft * soft / (4.0 * knee);
+  return c * max(soft, peak - threshold) / max(peak, 0.0001);
+}
 void main() {
-  vec3 c = texture(sourceTex, uv + srcTexel * vec2(-1.0, -1.0)).rgb;
-  c += texture(sourceTex, uv + srcTexel * vec2(1.0, -1.0)).rgb;
-  c += texture(sourceTex, uv + srcTexel * vec2(-1.0, 1.0)).rgb;
-  c += texture(sourceTex, uv + srcTexel * vec2(1.0, 1.0)).rgb;
-  c *= 0.25;
-  if (kind == 4) {
-    float peak = max(c.r, max(c.g, c.b));
-    float threshold = 0.5;
-    float knee = 0.25;
-    float soft = clamp(peak - threshold + knee, 0.0, 2.0 * knee);
-    soft = soft * soft / (4.0 * knee);
-    c *= max(soft, peak - threshold) / max(peak, 0.0001);
-  }
-  outColor = vec4(c, 1.0);
+  vec3 c = bright(texture(sourceTex, uv + srcTexel * vec2(-1.0, -1.0)).rgb);
+  c += bright(texture(sourceTex, uv + srcTexel * vec2(1.0, -1.0)).rgb);
+  c += bright(texture(sourceTex, uv + srcTexel * vec2(-1.0, 1.0)).rgb);
+  c += bright(texture(sourceTex, uv + srcTexel * vec2(1.0, 1.0)).rgb);
+  outColor = vec4(c * 0.25, 1.0);
 }`;
 
 // Dual Kawase downsample.
@@ -257,7 +255,6 @@ float sCurve(float x, float k) {
   x = clamp(x, 0.0, 1.0);
   return x < 0.5 ? 0.5 * pow(2.0 * x, k) : 1.0 - 0.5 * pow(2.0 - 2.0 * x, k);
 }
-vec3 sCurve(vec3 c, float k) { return vec3(sCurve(c.r, k), sCurve(c.g, k), sCurve(c.b, k)); }
 float valueNoise(vec2 p, float seed) {
   vec2 i = floor(p) + vec2(seed * 37.0, seed * 17.0);
   vec2 f = fract(p);
@@ -286,18 +283,18 @@ void main() {
   // the original would only produce a ghost.
   bool geometric = kind == 3 || kind == 5 || kind == 9;
   if (kind == 1) {
-    float warm = mix(0.5, 1.5, detail);
-    float cool = mix(1.5, 0.5, detail);
-    c = mix(base, sCurve(base, 1.35), 0.8);
-    float cl = luma(c);
-    c += vec3(-0.07, 0.015, 0.06) * (1.0 - smoothstep(0.05, 0.55, cl)) * cool;
-    c += vec3(0.08, 0.02, -0.07) * smoothstep(0.35, 0.95, cl) * warm;
+    // Grade luminance first to keep saturated colours from clipping channel by channel.
+    c = base * (sCurve(l, 1.3) / max(l, 0.0001));
+    float warm = mix(0.6, 1.4, detail);
+    float cool = mix(1.4, 0.6, detail);
+    c += vec3(-0.07, 0.015, 0.06) * (1.0 - smoothstep(0.05, 0.55, l)) * cool;
+    c += vec3(0.08, 0.02, -0.07) * smoothstep(0.35, 0.95, l) * warm;
     // Richer warm hues (skin), cool hues pulled toward teal.
     float hue = clamp((c.r - c.b) * 3.0, -1.0, 1.0);
-    cl = luma(c);
+    float cl = luma(c);
     c = cl + (c - cl) * (1.0 + 0.3 * max(hue, 0.0) * warm);
     c += vec3(-0.06, 0.02, 0.0) * max(-hue, 0.0) * cool;
-    c = c * 0.94 + vec3(0.02, 0.04, 0.05);
+    c = c * 0.95 + vec3(0.015, 0.03, 0.04);
   } else if (kind == 2) {
     // Soft clumps from two octaves of value noise plus fine per-pixel noise, mostly mono
     // with a little colour, strongest in the midtones like real emulsion.
@@ -351,7 +348,8 @@ void main() {
     float noise = (hash(px + frame * 13.0) - 0.5) * 0.05 + (hash(vec2(row, frame + 5.0)) - 0.5) * 0.015;
     c += (noise * (1.0 + head) + crease * (hash(px + frame) - 0.5) * 0.25) * amt;
   } else if (kind == 4) {
-    c = 1.0 - (1.0 - base) * (1.0 - clamp(texture(glowTex, uv).rgb * 2.2, 0.0, 1.0));
+    vec3 glow = texture(glowTex, uv).rgb;
+    c = 1.0 - (1.0 - base) * (1.0 - clamp(glow * (1.7 + detail), 0.0, 1.0));
   } else if (kind == 5) {
     // Radial fringing, strongest at the corners. Three taps per fringe smear it like a lens
     // instead of leaving a hard ghost.
@@ -371,33 +369,42 @@ void main() {
     c *= 1.0 - 0.95 * pow(v, 1.5);
   } else if (kind == 7) {
     // Red-leaning mix, like panchromatic film behind a light yellow filter.
-    c = vec3(sCurve(dot(base, vec3(0.35, 0.55, 0.1)), 1.2 + detail * 1.4));
+    float gray = dot(base, vec3(0.34, 0.56, 0.10));
+    c = vec3(sCurve(gray, 1.0 + detail * 0.9));
   } else if (kind == 8) {
-    c = mix(colorA, colorB, sCurve(l, 1.0 + detail * 1.2));
+    float tone = sCurve(l, 1.0 + detail * 1.4);
+    tone = clamp(tone + (hash(floor(px) + frame * 7.0) - 0.5) / 255.0, 0.0, 1.0);
+    c = mix(colorA, colorB, tone);
   } else if (kind == 9) {
     float amt = intensity;
     float tick = mod(floor(mediaTime * 12.0), 997.0);
     // Glitches come in short bursts; intensity and detail both set how often, so low
     // intensity means rare, small glitches rather than frequent faint ones.
     float burst = step(1.0 - (0.06 + 0.3 * detail) * amt, hash(vec2(tick, 3.7)));
-    float rows = floor(mix(6.0, 24.0, hash(vec2(tick, 1.3))));
+    float rows = floor(mix(12.0, 28.0, hash(vec2(tick, 1.3))));
     float band = floor(uv.y * rows);
-    float shift = (hash(vec2(band, tick + 7.0)) - 0.5) * 0.06 * burst * step(0.7, hash(vec2(band, tick)));
-    vec2 cell = floor(uv * vec2(12.0, rows));
+    float shift = (hash(vec2(band, tick + 7.0)) - 0.5) * 0.045 * burst
+      * step(0.78, hash(vec2(band, tick))) * detail;
+    vec2 grid = vec2(28.0, rows * 1.5);
+    vec2 cell = floor(uv * grid);
     float cellHash = hash(cell + tick * 13.0);
     vec2 p = uv + vec2(shift * amt, 0.0);
-    if (burst > 0.0 && cellHash > 0.96) p += (vec2(hash(cell + 1.7), hash(cell + 2.9)) - 0.5) * 0.05 * amt;
-    float split = (0.0015 + burst * 0.008 * hash(vec2(tick, 9.1))) * amt;
+    if (burst > 0.0 && cellHash > 1.0 - 0.025 * detail * amt)
+      p.x -= (1.0 + floor(hash(cell + 1.7) * 2.0)) / grid.x * amt;
+    float split = (0.0006 + burst * 0.005 * detail * hash(vec2(tick, 9.1))) * amt;
     c = vec3(readAt(p + vec2(split, 0.0)).r, readAt(p).g, readAt(p - vec2(split, split * 0.3)).b);
-    if (burst > 0.0 && cellHash > 0.985) c = mix(c, floor(c.brg * 4.0) / 4.0, amt);
+    if (burst > 0.0 && cellHash > 1.0 - 0.012 * detail * amt)
+      c = mix(c, floor(c * 12.0) / 12.0, 0.6 * amt);
   } else if (kind == 10) {
     // Black Pro-Mist: highlights bloom into soft halos and light areas lose micro-contrast,
     // while the blacks stay deep.
     vec3 soft = texture(glowTex, uv).rgb;
-    vec3 halo = soft * smoothstep(0.3, 0.85, luma(soft)) * (0.7 + 0.8 * detail);
-    c = 1.0 - (1.0 - base) * (1.0 - clamp(halo, 0.0, 1.0));
-    c = mix(c, max(c, soft), (0.3 + 0.35 * detail) * smoothstep(0.15, 0.75, l));
-    c = mix(c, c * 0.95 + 0.03, smoothstep(0.0, 0.4, l));
+    vec3 halo = soft * (1.8 + 1.2 * detail);
+    vec2 radius = texel * scale * 1.5;
+    vec3 near = readAt(uv + vec2(radius.x, 0.0)) + readAt(uv - vec2(radius.x, 0.0));
+    near += readAt(uv + vec2(0.0, radius.y)) + readAt(uv - vec2(0.0, radius.y));
+    c = mix(base, near * 0.25, 0.2 * detail * smoothstep(0.35, 0.85, l));
+    c = 1.0 - (1.0 - c) * (1.0 - clamp(halo, 0.0, 1.0));
   }
   c = clamp(c, 0.0, 1.0);
   outColor = vec4(geometric ? c : mix(base, c, intensity), 1.0);
