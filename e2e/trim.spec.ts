@@ -29,6 +29,7 @@ test.describe('with a video loaded', () => {
   });
 
   test('keyboard changes trim and estimate', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'land-1080p30-aac.mp4' })).toBeFocused();
     const start = page.getByRole('slider', { name: 'Start' });
     const initialEstimate = await page.locator('.export-estimate-big').textContent();
     await start.focus();

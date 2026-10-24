@@ -186,10 +186,9 @@ function renderPrepare(
   const onExport = () => dispatch({ type: 'export' });
   const head = el('div', 'file-line');
   const fileText = el('div', 'file-text');
-  fileText.append(
-    el('h1', 'file-name', state.file.name),
-    el('p', 'file-summary num', summarySource(state.source)),
-  );
+  const title = screenHeading('file-name');
+  title.textContent = state.file.name;
+  fileText.append(title, el('p', 'file-summary num', summarySource(state.source)));
   head.append(fileText);
   const stage = el('div', 'prepare-regions work');
   stage.dataset.region = 'prepare';
@@ -405,6 +404,7 @@ function renderPrepare(
   canvas.append(noticeSlot, trimHost);
   stage.append(canvas, settingsHost);
   container.replaceChildren(stage);
+  title.focus();
   function update(value: AppState): void {
     if (value.kind !== 'prepare') return;
     trim.update(value.settings.trim);
