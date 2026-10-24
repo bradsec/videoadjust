@@ -156,7 +156,7 @@ footer {
 .foot-in {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: var(--s-2) var(--s-5);
   padding-block: var(--s-5);
@@ -185,21 +185,23 @@ footer a {
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
-/* A compact .btn; the ::before keeps a 44px hit area around the 36px pill. */
-footer .about-link {
+/* An icon-only .btn; the ::before keeps a 44px hit area around the 36px circle. */
+.top .about-link {
+  flex: none;
+  width: 36px;
   min-height: 36px;
-  padding: 0 var(--s-4) 0 var(--s-3);
+  padding: 0;
+  justify-content: center;
   border-radius: 999px;
-  font-size: var(--fs-14);
 }
-footer .about-link::before {
+.top .about-link::before {
   content: '';
   position: absolute;
-  inset: -4px 0;
+  inset: -4px;
 }
-footer .about-link svg.i {
-  width: 16px;
-  height: 16px;
+.top .about-link svg.i {
+  width: 18px;
+  height: 18px;
   color: var(--accent-text);
 }
 .about-dialog {
@@ -640,6 +642,11 @@ input[type='checkbox']:disabled {
 .dropzone .formats {
   font-size: var(--fs-14);
   color: var(--text-2);
+}
+/* Desktop-only decoration; narrower screens keep the compact picker. */
+.tool-tags,
+.drop-art {
+  display: none;
 }
 
 /* Workspace */
@@ -2272,14 +2279,83 @@ table.stats {
   .deliver .btn-primary {
     min-height: 48px;
   }
+  /* Drop screen: one centred column, headline above a large drop target. */
+  .drop-grid {
+    grid-template-columns: minmax(0, 860px);
+    justify-content: center;
+    row-gap: var(--s-7);
+    padding-block: var(--s-7);
+  }
   .hero {
-    grid-column: 1 / span 6;
+    text-align: center;
+  }
+  .hero h1 {
+    max-width: 20ch;
+    margin-inline: auto;
+    font-size: var(--fs-60);
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  .hero p {
+    max-width: 54ch;
+    margin-inline: auto;
+    margin-top: var(--s-5);
+    font-size: var(--fs-18);
+    text-wrap: pretty;
+  }
+  .tool-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-2);
+    margin: var(--s-5) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tool-tags li {
+    padding: 6px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: var(--fs-14);
   }
   .dropzone {
-    grid-column: 7 / span 6;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'art' 'pick' 'hint' 'formats';
+    justify-items: center;
+    align-content: center;
+    row-gap: var(--s-3);
+    min-height: 300px;
+    padding: var(--s-7);
+    text-align: center;
+    border: 2px dashed var(--ctl);
+    background:
+      radial-gradient(ellipse 60% 70% at 50% 0%, var(--accent-soft), transparent), var(--surface);
   }
-  .drop-grid {
-    padding-block: var(--s-8);
+  .drop-art {
+    grid-area: art;
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    margin-bottom: var(--s-2);
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+  .drop-art svg.i {
+    width: 32px;
+    height: 32px;
+  }
+  .dropzone .btn-primary {
+    min-height: 52px;
+    padding-inline: var(--s-7);
+    font-size: var(--fs-18);
+  }
+  .dropzone .hint {
+    font-size: var(--fs-18);
   }
   .compare-stage {
     max-height: 70vh;

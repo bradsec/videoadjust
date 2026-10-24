@@ -106,7 +106,9 @@ test('a file at exactly 2 GB is read without a warning', async ({ page }) => {
   await expect(page.getByRole('alert').filter({ hasText: 'GB' })).toHaveCount(0);
 });
 
-test('footer links to the GitHub repo and opens About with the version', async ({ page }) => {
+test('footer links to the GitHub repo and the header opens About with the version', async ({
+  page,
+}) => {
   const { version } = JSON.parse(
     readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   ) as { version: string };
@@ -117,7 +119,7 @@ test('footer links to the GitHub repo and opens About with the version', async (
   await expect(page.locator('footer')).not.toContainText('Licences');
   await expect(page.locator('footer .footer-links')).toContainText(`v${version}`);
 
-  await page.getByRole('button', { name: 'About', exact: true }).click();
+  await page.locator('header').getByRole('button', { name: 'About', exact: true }).click();
   const about = page.getByRole('dialog', { name: 'About videoadjust' });
   await expect(about).toBeVisible();
   await expect(about).toContainText(`Version ${version}`);

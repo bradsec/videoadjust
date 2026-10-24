@@ -17,14 +17,19 @@ export function mountDropZone(
     <div class="hero">
       <h1>Video tools that <span class="hl">stay on your device</span>.</h1>
       <p>Shrink, trim, crop and convert videos, add text or a watermark, or turn them into GIFs. Everything runs in this browser and nothing is uploaded.</p>
+      <ul class="tool-tags" aria-label="Tools">
+        <li>Shrink</li><li>Trim</li><li>Crop</li><li>Convert</li><li>Text and watermark</li><li>GIF</li><li>Extract audio</li>
+      </ul>
     </div>
     <div class="dropzone">
+      <span class="drop-art" aria-hidden="true"></span>
       <button class="btn btn-primary" type="button"></button>
       <p class="hint">or drop a video file here</p>
       <p class="formats">MP4, MOV, WebM, MKV. Works best up to 2&nbsp;GB.</p>
     </div>`;
   const zone = grid.querySelector<HTMLElement>('.dropzone')!;
   zone.querySelector('button')!.append(icon('i-film'), 'Choose video');
+  zone.querySelector('.drop-art')!.append(icon('i-film'));
 
   const input = document.createElement('input');
   input.type = 'file';
