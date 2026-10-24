@@ -104,11 +104,36 @@ export function mountCropEditor(
   const help = el(
     'p',
     'setting-help',
-    'Drag the crop or its handles. Arrow keys move; Shift moves farther; Alt and arrows resize.',
+    'Drag the crop or its handles, use the buttons, or use arrow keys. Shift moves farther; Alt and arrows resize.',
   );
+  const clickControls = el('div', 'crop-click-controls');
+  clickControls.setAttribute('role', 'group');
+  clickControls.setAttribute('aria-label', 'Adjust crop without dragging');
+  for (const [label, dx, dy, resize] of [
+    ['Move left', -20, 0, false],
+    ['Move right', 20, 0, false],
+    ['Move up', 0, -20, false],
+    ['Move down', 0, 20, false],
+    ['Narrower', -20, 0, true],
+    ['Wider', 20, 0, true],
+    ['Shorter', 0, -20, true],
+    ['Taller', 0, 20, true],
+  ] as const) {
+    const button = el('button', 'btn', label);
+    button.type = 'button';
+    button.addEventListener('click', () => {
+      const { width, height } = frame();
+      const current = rect();
+      const next = resize
+        ? resizeCrop(current, dx ? 'e' : 's', dx, dy, width, height, transform.crop)
+        : moveCrop(current, dx, dy, width, height);
+      onTransform({ ...transform, rect: next });
+    });
+    clickControls.append(button);
+  }
   const status = el('p', 'sr');
   status.setAttribute('aria-live', 'polite');
-  editor.append(stage, bar, help, status);
+  editor.append(stage, bar, help, clickControls, status);
   toolbar.append(toggle);
   host.append(editor);
 
@@ -189,7 +214,7 @@ export function mountCropEditor(
       layout();
       // The toggle sits below the editor, so on a phone the editor can open above the screen.
       editor.scrollIntoView({ block: 'nearest' });
-      ratioSelect.focus({ preventScroll: true });
+      guide.focus({ preventScroll: true });
     } else if (next) toggle.focus();
   }
   toggle.addEventListener('click', () => setEditing(!editing));

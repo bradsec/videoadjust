@@ -101,6 +101,12 @@ test('crop editor moves and resizes the square guide', { tag: '@mobile' }, async
   const moved = await guide.getAttribute('aria-label');
   await page.keyboard.press('Alt+ArrowLeft');
   await expect(guide).not.toHaveAttribute('aria-label', moved!);
+  const beforeClick = await guide.getAttribute('aria-label');
+  await page.getByRole('button', { name: 'Move right' }).click();
+  await expect(guide).not.toHaveAttribute('aria-label', beforeClick!);
+  const beforeResize = await guide.getAttribute('aria-label');
+  await page.getByRole('button', { name: 'Narrower' }).click();
+  await expect(guide).not.toHaveAttribute('aria-label', beforeResize!);
   await expect(
     card.getByLabel('Resolution', { exact: true }).locator('option:checked'),
   ).not.toContainText('1080x1080');
