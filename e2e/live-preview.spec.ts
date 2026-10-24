@@ -83,6 +83,15 @@ for (const tool of ['Shrink', 'GIF']) {
       await expect
         .poll(() => video.evaluate((node: HTMLVideoElement) => node.currentTime))
         .toBeCloseTo(1);
+      // currentTime changes as soon as it is set; WebKit can stall a play() sent mid-seek.
+      await expect
+        .poll(() =>
+          video.evaluate(
+            (node: HTMLVideoElement) =>
+              !node.seeking && node.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA,
+          ),
+        )
+        .toBe(true);
       await page.getByRole('button', { name: 'Play', exact: true }).click();
       await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Pause', exact: true }).click();
