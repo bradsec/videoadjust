@@ -9,7 +9,7 @@ export function mountStylePanel(
   let value = normalizeStyle(initial);
   const heading = el('summary');
   const state = el('span', 'adjust-state');
-  heading.append('Video Style Effects', state, icon('i-chev'));
+  heading.append('Style Filter', state, icon('i-chev'));
   const controls = el('div', 'settings-controls style-controls');
   const unavailableNote = el('p', 'setting-reason');
   unavailableNote.setAttribute('role', 'status');
