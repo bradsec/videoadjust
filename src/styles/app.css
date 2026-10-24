@@ -262,6 +262,13 @@ footer a:hover {
 .repo-link svg {
   flex: none;
 }
+footer .repo-link {
+  color: var(--text-3);
+  text-decoration: none;
+}
+footer .repo-link:hover {
+  color: var(--text);
+}
 
 /* Buttons: one system of three tiers. Secondary is the base .btn. */
 /* Checkboxes draw as sliding switches; they stay checkboxes for keyboards and screen readers. */

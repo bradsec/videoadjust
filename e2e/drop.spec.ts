@@ -111,7 +111,7 @@ test('footer links to the GitHub repo and opens About with the version', async (
     readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
   ) as { version: string };
   await page.goto('/');
-  const repo = page.getByRole('link', { name: 'github.com/bradsec/videoadjust' });
+  const repo = page.getByRole('link', { name: `VideoAdjust v${version} on GitHub` });
   await expect(repo).toHaveAttribute('href', 'https://github.com/bradsec/videoadjust');
   await expect(repo).toHaveAttribute('rel', 'noopener noreferrer');
   await expect(page.locator('footer')).not.toContainText('Licences');
