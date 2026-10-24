@@ -312,11 +312,12 @@ void main() {
     float row = floor(uv.y * 240.0);
     float tracking = 0.4 + detail * 1.6;
     float wobble = sin(uv.y * 18.0 + mediaTime * 1.7) * 0.0012 + (hash(vec2(row, frame)) - 0.5) * 0.0012;
-    // A tracking band rolls up the frame; head-switching noise sits on the bottom edge.
+    // A tracking band rolls up the frame and drags lines sideways; head-switching skew sits
+    // on the bottom edge.
     float band = 1.0 - smoothstep(0.0, 0.05, abs(uv.y - fract(-mediaTime * 0.07)));
-    float tear = band * (hash(vec2(row, frame + 3.0)) - 0.3) * 0.03;
-    float head = 1.0 - smoothstep(0.0, 0.035, uv.y);
-    float headShift = head * (0.02 + hash(vec2(row, frame + 9.0)) * 0.03);
+    float tear = band * (hash(vec2(row, frame + 3.0)) - 0.3) * 0.02;
+    float head = 1.0 - smoothstep(0.0, 0.03, uv.y);
+    float headShift = head * (0.01 + hash(vec2(row, frame + 9.0)) * 0.02);
     vec2 p = uv + vec2((wobble + tear) * tracking + headShift, 0.0) * amt;
     // Composite video: slightly soft luma, chroma smeared wide and lagging to the right.
     vec2 dx = vec2(texel.x * scale, 0.0);
@@ -324,14 +325,14 @@ void main() {
     float bleed = 0.003 + 0.004 * amt;
     vec2 iq = vec2(0.0);
     for (int i = 0; i < 6; i++) iq += toYiq(readAt(p - vec2((float(i) - 1.5) * bleed, 0.0))).yz;
-    iq = mix(toYiq(readAt(p)).yz, iq / 6.0, amt) * mix(1.0, 0.8, amt);
+    iq = mix(toYiq(readAt(p)).yz, iq / 6.0, amt) * mix(1.0, 0.82, amt);
     c = fromYiq(vec3(y, iq));
-    c = mix(c, c * 0.9 + 0.05, amt);
+    // Tape contrast with lifted blacks, scanlines, and fine noise that varies per line.
+    c = mix(c, (c - 0.5) * 1.06 + 0.53, amt);
     float lines = 0.5 + 0.5 * cos(px.y * 6.2831853 / max(4.0 * scale, 2.0));
-    c *= 1.0 - 0.18 * amt * lines;
-    float snow = (hash(px + frame * 13.0) - 0.5) * 0.08;
-    float streak = step(0.997, hash(vec2(row, frame + 5.0))) * step(hash(vec2(floor(uv.x * 8.0), row + frame)), 0.5);
-    c += (snow + streak * 0.5 + band * 0.08 + head * (hash(px + frame) - 0.5) * 0.3) * amt;
+    c *= 1.0 - 0.12 * amt * lines;
+    float noise = (hash(px + frame * 13.0) - 0.5) * 0.05 + (hash(vec2(row, frame + 5.0)) - 0.5) * 0.015;
+    c += noise * (1.0 + head) * amt;
   } else if (kind == 4) {
     c = 1.0 - (1.0 - base) * (1.0 - clamp(texture(glowTex, uv).rgb * 2.2, 0.0, 1.0));
   } else if (kind == 5) {
@@ -359,26 +360,27 @@ void main() {
   } else if (kind == 9) {
     float amt = intensity;
     float tick = mod(floor(mediaTime * 12.0), 997.0);
-    // Glitches come in bursts; detail sets how often.
-    float burst = step(0.75 - detail * 0.45, hash(vec2(tick, 3.7)));
-    float rows = floor(mix(6.0, 28.0, hash(vec2(tick, 1.3))));
+    // Glitches come in short bursts; intensity and detail both set how often, so low
+    // intensity means rare, small glitches rather than frequent faint ones.
+    float burst = step(1.0 - (0.06 + 0.3 * detail) * amt, hash(vec2(tick, 3.7)));
+    float rows = floor(mix(6.0, 24.0, hash(vec2(tick, 1.3))));
     float band = floor(uv.y * rows);
-    float shift = (hash(vec2(band, tick + 7.0)) - 0.5) * 0.15 * burst * step(0.55, hash(vec2(band, tick)));
+    float shift = (hash(vec2(band, tick + 7.0)) - 0.5) * 0.06 * burst * step(0.7, hash(vec2(band, tick)));
     vec2 cell = floor(uv * vec2(12.0, rows));
     float cellHash = hash(cell + tick * 13.0);
     vec2 p = uv + vec2(shift * amt, 0.0);
-    if (burst > 0.0 && cellHash > 0.92) p += (vec2(hash(cell + 1.7), hash(cell + 2.9)) - 0.5) * 0.1 * amt;
-    float split = (0.002 + burst * 0.014 * hash(vec2(tick, 9.1))) * amt;
+    if (burst > 0.0 && cellHash > 0.96) p += (vec2(hash(cell + 1.7), hash(cell + 2.9)) - 0.5) * 0.05 * amt;
+    float split = (0.0015 + burst * 0.008 * hash(vec2(tick, 9.1))) * amt;
     c = vec3(readAt(p + vec2(split, 0.0)).r, readAt(p).g, readAt(p - vec2(split, split * 0.3)).b);
-    if (burst > 0.0 && cellHash > 0.97) c = mix(c, floor(c.brg * 4.0) / 4.0, amt);
-    float scan = burst * step(0.985, hash(vec2(floor(px.y / (2.0 * scale)), tick)));
-    c = mix(c, vec3(luma(c) * 1.4), scan * amt);
+    if (burst > 0.0 && cellHash > 0.985) c = mix(c, floor(c.brg * 4.0) / 4.0, amt);
   } else if (kind == 10) {
-    // Halation: bright areas scatter light into darker neighbours, then highlights soften.
-    // Blacks stay put, as with a Black Pro-Mist filter.
+    // Black Pro-Mist: highlights bloom into soft halos and light areas lose micro-contrast,
+    // while the blacks stay deep.
     vec3 soft = texture(glowTex, uv).rgb;
-    c = base + max(soft - base, 0.0) * smoothstep(0.35, 0.9, luma(soft)) * (1.2 + 1.5 * detail);
-    c = mix(c, soft, (0.15 + detail * 0.25) * smoothstep(0.2, 0.8, l));
+    vec3 halo = soft * smoothstep(0.3, 0.85, luma(soft)) * (0.7 + 0.8 * detail);
+    c = 1.0 - (1.0 - base) * (1.0 - clamp(halo, 0.0, 1.0));
+    c = mix(c, max(c, soft), (0.3 + 0.35 * detail) * smoothstep(0.15, 0.75, l));
+    c = mix(c, c * 0.95 + 0.03, smoothstep(0.0, 0.4, l));
   }
   c = clamp(c, 0.0, 1.0);
   outColor = vec4(geometric ? c : mix(base, c, intensity), 1.0);
@@ -527,7 +529,7 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
         // Bloom spreads wide; diffusion stays tighter so it softens rather than glows.
         gl.uniform1f(
           uniform('scatter'),
-          mapped.kind === 4 ? 0.55 + mapped.detail * 0.33 : 0.35 + mapped.detail * 0.35,
+          mapped.kind === 4 ? 0.55 + mapped.detail * 0.33 : 0.5 + mapped.detail * 0.3,
         );
         for (let i = GLOW_LEVELS - 2; i >= 0; i--) {
           const from = i === GLOW_LEVELS - 2 ? downLevels[i + 1]! : upLevels[i + 1]!;
