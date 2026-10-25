@@ -2,6 +2,46 @@ import { expect, test } from '@playwright/test';
 
 const fixture = new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname;
 
+test('GIF preview applies the selected colour limit', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  await page.getByRole('tab', { name: 'GIF', exact: true }).click();
+  await page.getByRole('tabpanel').locator('summary').click();
+  const colours = page.getByLabel('Colours', { exact: true });
+  const palette = page.locator('.live-preview-palette');
+  const sample = () =>
+    palette.evaluate((canvas: HTMLCanvasElement) => {
+      const data = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+      const colors = new Set<number>();
+      for (let i = 0; i < data.length; i += 4)
+        colors.add((data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!);
+      return colors.size;
+    });
+
+  await colours.selectOption('64');
+  await expect(palette).toBeVisible();
+  await expect.poll(sample).toBeGreaterThan(1);
+  const limited = await sample();
+  expect(limited).toBeLessThanOrEqual(64);
+
+  await colours.selectOption('128');
+  await expect
+    .poll(async () => {
+      const count = await sample();
+      return count > limited && count <= 128;
+    })
+    .toBe(true);
+  const medium = await sample();
+
+  await colours.selectOption('256');
+  await expect
+    .poll(async () => {
+      const count = await sample();
+      return count > medium && count <= 256;
+    })
+    .toBe(true);
+});
+
 for (const tool of ['Shrink', 'GIF']) {
   test(
     `${tool} previews edits live and can show the original`,
@@ -15,6 +55,7 @@ for (const tool of ['Shrink', 'GIF']) {
       const video = page.locator('.preview-video');
       const frame = page.locator('.live-preview-frame');
       const layer = page.locator('.live-preview-overlay');
+      const palette = page.locator('.live-preview-palette');
       // A GIF is smaller and slower than the source, so its preview starts in output view.
       if (tool === 'GIF') await expect(original).toBeVisible();
       else await expect(original).toBeHidden();
@@ -40,11 +81,14 @@ for (const tool of ['Shrink', 'GIF']) {
         })
         .toBeLessThan(1);
 
+      const beforeOverlay =
+        tool === 'GIF'
+          ? await palette.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())
+          : '';
       await page.locator('.overlay-adjust > summary').click();
       await page.getByLabel('Text overlay', { exact: true }).check();
       await page.getByLabel('Overlay text', { exact: true }).fill('Live preview');
       await page.getByLabel('Overlay text', { exact: true }).blur();
-      await expect(layer).toBeVisible();
       await expect
         .poll(() =>
           layer.evaluate((canvas: HTMLCanvasElement) => {
@@ -55,7 +99,16 @@ for (const tool of ['Shrink', 'GIF']) {
           }),
         )
         .toBe(true);
-      expect(await layer.boundingBox()).toEqual(await frame.boundingBox());
+      if (tool === 'GIF') {
+        await expect(layer).toBeHidden();
+        await expect
+          .poll(() => palette.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL()))
+          .not.toBe(beforeOverlay);
+        expect(await palette.boundingBox()).toEqual(await frame.boundingBox());
+      } else {
+        await expect(layer).toBeVisible();
+        expect(await layer.boundingBox()).toEqual(await frame.boundingBox());
+      }
       await page.getByRole('button', { name: 'Position overlay' }).click();
       await expect(page.locator('.live-preview')).toBeHidden();
       await expect(page.getByRole('button', { name: 'Move text overlay' })).toBeVisible();
@@ -63,7 +116,7 @@ for (const tool of ['Shrink', 'GIF']) {
         .getByRole('region', { name: 'Overlay editor', exact: true })
         .getByText('Done')
         .click();
-      await expect(layer).toBeVisible();
+      await expect(tool === 'GIF' ? palette : layer).toBeVisible();
 
       const editedTransform = await video.evaluate((node) => getComputedStyle(node).transform);
       await original.click();
@@ -74,7 +127,7 @@ for (const tool of ['Shrink', 'GIF']) {
       await original.click();
       await expect(original).toHaveAttribute('aria-pressed', 'false');
       await expect(video).toHaveCSS('transform', editedTransform);
-      await expect(layer).toBeVisible();
+      await expect(tool === 'GIF' ? palette : layer).toBeVisible();
 
       await page
         .getByRole('slider', { name: 'Preview position' })

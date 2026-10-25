@@ -102,16 +102,19 @@
 }
 .live-preview-frame.is-edited,
 .live-preview-frame.is-edited .preview-video,
-.live-preview-frame.is-edited .live-preview-style {
+.live-preview-frame.is-edited .live-preview-style,
+.live-preview-frame.is-edited .live-preview-palette {
   position: absolute;
 }
 .live-preview-frame.is-edited .preview-video,
-.live-preview-frame.is-edited .live-preview-style {
+.live-preview-frame.is-edited .live-preview-style,
+.live-preview-frame.is-edited .live-preview-palette {
   left: 0;
   top: 0;
   transform-origin: 0 0;
 }
-.live-preview-style {
+.live-preview-style,
+.live-preview-palette {
   pointer-events: none;
 }
 .live-preview-overlay {

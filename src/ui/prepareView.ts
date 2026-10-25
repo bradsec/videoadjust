@@ -451,6 +451,7 @@ export function renderPrepare(
           value.tool === 'gif' && value.gifSettings
             ? value.gifSettings.fps
             : (value.settings.video?.fps ?? null),
+        colors: value.tool === 'gif' ? value.gifSettings?.colors : undefined,
         sourceFps: value.source.video.fps,
         enabled: value.tool !== 'audio',
       });
