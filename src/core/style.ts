@@ -286,8 +286,21 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
       if (i < GLOW_LEVELS - 1) upLevels.push(level(w, h));
     }
   };
-  const uniform = (name: string) =>
-    gl.getUniformLocation(gl.getParameter(gl.CURRENT_PROGRAM) as WebGLProgram, name);
+  const locations = new Map<WebGLProgram, Map<string, WebGLUniformLocation | null>>();
+  let currentProgram: WebGLProgram;
+  const useProgram = (value: WebGLProgram) => {
+    currentProgram = value;
+    gl.useProgram(value);
+  };
+  const uniform = (name: string) => {
+    let names = locations.get(currentProgram);
+    if (!names) {
+      names = new Map();
+      locations.set(currentProgram, names);
+    }
+    if (!names.has(name)) names.set(name, gl.getUniformLocation(currentProgram, name));
+    return names.get(name)!;
+  };
   const bind = (texture: WebGLTexture | null, unit: number) => {
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -304,6 +317,7 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
       height: number,
       time: number,
       value: StyleSettings,
+      reference: { width: number; height: number } = { width, height },
     ): void {
       if (gl.isContextLost()) throw new Error('Video Style graphics context was lost.');
       if (canvas.width !== width) canvas.width = width;
@@ -317,21 +331,25 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
       bind(source, 0);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, input);
       if (glowing) {
-        gl.useProgram(prefilter);
+        useProgram(prefilter);
         gl.uniform1i(uniform('sourceTex'), 0);
-        gl.uniform2f(uniform('srcTexel'), 1 / width, 1 / height);
+        gl.uniform2f(uniform('srcTexel'), 1 / reference.width, 1 / reference.height);
         gl.uniform1i(uniform('kind'), mapped.kind);
         gl.uniform4fv(uniform('correction'), mapped.correction);
         pass(downLevels[0]!, downLevels[0]!.width, downLevels[0]!.height);
-        gl.useProgram(down);
+        useProgram(down);
         gl.uniform1i(uniform('sourceTex'), 0);
         for (let i = 1; i < GLOW_LEVELS; i++) {
           const from = downLevels[i - 1]!;
           bind(from.texture, 0);
-          gl.uniform2f(uniform('srcTexel'), 1 / from.width, 1 / from.height);
+          gl.uniform2f(
+            uniform('srcTexel'),
+            1 / Math.max(1, Math.ceil(reference.width / 2 ** i)),
+            1 / Math.max(1, Math.ceil(reference.height / 2 ** i)),
+          );
           pass(downLevels[i]!, downLevels[i]!.width, downLevels[i]!.height);
         }
-        gl.useProgram(up);
+        useProgram(up);
         gl.uniform1i(uniform('sourceTex'), 0);
         gl.uniform1i(uniform('detailTex'), 1);
         // Bloom spreads wide; diffusion stays tighter so it softens rather than glows.
@@ -343,20 +361,24 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
           const from = i === GLOW_LEVELS - 2 ? downLevels[i + 1]! : upLevels[i + 1]!;
           bind(from.texture, 0);
           bind(downLevels[i]!.texture, 1);
-          gl.uniform2f(uniform('srcTexel'), 1 / from.width, 1 / from.height);
+          gl.uniform2f(
+            uniform('srcTexel'),
+            1 / Math.max(1, Math.ceil(reference.width / 2 ** (i + 2))),
+            1 / Math.max(1, Math.ceil(reference.height / 2 ** (i + 2))),
+          );
           pass(upLevels[i]!, upLevels[i]!.width, upLevels[i]!.height);
         }
       }
-      gl.useProgram(styleProgram);
+      useProgram(styleProgram);
       bind(source, 0);
       bind(upLevels[0]?.texture ?? null, 1);
       gl.uniform1i(uniform('sourceTex'), 0);
       gl.uniform1i(uniform('glowTex'), 1);
-      gl.uniform2f(uniform('texel'), 1 / width, 1 / height);
+      gl.uniform2f(uniform('texel'), 1 / reference.width, 1 / reference.height);
       gl.uniform1f(uniform('mediaTime'), time);
       gl.uniform1f(uniform('intensity'), mapped.intensity);
       gl.uniform1f(uniform('detail'), mapped.detail);
-      gl.uniform1f(uniform('grainCell'), grainCellSize(mapped.detail, height));
+      gl.uniform1f(uniform('grainCell'), grainCellSize(mapped.detail, reference.height));
       gl.uniform3fv(uniform('colorA'), mapped.colorA);
       gl.uniform3fv(uniform('colorB'), mapped.colorB);
       gl.uniform1i(uniform('kind'), mapped.kind);

@@ -14,6 +14,18 @@ import { formatDuration } from './format';
 
 type Size = { width: number; height: number };
 
+export function previewRenderSize(output: Size, display: Size, dpr: number): Size {
+  const scale = Math.min(
+    1,
+    (display.width * dpr) / output.width,
+    (display.height * dpr) / output.height,
+  );
+  return {
+    width: Math.max(1, Math.min(output.width, Math.floor(output.width * scale))),
+    height: Math.max(1, Math.min(output.height, Math.floor(output.height * scale))),
+  };
+}
+
 export function livePreviewGeometry(
   source: Size,
   transform: Settings['transform'],
@@ -140,7 +152,7 @@ export function mountLivePreview(
   const styleSource = document.createElement('canvas');
   const styleContext = styleSource.getContext('2d');
   const paletteSource = document.createElement('canvas');
-  const paletteSourceContext = paletteSource.getContext('2d');
+  const paletteSourceContext = paletteSource.getContext('2d', { willReadFrequently: true });
   const paletteContext = paletteCanvas.getContext('2d');
   let overlayLayer: OffscreenCanvas | null = null;
   let paletteWorker: Worker | undefined;
@@ -149,6 +161,9 @@ export function mountLivePreview(
   let paletteFailed = false;
   let styleFailed = false;
   let frameCallback = 0;
+  let animationFrame = 0;
+  let animationTime = -1;
+  let renderSize: Size = { width: 1, height: 1 };
   // Style effects, GIF colours, or an output smaller or slower than the source render through a canvas.
   let processed = false;
   let reduced = false;
@@ -182,6 +197,7 @@ export function mountLivePreview(
       paletteWorker.onerror = () => {
         palettePending = false;
         paletteFailed = true;
+        stopStyle();
         paletteCanvas.hidden = true;
         video.style.removeProperty('opacity');
         status.textContent = 'GIF colour preview is unavailable.';
@@ -213,7 +229,7 @@ export function mountLivePreview(
     }
     try {
       if (!styleContext) throw new Error('Canvas is unavailable for Video Style preview.');
-      const output = settings.output;
+      const output = renderSize;
       if (styleSource.width !== output.width) styleSource.width = output.width;
       if (styleSource.height !== output.height) styleSource.height = output.height;
       drawPreparedFrame(styleContext, video, source, output, settings.transform);
@@ -225,6 +241,7 @@ export function mountLivePreview(
           output.height,
           time,
           normalizeStyle(settings.style),
+          settings.output,
         );
       }
       if (settings.colors) {
@@ -239,7 +256,8 @@ export function mountLivePreview(
           0,
           0,
         );
-        if (overlayLayer) paletteSourceContext.drawImage(overlayLayer, 0, 0);
+        if (overlayLayer)
+          paletteSourceContext.drawImage(overlayLayer, 0, 0, output.width, output.height);
         const pixels = paletteSourceContext.getImageData(0, 0, output.width, output.height);
         queuePalette(pixels.data, output.width, output.height);
       } else {
@@ -249,6 +267,7 @@ export function mountLivePreview(
       }
     } catch {
       styleFailed = true;
+      stopStyle();
       styleCanvas.hidden = true;
       paletteCanvas.hidden = true;
       video.style.removeProperty('opacity');
@@ -263,10 +282,24 @@ export function mountLivePreview(
       !processed ||
       (styleFailed && (!settings.colors || hasStyleEffects(settings.style))) ||
       (paletteFailed && !!settings.colors) ||
-      !('requestVideoFrameCallback' in video) ||
-      frameCallback
+      video.paused
     )
       return;
+    if (typeof video.requestVideoFrameCallback !== 'function') {
+      if (animationFrame) return;
+      const tick = () => {
+        animationFrame = 0;
+        if (video.paused || destroyed || !active || !processed) return;
+        if (video.currentTime !== animationTime) {
+          animationTime = video.currentTime;
+          drawStyle();
+        }
+        if (!styleFailed && !paletteFailed) animationFrame = requestAnimationFrame(tick);
+      };
+      animationFrame = requestAnimationFrame(tick);
+      return;
+    }
+    if (frameCallback) return;
     frameCallback = video.requestVideoFrameCallback((_now, metadata) => {
       frameCallback = 0;
       drawStyle(metadata.mediaTime);
@@ -274,9 +307,17 @@ export function mountLivePreview(
     });
   }
 
+  function stopStyle(): void {
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    animationFrame = 0;
+    if (frameCallback) video.cancelVideoFrameCallback(frameCallback);
+    frameCallback = 0;
+  }
+
   styleCanvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
     styleFailed = true;
+    stopStyle();
     styleCanvas.hidden = true;
     video.style.removeProperty('opacity');
     onStyleUnavailable();
@@ -347,13 +388,17 @@ export function mountLivePreview(
     frame.style.height = `${geometry.height}px`;
     frame.style.left = `${geometry.left}px`;
     frame.style.top = `${geometry.top}px`;
+    const nextSize = previewRenderSize(settings.output, geometry, window.devicePixelRatio || 1);
+    if (nextSize.width !== renderSize.width || nextSize.height !== renderSize.height) {
+      renderSize = nextSize;
+      paletteVersion++;
+      lastFrame = -1;
+    }
     video.style.width = `${geometry.videoWidth}px`;
     video.style.height = `${geometry.videoHeight}px`;
     video.style.transform = geometry.transform;
-    styleCanvas.style.width = '100%';
-    styleCanvas.style.height = '100%';
-    paletteCanvas.style.width = '100%';
-    paletteCanvas.style.height = '100%';
+    styleCanvas.style.width = paletteCanvas.style.width = '100%';
+    styleCanvas.style.height = paletteCanvas.style.height = '100%';
   }
 
   function refresh(): void {
@@ -392,10 +437,7 @@ export function mountLivePreview(
     controls.hidden = !edited;
     video.controls = !edited;
     frame.classList.toggle('is-edited', active);
-    if ((!active || !processed) && frameCallback) {
-      video.cancelVideoFrameCallback(frameCallback);
-      frameCallback = 0;
-    }
+    if (!active || !processed) stopStyle();
     styleCanvas.hidden = true;
     paletteCanvas.hidden = true;
     video.style.removeProperty('opacity');
@@ -429,6 +471,7 @@ export function mountLivePreview(
       );
     layout();
     void drawOverlay();
+    drawStyle();
   });
   observer.observe(stage);
   const playbackEvents = [
@@ -441,6 +484,8 @@ export function mountLivePreview(
   ] as const;
   for (const event of playbackEvents) video.addEventListener(event, syncPlayback);
   video.addEventListener('play', scheduleStyle);
+  video.addEventListener('pause', stopStyle);
+  video.addEventListener('ended', stopStyle);
   video.addEventListener('seeked', () => {
     paletteVersion++;
     lastFrame = -1;
@@ -448,7 +493,7 @@ export function mountLivePreview(
   });
   video.addEventListener('loadeddata', () => drawStyle());
   video.addEventListener('timeupdate', () => {
-    if (!('requestVideoFrameCallback' in video)) drawStyle();
+    if (typeof video.requestVideoFrameCallback !== 'function' && video.paused) drawStyle();
   });
   syncPlayback();
   return {
@@ -467,11 +512,13 @@ export function mountLivePreview(
       destroyed = true;
       version++;
       observer.disconnect();
-      if (frameCallback) video.cancelVideoFrameCallback(frameCallback);
+      stopStyle();
       styleRenderer?.destroy();
       paletteWorker?.terminate();
       video.style.removeProperty('opacity');
       video.removeEventListener('play', scheduleStyle);
+      video.removeEventListener('pause', stopStyle);
+      video.removeEventListener('ended', stopStyle);
       for (const event of playbackEvents) video.removeEventListener(event, syncPlayback);
     },
   };

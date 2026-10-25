@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CropPreset, Rotation } from '../../src/core/types';
-import { livePreviewGeometry, previewFidelity } from '../../src/ui/livePreview';
+import { livePreviewGeometry, previewFidelity, previewRenderSize } from '../../src/ui/livePreview';
 
 const source = { width: 640, height: 360 };
 const container = { width: 640, height: 640 };
@@ -165,5 +165,38 @@ describe('preview fidelity', () => {
       false,
     );
     expect(previewFidelity({ output: frame, fps: null, sourceFps: 30 }, frame).reduced).toBe(false);
+  });
+});
+
+describe('preview render size', () => {
+  it('uses device pixels and caps at export dimensions', () => {
+    const output = { width: 1920, height: 1080 };
+    expect(previewRenderSize(output, { width: 640, height: 360 }, 2)).toEqual({
+      width: 1280,
+      height: 720,
+    });
+    expect(previewRenderSize(output, { width: 1280, height: 720 }, 2)).toEqual(output);
+  });
+
+  it('fits either display edge while keeping the output aspect within one pixel', () => {
+    const output = { width: 1919, height: 1079 };
+    for (const display of [
+      { width: 320, height: 500 },
+      { width: 1000, height: 200 },
+    ]) {
+      const size = previewRenderSize(output, display, 1);
+      expect(size.width).toBeLessThanOrEqual(display.width);
+      expect(size.height).toBeLessThanOrEqual(display.height);
+      expect(Math.abs(size.width - (size.height * output.width) / output.height)).toBeLessThan(2);
+    }
+  });
+
+  it('keeps positive integer dimensions for a tiny display', () => {
+    expect(
+      previewRenderSize({ width: 1920, height: 1080 }, { width: 0.1, height: 0.1 }, 1),
+    ).toEqual({
+      width: 1,
+      height: 1,
+    });
   });
 });
