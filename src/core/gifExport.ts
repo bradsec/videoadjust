@@ -172,7 +172,7 @@ export function gifBudgetError(
 
 export function gifOutputName(name: string): string {
   const dot = name.lastIndexOf('.');
-  return `${dot > 0 ? name.slice(0, dot) : name}-gif.gif`;
+  return `${dot > 0 ? name.slice(0, dot) : name}-animated.gif`;
 }
 
 export async function exportGif(

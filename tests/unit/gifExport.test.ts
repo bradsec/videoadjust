@@ -6,6 +6,7 @@ import {
   gifDimensions,
   gifFramePlan,
   gifFrameRates,
+  gifOutputName,
   GIF_MAX_FRAMES,
   GIF_PIXEL_BUDGET,
   validateGifSettings,
@@ -34,6 +35,11 @@ function source(over: Partial<NonNullable<SourceInfo['video']>> = {}): SourceInf
 }
 
 describe('GIF settings', () => {
+  it('names GIFs after the source without requiring an extension', () => {
+    expect(gifOutputName('clip.mp4')).toBe('clip-animated.gif');
+    expect(gifOutputName('clip')).toBe('clip-animated.gif');
+  });
+
   it('requires decodable video', () => {
     expect(autoGifSettings({ ...source(), video: null })).toBeNull();
     expect(autoGifSettings(source({ decodable: false }))).toBeNull();
