@@ -5,6 +5,23 @@ import { formatTimelineLabel, parseTimecode, pickTickStep } from './timelineTick
 export const MIN_TRIM_SPAN = 0.1;
 export type Trim = { start: number; end: number };
 
+export function thumbnailCount({
+  stripWidth,
+  stripHeight,
+  aspect,
+  duration,
+}: {
+  stripWidth: number;
+  stripHeight: number;
+  aspect: number;
+  duration: number;
+}): number {
+  return Math.min(
+    Math.max(4, Math.min(40, Math.ceil(stripWidth / (stripHeight * aspect)))),
+    Math.ceil(duration / 0.5),
+  );
+}
+
 export function clampTrim(t: Trim, duration: number, moved: 'start' | 'end'): Trim {
   if (!Number.isFinite(duration) || duration <= 0) return { start: 0, end: 0 };
   if (duration < MIN_TRIM_SPAN) return { start: 0, end: duration };
@@ -20,9 +37,15 @@ export function clampTrim(t: Trim, duration: number, moved: 'start' | 'end'): Tr
 
 export interface TrimBarOptions {
   duration: number;
+  aspect: number;
   value: Trim;
   video: HTMLVideoElement;
-  thumbnails: (count: number, signal: AbortSignal) => Promise<HTMLCanvasElement[]>;
+  thumbnails: (
+    count: number,
+    width: number,
+    height: number,
+    signal: AbortSignal,
+  ) => Promise<HTMLCanvasElement[]>;
   previewPlayable?: boolean;
   onChange: (t: Trim) => void;
 }
@@ -35,7 +58,9 @@ export function mountTrimBar(
   let value = opts.value;
   let destroyed = false;
   let previewPlayable = opts.previewPlayable ?? true;
-  const thumbnailAbort = new AbortController();
+  let thumbnailAbort: AbortController | undefined;
+  let requestedCount = 0;
+  let thumbnailResizeTimer: ReturnType<typeof setTimeout> | undefined;
   const section = el('section', 'trim');
   section.setAttribute('aria-label', 'Trim');
   const head = el('div', 'trim-head');
@@ -100,6 +125,7 @@ export function mountTrimBar(
   strip.append(thumbs, before, after, selection, ...handles, playhead);
 
   const readouts = el('div', 'trim-readouts');
+  if (duration >= 3600) readouts.classList.add('trim-hours');
   const inputs: HTMLInputElement[] = [];
   const errors: HTMLParagraphElement[] = [];
   const playheadButtons: HTMLButtonElement[] = [];
@@ -202,7 +228,40 @@ export function mountTrimBar(
     path.setAttribute('d', lines.join(''));
     ticks.replaceChildren(path, ...labels);
   }
-  const rulerResize = new ResizeObserver(renderRuler);
+  function requestThumbnails(): void {
+    if (!strip.clientWidth || !strip.clientHeight || !duration) return;
+    const count = thumbnailCount({
+      stripWidth: strip.clientWidth,
+      stripHeight: strip.clientHeight,
+      aspect: opts.aspect,
+      duration,
+    });
+    if (count === requestedCount) return;
+    requestedCount = count;
+    thumbnailAbort?.abort();
+    const controller = new AbortController();
+    thumbnailAbort = controller;
+    const scale = Math.min(window.devicePixelRatio || 1, 2);
+    void opts
+      .thumbnails(
+        count,
+        Math.ceil((strip.clientWidth / count) * scale),
+        Math.ceil(strip.clientHeight * scale),
+        controller.signal,
+      )
+      .then((canvases) => {
+        if (!destroyed && !controller.signal.aborted) thumbs.replaceChildren(...canvases);
+      })
+      .catch((error: unknown) => {
+        if (!destroyed && !controller.signal.aborted)
+          console.warn('Could not render video thumbnails', error);
+      });
+  }
+  const rulerResize = new ResizeObserver(() => {
+    renderRuler();
+    clearTimeout(thumbnailResizeTimer);
+    thumbnailResizeTimer = setTimeout(requestThumbnails, 200);
+  });
   rulerResize.observe(strip);
 
   let activeScrub: number | null = null;
@@ -353,22 +412,14 @@ export function mountTrimBar(
   update(value);
   setPreviewPlayable(previewPlayable);
   onTimeUpdate();
-  const count = window.matchMedia('(max-width: 719px)').matches ? 8 : 12;
-  void opts
-    .thumbnails(count, thumbnailAbort.signal)
-    .then((canvases) => {
-      if (destroyed) return;
-      thumbs.replaceChildren(...canvases);
-    })
-    .catch((error: unknown) => {
-      if (!destroyed) console.warn('Could not render video thumbnails', error);
-    });
+  requestThumbnails();
   return {
     update,
     setPreviewPlayable,
     destroy() {
       destroyed = true;
-      thumbnailAbort.abort();
+      thumbnailAbort?.abort();
+      clearTimeout(thumbnailResizeTimer);
       rulerResize.disconnect();
       if (seekFrame) cancelAnimationFrame(seekFrame);
       video.removeEventListener('timeupdate', onTimeUpdate);

@@ -323,10 +323,15 @@ function renderPrepare(
     changeTransform = shrink.changeTransform;
     panel = { update: (s) => shrink.update(s.settings), setBusy: shrink.setBusy };
   }
-  const thumbnails = async (count: number, signal: AbortSignal): Promise<HTMLCanvasElement[]> => {
+  const thumbnails = async (
+    count: number,
+    width: number,
+    height: number,
+    signal: AbortSignal,
+  ): Promise<HTMLCanvasElement[]> => {
     const track = await state.input.getPrimaryVideoTrack();
     if (!track || signal.aborted) return [];
-    const sink = new CanvasSink(track, { width: 160 });
+    const sink = new CanvasSink(track, { width, height, fit: 'cover' });
     const timestamps = Array.from(
       { length: count },
       (_, i) => (state.source.durationSec * (i + 0.5)) / count,
@@ -343,10 +348,9 @@ function renderPrepare(
       for await (const frame of frames) {
         if (signal.aborted) break;
         const canvas = document.createElement('canvas');
-        canvas.width = 160;
-        canvas.height = 90;
+        canvas.width = width;
+        canvas.height = height;
         if (frame) {
-          canvas.height = frame.canvas.height;
           canvas.getContext('2d')?.drawImage(frame.canvas, 0, 0);
         }
         canvases.push(canvas);
@@ -363,6 +367,9 @@ function renderPrepare(
   const previewHost = el('div');
   const trim = mountTrimBar(trimHost, {
     duration: state.source.durationSec,
+    aspect: state.source.video
+      ? state.source.video.displayWidth / state.source.video.displayHeight
+      : 16 / 9,
     value: state.settings.trim,
     video,
     thumbnails,

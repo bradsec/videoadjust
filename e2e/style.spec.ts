@@ -41,6 +41,56 @@ test('Video Style updates the preview and exports styled video', async ({ page }
   });
 });
 
+test('preview label follows the selected style and original view', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  const frame = page.locator('.live-preview-frame');
+  const label = frame.locator('.live-preview-label');
+  const style = page.getByLabel('Video style', { exact: true });
+  await page.locator('.style-adjust > summary').click();
+  await expect(label).toBeHidden();
+
+  await style.selectOption('cinematic');
+  await expect(label).toHaveText('Cinematic grade');
+  await expect(label).toBeVisible();
+  await expect(label).toHaveAttribute('aria-hidden', 'true');
+  await style.selectOption('diffusion');
+  await expect(label).toHaveText('Soft diffusion / Black Pro-Mist');
+  for (const viewport of [
+    { width: 320, height: 640 },
+    { width: 768, height: 844 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const frameBox = (await frame.boundingBox())!;
+    const labelBox = (await label.boundingBox())!;
+    expect(labelBox.x).toBeGreaterThanOrEqual(frameBox.x);
+    expect(labelBox.y).toBeGreaterThanOrEqual(frameBox.y);
+    expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(frameBox.x + frameBox.width);
+    expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(frameBox.y + frameBox.height);
+  }
+  await page.getByRole('button', { name: 'Theater mode' }).click();
+  await expect(label).toBeVisible();
+  const theaterFrame = (await frame.boundingBox())!;
+  const theaterLabel = (await label.boundingBox())!;
+  expect(theaterLabel.x + theaterLabel.width).toBeLessThanOrEqual(
+    theaterFrame.x + theaterFrame.width,
+  );
+
+  await style.selectOption('mono');
+  await expect(label).toHaveText('Black & white');
+  await page.getByRole('button', { name: 'Show original' }).click();
+  await expect(label).toHaveText('Original');
+  await page.getByRole('button', { name: 'Show original' }).click();
+  await expect(label).toHaveText('Black & white');
+  await page.getByRole('button', { name: 'Crop and rotate' }).click();
+  await expect(label).toBeHidden();
+  await page.getByRole('region', { name: 'Crop and rotate editor' }).getByText('Done').click();
+  await expect(label).toBeVisible();
+  await style.selectOption('none');
+  await expect(label).toBeHidden();
+});
+
 test('Video Style carries into GIF export', async ({ page }) => {
   test.setTimeout(90_000);
   await page.addInitScript(() => {

@@ -13,6 +13,7 @@ import * as overlays from '../../src/core/overlays';
 import type { Settings } from '../../src/core/types';
 import * as styleRenderer from '../../src/core/style';
 import {
+  grainCellSize,
   hasStyle,
   normalizeStyle,
   STYLE_PRESETS,
@@ -26,6 +27,16 @@ afterEach(() => {
 });
 
 describe('video styles', () => {
+  it('makes large grain clearly coarser at preview and export resolutions', () => {
+    for (const height of [360, 1080]) {
+      const fine = grainCellSize(0, height);
+      const coarse = grainCellSize(1, height);
+      expect(coarse / fine).toBeGreaterThanOrEqual(3);
+      expect(fine).toBeGreaterThanOrEqual(1);
+    }
+    expect(grainCellSize(1, 1080) / grainCellSize(1, 360)).toBe(3);
+  });
+
   it.each(['success', 'failure', 'cancellation'] as const)(
     'destroys export renderer after %s',
     async (outcome) => {

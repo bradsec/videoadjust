@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { clampTrim, MIN_TRIM_SPAN } from '../../src/ui/trimBar';
+import { clampTrim, MIN_TRIM_SPAN, thumbnailCount } from '../../src/ui/trimBar';
+
+describe('thumbnailCount', () => {
+  it.each([
+    ['phone landscape', 320, 56, 16 / 9, 60, 4],
+    ['desktop landscape', 820, 56, 16 / 9, 60, 9],
+    ['theater landscape', 1580, 56, 16 / 9, 60, 16],
+    ['phone portrait', 320, 56, 9 / 16, 60, 11],
+    ['short clip', 1580, 56, 16 / 9, 2, 4],
+    ['single frame interval', 1580, 56, 16 / 9, 0.5, 1],
+    ['three hour cap', 5000, 56, 16 / 9, 10800, 40],
+  ])(
+    '%s uses visible tile size and duration',
+    (_, stripWidth, stripHeight, aspect, duration, count) => {
+      expect(thumbnailCount({ stripWidth, stripHeight, aspect, duration })).toBe(count);
+    },
+  );
+});
 
 describe('clampTrim', () => {
   it('keeps at least 0.1 seconds when end crosses start', () => {

@@ -1,5 +1,5 @@
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from '../core/overlays';
-import { createStyleRenderer, hasStyle, type StyleSettings } from '../core/style';
+import { createStyleRenderer, hasStyle, STYLE_PRESETS, type StyleSettings } from '../core/style';
 import type { Settings } from '../core/types';
 import { normalizeCrop, rotatedSize } from '../core/videoGeometry';
 import { el, icon } from './dom';
@@ -76,7 +76,10 @@ export function mountLivePreview(
   const overlay = el('canvas', 'live-preview-overlay');
   overlay.setAttribute('aria-hidden', 'true');
   overlay.hidden = true;
-  frame.append(video, styleCanvas, overlay);
+  const styleLabel = el('span', 'live-preview-label');
+  styleLabel.setAttribute('aria-hidden', 'true');
+  styleLabel.hidden = true;
+  frame.append(video, styleCanvas, overlay, styleLabel);
   stage.append(frame);
   const bar = el('div', 'live-preview-bar');
   const controls = el('div', 'scrub');
@@ -269,6 +272,12 @@ export function mountLivePreview(
     active = edited && !showingOriginal;
     original.hidden = !edited;
     original.setAttribute('aria-pressed', String(showingOriginal));
+    const style = settings.style;
+    styleLabel.hidden = !settings.enabled || !hasStyle(style);
+    if (!styleLabel.hidden)
+      styleLabel.textContent = showingOriginal
+        ? 'Original'
+        : STYLE_PRESETS.find((preset) => preset.id === style?.id)!.label;
     // The same controls serve both views, so Show original never moves or swaps them.
     controls.hidden = !edited;
     video.controls = !edited;

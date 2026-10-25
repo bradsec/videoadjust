@@ -157,6 +157,10 @@ export function styleUniforms(value: StyleSettings) {
   };
 }
 
+export function grainCellSize(detail: number, height: number): number {
+  return Math.max(1, ((3 + 6 * detail) * height) / 1080);
+}
+
 const VERTEX = `#version 300 es
 precision highp float;
 out vec2 uv;
@@ -238,6 +242,7 @@ uniform vec2 texel;
 uniform float mediaTime;
 uniform float intensity;
 uniform float detail;
+uniform float grainCell;
 uniform vec3 colorA;
 uniform vec3 colorB;
 uniform int kind;
@@ -276,7 +281,7 @@ void main() {
   vec3 c = base;
   float l = luma(base);
   vec2 px = uv / texel;
-  // 1.0 at 1080 lines, so grain size, scanlines and offsets look the same at any output size.
+  // 1.0 at 1080 lines, so scanlines and offsets look the same at any output size.
   float scale = 1.0 / (texel.y * 1080.0);
   float frame = mod(floor(mediaTime * 24.0), 251.0);
   // Geometric styles scale their offsets by intensity; cross-fading a displaced image with
@@ -298,7 +303,7 @@ void main() {
   } else if (kind == 2) {
     // Soft clumps from two octaves of value noise plus fine per-pixel noise, mostly mono
     // with a little colour, strongest in the midtones like real emulsion.
-    vec2 gp = px / max(mix(1.0, 3.0, detail) * scale, 0.75);
+    vec2 gp = px / grainCell;
     float n = valueNoise(gp, frame) + 0.5 * valueNoise(gp * 2.03 + 11.0, frame + 101.0)
       + 0.5 * hash(px + frame * 7.0);
     vec3 tint = vec3(valueNoise(gp + 31.0, frame), valueNoise(gp + 57.0, frame), valueNoise(gp + 83.0, frame)) - 0.5;
@@ -572,6 +577,7 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
       gl.uniform1f(uniform('mediaTime'), time);
       gl.uniform1f(uniform('intensity'), mapped.intensity);
       gl.uniform1f(uniform('detail'), mapped.detail);
+      gl.uniform1f(uniform('grainCell'), grainCellSize(mapped.detail, height));
       gl.uniform3fv(uniform('colorA'), mapped.colorA);
       gl.uniform3fv(uniform('colorB'), mapped.colorB);
       gl.uniform1i(uniform('kind'), mapped.kind);
