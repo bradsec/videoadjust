@@ -7,6 +7,8 @@ import {
   normalizeAudioMix,
   type AddedAudio,
   type AudioMix,
+  addedOffsetRange,
+  describeAddedOffset,
 } from '../../src/core/audioMix';
 import { LoudnessMeter, SAMPLE_CEILING } from '../../src/core/audioProcess';
 
@@ -94,8 +96,12 @@ describe('audio mix settings', () => {
       ),
     ).toEqual({
       original: { include: true, volumeDb: 0 },
-      added: { volumeDb: 0, offset: 0, loop: false },
+      // Negative offsets start the added file partway in.
+      added: { volumeDb: 0, offset: -1, loop: false },
     });
+    expect(addedOffsetRange(60, 10)).toEqual({ min: -59.9, max: 10 });
+    expect(describeAddedOffset(-12)).toBe('12.0 s into the track');
+    expect(describeAddedOffset(2.5)).toBe('starts at 2.5 s');
     expect(mixHasAudio({ original: { include: false, volumeDb: 0 } }, true)).toBe(false);
     expect(mixHasAudio({ ...neutral, added: { volumeDb: 0, offset: 0, loop: false } }, false)).toBe(
       true,

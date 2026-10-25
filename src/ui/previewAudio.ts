@@ -65,7 +65,29 @@ export function previewCeilingCurve(): Float32Array<ArrayBuffer> {
 
 // Normalization re-decodes the kept range, so wait for trim drags to settle.
 const ANALYSIS_DELAY_MS = 400;
-const DRIFT_SEC = 0.05;
+// The added track plays from a decoded buffer on the AudioContext clock. A second media
+// element drifts from the video (and re-seeking it flushes its buffer, which stutters), so
+// it is only rescheduled on play, seek, rate change or when the video stalls or drifts.
+const DRIFT_CHECK_MS = 1000;
+const MAX_DRIFT_SEC = 0.25;
+
+/**
+ * When and where the added buffer should start, in video seconds from `time`: `delay` until
+ * it becomes active and `offset` into the buffer. Null when it never plays before trim end.
+ */
+export function addedSchedule(
+  time: number,
+  trim: { start: number; end: number },
+  added: { offset: number; loop: boolean },
+  duration: number,
+): { delay: number; offset: number; until: number } | null {
+  const begins = trim.start + added.offset;
+  if (duration <= 0 || time >= trim.end || begins >= trim.end) return null;
+  const until = trim.end - time;
+  if (time < begins) return { delay: begins - time, offset: 0, until };
+  const position = addedAudioTime(time, trim, added, duration);
+  return position === null ? null : { delay: 0, offset: position, until };
+}
 
 /** Creates the route on first play because createMediaElementSource permanently takes over audio. */
 export function mountPreviewAudio(
@@ -80,12 +102,13 @@ export function mountPreviewAudio(
   let masterGain: GainNode | undefined;
   let ceiling: WaveShaperNode | undefined;
   let ceilingCurve: Float32Array<ArrayBuffer> | undefined;
-  let addedElement: HTMLAudioElement | undefined;
-  let addedSource: MediaElementAudioSourceNode | undefined;
   let addedFile: File | undefined;
-  let addedUrl: string | undefined;
-  let pendingPlay: Promise<void> | undefined;
-  let addedFailed = false;
+  let addedBuffer: AudioBuffer | undefined;
+  let addedNode: AudioBufferSourceNode | undefined;
+  // Video and context times when the buffer was scheduled, to detect drift and stalls.
+  let anchor: { video: number; context: number; rate: number } | undefined;
+  let lastDriftCheck = 0;
+  let decodeToken = 0;
   let target: PreviewAudioTarget = null;
   let normalizationDb = 0;
   let analysisKey = '';
@@ -94,6 +117,7 @@ export function mountPreviewAudio(
   let analysisTimer: ReturnType<typeof setTimeout> | undefined;
   let frame = 0;
   let destroyed = false;
+  let lastPlacement = '';
 
   function apply(): void {
     if (!context || !originalGain || !addedGain || !masterGain) return;
@@ -104,7 +128,13 @@ export function mountPreviewAudio(
     }
     const tracks = previewTrackGains(target);
     originalGain.gain.setTargetAtTime(tracks.original, context.currentTime, 0.01);
-    addedGain.gain.setTargetAtTime(target?.added ? tracks.added : 0, context.currentTime, 0.01);
+    // The buffer bypasses the element, so apply the player's volume and mute to it here.
+    const player = video.muted ? 0 : video.volume;
+    addedGain.gain.setTargetAtTime(
+      target?.added ? tracks.added * player : 0,
+      context.currentTime,
+      0.01,
+    );
     masterGain.channelCount = target?.channels ?? 2;
     masterGain.gain.setTargetAtTime(
       previewGain(target, normalizationDb, video.currentTime),
@@ -113,80 +143,46 @@ export function mountPreviewAudio(
     );
   }
 
+  function stopNode(): void {
+    if (addedNode) {
+      addedNode.onended = null;
+      try {
+        addedNode.stop();
+      } catch {
+        // Not started yet or already stopped.
+      }
+      addedNode.disconnect();
+    }
+    addedNode = undefined;
+    anchor = undefined;
+  }
+
   function stopAdded(): void {
-    addedElement?.pause();
-    addedSource?.disconnect();
-    if (addedElement) {
-      addedElement.removeEventListener('loadedmetadata', onSeek);
-      addedElement.removeEventListener('error', onAddedError);
-      addedElement.removeAttribute('src');
-      addedElement.load();
-    }
-    if (addedUrl) URL.revokeObjectURL(addedUrl);
-    addedElement = undefined;
-    addedSource = undefined;
+    stopNode();
+    decodeToken++;
     addedFile = undefined;
-    addedUrl = undefined;
-    pendingPlay = undefined;
-    addedFailed = false;
+    addedBuffer = undefined;
   }
 
-  function markAddedUnavailable(): void {
-    if (destroyed || !addedElement || addedFailed) return;
-    addedFailed = true;
-    pendingPlay = undefined;
-    addedElement.pause();
-    onUnavailable('This browser cannot preview the added audio. You can still export the mix.');
-  }
-
-  function onAddedError(): void {
-    if (addedElement?.error?.code !== 1) markAddedUnavailable();
-  }
-
-  function syncAdded(force = false): void {
-    if (!addedElement || !target?.added || !target.mix?.added) return;
-    const position = addedAudioTime(
-      video.currentTime,
-      target.trim,
-      normalizeAudioMix(target.mix, target.trim.end - target.trim.start).added!,
-      target.added.duration,
-    );
-    addedElement.volume = video.volume;
-    addedElement.muted = video.muted;
-    addedElement.playbackRate = video.playbackRate;
-    addedElement.loop = target.mix.added.loop;
-    if (position === null || video.seeking) {
-      addedElement.pause();
-      return;
-    }
-    if (
-      addedElement.readyState > 0 &&
-      (force || Math.abs(addedElement.currentTime - position) > DRIFT_SEC)
-    )
-      addedElement.currentTime = position;
-    if (video.paused) addedElement.pause();
-    else if (addedElement.paused && !pendingPlay && !addedFailed) {
-      const element = addedElement;
-      const attempt = element.play();
-      pendingPlay = attempt;
-      void attempt
-        .then(() => {
-          if (!destroyed && element === addedElement && !addedFailed) onUnavailable('');
-        })
-        .catch((error: unknown) => {
-          if (
-            destroyed ||
-            element !== addedElement ||
-            video.paused ||
-            (error instanceof DOMException && error.name === 'AbortError')
-          )
-            return;
-          markAddedUnavailable();
-        })
-        .finally(() => {
-          if (pendingPlay === attempt) pendingPlay = undefined;
-        });
-    }
+  function startAdded(): void {
+    stopNode();
+    if (!context || !addedGain || !addedBuffer || !target?.added || !target.mix?.added) return;
+    if (video.paused || video.seeking) return;
+    const added = normalizeAudioMix(target.mix, target.trim.end - target.trim.start).added!;
+    const rate = video.playbackRate || 1;
+    const plan = addedSchedule(video.currentTime, target.trim, added, addedBuffer.duration);
+    anchor = { video: video.currentTime, context: context.currentTime, rate };
+    lastDriftCheck = performance.now();
+    if (!plan) return;
+    const node = context.createBufferSource();
+    node.buffer = addedBuffer;
+    node.loop = added.loop;
+    node.playbackRate.value = rate;
+    node.connect(addedGain);
+    const when = context.currentTime + plan.delay / rate;
+    node.start(when, plan.offset);
+    node.stop(context.currentTime + plan.until / rate);
+    addedNode = node;
   }
 
   function connectAdded(): void {
@@ -194,21 +190,38 @@ export function mountPreviewAudio(
     if (addedFile === added?.file) return;
     stopAdded();
     onUnavailable('');
-    if (!added || !context || !addedGain) return;
+    if (!added || !context) return;
     addedFile = added.file;
-    addedUrl = URL.createObjectURL(added.file);
-    addedElement = new Audio(addedUrl);
-    addedElement.preload = 'auto';
-    addedElement.addEventListener('loadedmetadata', onSeek);
-    addedElement.addEventListener('error', onAddedError);
-    addedSource = context.createMediaElementSource(addedElement);
-    addedSource.connect(addedGain);
-    syncAdded(true);
+    const token = decodeToken;
+    const decoding = context;
+    void added.file
+      .arrayBuffer()
+      .then((bytes) => decoding.decodeAudioData(bytes))
+      .then((buffer) => {
+        if (destroyed || token !== decodeToken) return;
+        addedBuffer = buffer;
+        startAdded();
+      })
+      .catch((error: unknown) => {
+        if (destroyed || token !== decodeToken) return;
+        console.warn('Could not decode the added audio for preview.', error);
+        onUnavailable('This browser cannot preview the added audio. You can still export the mix.');
+      });
+  }
+
+  /** Restart the buffer if the video stalled or its clock drifted from the audio clock. */
+  function checkDrift(): void {
+    if (!context || !anchor || video.paused) return;
+    const now = performance.now();
+    if (now - lastDriftCheck < DRIFT_CHECK_MS) return;
+    lastDriftCheck = now;
+    const expected = anchor.video + (context.currentTime - anchor.context) * anchor.rate;
+    if (Math.abs(video.currentTime - expected) > MAX_DRIFT_SEC) startAdded();
   }
 
   function tick(): void {
     apply();
-    syncAdded();
+    checkDrift();
     frame = video.paused ? 0 : requestAnimationFrame(tick);
   }
 
@@ -239,27 +252,30 @@ export function mountPreviewAudio(
   }
 
   function onPlay(): void {
-    addedFailed = false;
-    pendingPlay = undefined;
     connect();
     void context?.resume();
+    startAdded();
     cancelAnimationFrame(frame);
     tick();
   }
 
   function onPause(): void {
-    addedElement?.pause();
+    stopNode();
     cancelAnimationFrame(frame);
     frame = 0;
   }
 
-  function onSeek(): void {
+  function onSeeking(): void {
+    stopNode();
+  }
+
+  function onResync(): void {
     apply();
-    syncAdded(true);
+    startAdded();
   }
 
   function syncVolume(): void {
-    syncAdded();
+    apply();
   }
 
   function analyse(): void {
@@ -315,9 +331,11 @@ export function mountPreviewAudio(
 
   video.addEventListener('play', onPlay);
   video.addEventListener('pause', onPause);
-  video.addEventListener('seeking', onSeek);
-  video.addEventListener('seeked', onSeek);
-  video.addEventListener('ratechange', onSeek);
+  video.addEventListener('seeking', onSeeking);
+  video.addEventListener('seeked', onResync);
+  video.addEventListener('ratechange', onResync);
+  video.addEventListener('waiting', onSeeking);
+  video.addEventListener('playing', onResync);
   video.addEventListener('volumechange', syncVolume);
 
   return {
@@ -327,15 +345,22 @@ export function mountPreviewAudio(
       if (context || !video.paused) connect();
       if (!video.paused) void context?.resume();
       apply();
-      syncAdded();
+      // Offset, loop or trim edits move where the buffer should be.
+      const placement = JSON.stringify([next?.trim, next?.mix?.added]);
+      if (placement !== lastPlacement) {
+        lastPlacement = placement;
+        startAdded();
+      }
     },
     destroy(): void {
       destroyed = true;
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
-      video.removeEventListener('seeking', onSeek);
-      video.removeEventListener('seeked', onSeek);
-      video.removeEventListener('ratechange', onSeek);
+      video.removeEventListener('seeking', onSeeking);
+      video.removeEventListener('seeked', onResync);
+      video.removeEventListener('ratechange', onResync);
+      video.removeEventListener('waiting', onSeeking);
+      video.removeEventListener('playing', onResync);
       video.removeEventListener('volumechange', syncVolume);
       cancelAnimationFrame(frame);
       clearTimeout(analysisTimer);

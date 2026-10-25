@@ -207,3 +207,54 @@ test('files without decodable audio show an error and preserve the existing mix'
   await expect(page.getByRole('checkbox', { name: 'Original audio', exact: true })).toBeChecked();
   await expect(page.getByRole('button', { name: 'Add music or audio', exact: true })).toBeVisible();
 });
+
+test('added track plays from one scheduled buffer without restarts', async ({ page }) => {
+  await page.addInitScript(() => {
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args: Parameters<typeof start>) {
+      // The fixture loops at 3 s; restarts there are a deliberate re-sync, so record the time.
+      const state = window as Window & { addedStarts?: number[] };
+      (state.addedStarts ??= []).push(document.querySelector('video')!.currentTime);
+      return start.apply(this, args);
+    };
+  });
+  await load(page);
+  await addAudio(page);
+  await page.locator('.preview-video').evaluate(async (node: HTMLVideoElement) => {
+    node.currentTime = 0;
+    await node.play();
+  });
+  const starts = () =>
+    page.evaluate(() => (window as Window & { addedStarts?: number[] }).addedStarts ?? []);
+  // Decoding finishes asynchronously; the first start marks the buffer playing.
+  await expect.poll(async () => (await starts()).length).toBeGreaterThanOrEqual(1);
+  await page.waitForTimeout(1500);
+  const beforeLoop = (await starts()).filter((time) => time < 2.8);
+  // Before the fix, a second media element was re-seeked several times a second.
+  expect(beforeLoop.length).toBeLessThanOrEqual(2);
+});
+
+test('a longer added track slides by dragging or arrow keys on its waveform', async ({ page }) => {
+  await load(page, 'land-4k60-aac.mp4');
+  await addAudio(page);
+  const lane = page.getByRole('slider', { name: 'Added audio position' });
+  const offset = page.getByLabel('Added start offset (seconds)', { exact: true });
+  await expect(lane).toHaveAttribute('aria-valuenow', '0');
+  await expect(lane).toHaveAttribute('aria-valuemin', String(-2.9));
+  await lane.focus();
+  for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowLeft');
+  await expect(lane).toHaveAttribute('aria-valuenow', '-0.5');
+  await expect(lane).toHaveAttribute('aria-valuetext', '0.5 s into the track');
+  await expect(offset).toHaveValue('-0.5');
+  const box = (await lane.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.75, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  // A quarter of a 2 s strip is 0.5 s further into the track.
+  await expect
+    .poll(async () => Number(await lane.getAttribute('aria-valuenow')))
+    .toBeCloseTo(-1, 1);
+  const result = await exportWav(page);
+  expect(result.durationSec).toBeCloseTo(2, 1);
+});

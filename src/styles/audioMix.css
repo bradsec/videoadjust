@@ -21,9 +21,9 @@
 }
 .mix-waveforms {
   display: grid;
-  gap: var(--s-1);
+  gap: var(--s-2);
   /* 14px matches the trim handles, so lanes line up with the filmstrip. */
-  margin: var(--s-1) 14px 0;
+  margin: var(--s-4) 14px var(--s-2);
 }
 .mix-waveform-lane {
   position: relative;
@@ -32,15 +32,33 @@
 /* Inside the lane so phones do not spend a line on each label. */
 .mix-waveform-label {
   position: absolute;
-  top: 2px;
+  top: 4px;
   left: 6px;
+  padding: 0 6px;
   color: var(--text-2);
   font-size: var(--fs-12);
+  line-height: 18px;
+  /* Keeps the label legible where peaks run under it. */
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+  border-radius: 4px;
   pointer-events: none;
 }
 .mix-waveform-lane canvas {
   display: block;
   width: 100%;
-  height: 48px;
+  height: 56px;
   border-radius: var(--r-sm);
+}
+
+/* Drag sideways to slide the added track; vertical swipes still scroll the page. */
+.mix-waveform-drag {
+  cursor: grab;
+  touch-action: pan-y;
+}
+.mix-waveform-drag.is-dragging {
+  cursor: grabbing;
+}
+.mix-waveform-drag:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

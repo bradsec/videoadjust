@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Input } from 'mediabunny';
-import type { AddedAudio } from '../../src/core/audioMix';
 import { dbGain } from '../../src/core/audioProcess';
 import {
   addedAudioTime,
+  addedSchedule,
   mountPreviewAudio,
   previewGain,
   previewTrackGains,
@@ -118,13 +118,53 @@ describe('preview graph', () => {
   });
 });
 
-describe('added preview lifecycle', () => {
+describe('preview sample ceiling', () => {
+  it('keeps quiet samples linear and clamps both signs at -1 dBFS', () => {
+    const curve = previewCeilingCurve();
+    expect(curve[0]).toBeCloseTo(-0.89125094, 6);
+    expect(curve[curve.length - 1]).toBeCloseTo(0.89125094, 6);
+    expect(curve[(curve.length - 1) / 2]).toBe(0);
+    expect(curve[((curve.length - 1) * 3) / 4]).toBe(0.5);
+  });
+});
+
+describe('added track schedule', () => {
+  const trim = { start: 10, end: 20 };
+  it('waits until the offset before starting the buffer', () => {
+    expect(addedSchedule(11, trim, { offset: 2, loop: false }, 3)).toEqual({
+      delay: 1,
+      offset: 0,
+      until: 9,
+    });
+  });
+  it('starts mid-buffer inside its range and wraps when looping', () => {
+    expect(addedSchedule(13, trim, { offset: 2, loop: false }, 3)).toEqual({
+      delay: 0,
+      offset: 1,
+      until: 7,
+    });
+    expect(addedSchedule(18.5, trim, { offset: 2, loop: true }, 3)).toEqual({
+      delay: 0,
+      offset: 0.5,
+      until: 1.5,
+    });
+  });
+  it('does not schedule after the buffer ends, past trim end or for an empty file', () => {
+    expect(addedSchedule(16, trim, { offset: 2, loop: false }, 3)).toBeNull();
+    expect(addedSchedule(20, trim, { offset: 0, loop: true }, 3)).toBeNull();
+    expect(addedSchedule(12, trim, { offset: 0, loop: true }, 0)).toBeNull();
+  });
+});
+
+describe('added buffer playback', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  function setup(play: () => Promise<void>) {
+  it('schedules the decoded buffer at the video position and reschedules on seek', async () => {
+    const starts: [number, number][] = [];
+    const stops: number[] = [];
     const node = () => ({
       gain: { setTargetAtTime() {} },
       connect(next: unknown) {
@@ -135,133 +175,60 @@ describe('added preview lifecycle', () => {
     vi.stubGlobal(
       'AudioContext',
       class {
-        currentTime = 0;
+        currentTime = 5;
         destination = {};
         createGain = node;
         createWaveShaper = node;
         createMediaElementSource = node;
+        createBufferSource = () => ({
+          ...node(),
+          playbackRate: { value: 1 },
+          start: (when: number, offset: number) => starts.push([when, offset]),
+          stop: (when?: number) => stops.push(when ?? -1),
+        });
+        decodeAudioData = () => Promise.resolve({ duration: 2 });
         resume = () => Promise.resolve();
         close = () => Promise.resolve();
       },
     );
     vi.stubGlobal('requestAnimationFrame', () => 1);
     vi.stubGlobal('cancelAnimationFrame', () => {});
-    const playCalls = vi.fn(play);
-    const audio: { current?: EventTarget & { volume: number; muted: boolean } } = {};
-    vi.stubGlobal(
-      'Audio',
-      class extends EventTarget {
-        paused = true;
-        readyState = 1;
-        currentTime = 0;
-        volume = 1;
-        muted = false;
-        constructor() {
-          super();
-          audio.current = this;
-        }
-        play = playCalls;
-        pause() {}
-        removeAttribute() {}
-        load() {}
-      },
-    );
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview');
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     const video = Object.assign(new EventTarget(), {
       paused: false,
-      currentTime: 1,
-      playbackRate: 1,
       seeking: false,
-      volume: 0.4,
+      currentTime: 3,
+      playbackRate: 1,
+      volume: 1,
       muted: false,
     });
-    const messages: string[] = [];
-    const preview = mountPreviewAudio(
-      video as HTMLVideoElement,
-      {} as Input,
-      () => {},
-      (message) => messages.push(message),
-    );
-    const target = {
+    const preview = mountPreviewAudio(video as HTMLVideoElement, {} as Input);
+    preview.update({
       channels: 2,
-      trim: { start: 0, end: 5 },
+      trim: { start: 0, end: 10 },
       mix: {
         original: { include: true, volumeDb: 0 },
         added: { volumeDb: 0, offset: 0, loop: true },
       },
       added: {
-        file: new File([''], 'audio.mp3'),
+        file: new File(['x'], 'music.mp3'),
         input: {} as Input,
         duration: 2,
-        channels: 1,
+        channels: 2,
         sampleRate: 48000,
-      } satisfies AddedAudio,
-    };
-    const update = () => preview.update(target);
-    return { preview, update, video, audio: () => audio.current!, playCalls, messages };
-  }
-
-  it('keeps one play pending and shares native video volume and mute', () => {
-    const h = setup(() => new Promise(() => {}));
-    h.update();
-    h.update();
-    expect(h.playCalls).toHaveBeenCalledOnce();
-    expect(h.audio().volume).toBe(0.4);
-    h.video.muted = true;
-    h.video.volume = 0.2;
-    h.video.dispatchEvent(new Event('volumechange'));
-    expect(h.audio().muted).toBe(true);
-    expect(h.audio().volume).toBe(0.2);
-    h.preview.destroy();
-  });
-
-  it('reports native playback failure once and retries only after explicit play', () => {
-    const h = setup(() => new Promise(() => {}));
-    h.update();
-    h.audio().dispatchEvent(new Event('error'));
-    h.audio().dispatchEvent(new Event('error'));
-    h.update();
-    expect(h.messages.filter(Boolean)).toHaveLength(1);
-    expect(h.messages.at(-1)).toContain('export');
-    h.video.dispatchEvent(new Event('play'));
-    expect(h.playCalls).toHaveBeenCalledTimes(2);
-    h.preview.destroy();
-  });
-
-  it('stops retrying after a rejected native play promise', async () => {
-    const h = setup(() =>
-      Promise.reject(new DOMException('Unsupported codec', 'NotSupportedError')),
-    );
-    h.update();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    h.update();
-    expect(h.playCalls).toHaveBeenCalledOnce();
-    expect(h.messages.filter(Boolean)).toHaveLength(1);
-    h.preview.destroy();
-  });
-
-  it('does not permanently disable playback after an expected play AbortError', async () => {
-    const h = setup(() => Promise.reject(new DOMException('Playback paused', 'AbortError')));
-    h.update();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    h.update();
-    expect(h.playCalls).toHaveBeenCalledTimes(2);
-    expect(h.messages.filter(Boolean)).toHaveLength(0);
-    h.preview.destroy();
-  });
-});
-
-describe('preview sample ceiling', () => {
-  it('keeps quiet samples linear and clamps both signs at -1 dBFS', () => {
-    const curve = previewCeilingCurve();
-    expect(curve[0]).toBeCloseTo(-0.89125094, 6);
-    expect(curve[curve.length - 1]).toBeCloseTo(0.89125094, 6);
-    expect(curve[(curve.length - 1) / 2]).toBe(0);
-    expect(curve[((curve.length - 1) * 3) / 4]).toBe(0.5);
+      },
+    });
+    await vi.waitFor(() => expect(starts).toHaveLength(1));
+    // 3 s into a looping 2 s file is 1 s in; it stops at trim end, 7 s away.
+    expect(starts[0]).toEqual([5, 1]);
+    expect(stops.at(-1)).toBe(12);
+    video.dispatchEvent(new Event('seeking'));
+    expect(stops.at(-1)).toBe(-1);
+    video.currentTime = 6.5;
+    video.dispatchEvent(new Event('seeked'));
+    expect(starts.at(-1)).toEqual([5, 0.5]);
+    video.paused = true;
+    video.dispatchEvent(new Event('pause'));
+    expect(stops.at(-1)).toBe(-1);
+    preview.destroy();
   });
 });

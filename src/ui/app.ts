@@ -448,6 +448,11 @@ function renderPrepare(
     state.input,
     state.source.durationSec,
     video,
+    (offset) => {
+      const mix = current.settings.mix;
+      if (mix?.added)
+        dispatch({ type: 'setMix', value: { ...mix, added: { ...mix.added, offset } } });
+    },
   );
   function updateWaveform(): void {
     waveform.update({

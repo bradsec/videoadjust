@@ -1,4 +1,10 @@
-import { normalizeAudioMix, type AddedAudio, type AudioMix } from '../core/audioMix';
+import {
+  addedOffsetRange,
+  describeAddedOffset,
+  normalizeAudioMix,
+  type AddedAudio,
+  type AudioMix,
+} from '../core/audioMix';
 import { el } from './dom';
 import { formatDuration } from './format';
 import '../styles/audioMix.css';
@@ -94,6 +100,7 @@ export function mountAudioTracks(
       if (mix.added) opts.onChange({ ...mix, added: { ...mix.added, offset } });
     },
   );
+  const offsetOutput = offset.input.previousElementSibling as HTMLElement;
   const loopLabel = el('label', 'audio-track-toggle');
   const loop = el('input');
   loop.type = 'checkbox';
@@ -137,8 +144,13 @@ export function mountAudioTracks(
       ? formatDuration(value.added.duration, { tenths: true })
       : '';
     addedVolume.update(mix.added?.volumeDb ?? 0);
-    offset.input.max = String(Math.max(0, value.duration));
+    const range = addedOffsetRange(value.added?.duration ?? 0, value.duration);
+    offset.input.min = String(range.min);
+    offset.input.max = String(range.max);
     offset.update(mix.added?.offset ?? 0);
+    const offsetText = describeAddedOffset(mix.added?.offset ?? 0);
+    offset.input.setAttribute('aria-valuetext', offsetText);
+    offsetOutput.textContent = offsetText;
     loop.checked = mix.added?.loop ?? false;
   }
   update(value);

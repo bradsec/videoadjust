@@ -1,5 +1,10 @@
 import type { Input } from 'mediabunny';
-import type { AddedAudio, AudioMix } from '../core/audioMix';
+import {
+  addedOffsetRange,
+  describeAddedOffset,
+  type AddedAudio,
+  type AudioMix,
+} from '../core/audioMix';
 import {
   dbGain,
   fadeEnvelope,
@@ -71,6 +76,7 @@ export function mountMixWaveform(
   input: Input,
   sourceDuration: number,
   video?: HTMLVideoElement,
+  onAddedOffset?: (offset: number) => void,
 ) {
   let destroyed = false;
   let value: WaveformValue = { trim: { start: 0, end: sourceDuration } };
@@ -91,6 +97,60 @@ export function mountMixWaveform(
     node.append(label, canvas);
     section.append(node);
     return { node, label, canvas };
+  });
+  // The added lane doubles as a slider: drag or use arrow keys to choose which part plays.
+  const addedCanvas = lanes[1]!.canvas;
+  addedCanvas.setAttribute('role', 'slider');
+  addedCanvas.setAttribute('aria-label', 'Added audio position');
+  addedCanvas.tabIndex = 0;
+  addedCanvas.classList.add('mix-waveform-drag');
+  function offsetRange() {
+    return addedOffsetRange(value.added?.duration ?? 0, value.trim.end - value.trim.start);
+  }
+  function moveAdded(offset: number): void {
+    const added = value.mix?.added;
+    if (!added || !onAddedOffset) return;
+    const { min, max } = offsetRange();
+    const next = Math.round(Math.min(max, Math.max(min, offset)) * 100) / 100;
+    if (next !== added.offset) onAddedOffset(next);
+  }
+  let drag: { pointer: number; x: number; offset: number } | null = null;
+  addedCanvas.addEventListener('pointerdown', (event) => {
+    if (!value.mix?.added || !onAddedOffset) return;
+    drag = { pointer: event.pointerId, x: event.clientX, offset: value.mix.added.offset };
+    addedCanvas.setPointerCapture(event.pointerId);
+    addedCanvas.classList.add('is-dragging');
+  });
+  addedCanvas.addEventListener('pointermove', (event) => {
+    if (!drag || event.pointerId !== drag.pointer || !addedCanvas.clientWidth) return;
+    const seconds = ((event.clientX - drag.x) / addedCanvas.clientWidth) * sourceDuration;
+    moveAdded(drag.offset + seconds);
+  });
+  const endDrag = (event: PointerEvent) => {
+    if (!drag || event.pointerId !== drag.pointer) return;
+    drag = null;
+    addedCanvas.classList.remove('is-dragging');
+  };
+  addedCanvas.addEventListener('pointerup', endDrag);
+  addedCanvas.addEventListener('pointercancel', endDrag);
+  addedCanvas.addEventListener('keydown', (event) => {
+    const offset = value.mix?.added?.offset;
+    if (offset === undefined) return;
+    const step = event.shiftKey ? 1 : 0.1;
+    const { min, max } = offsetRange();
+    const next =
+      event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+        ? offset - step
+        : event.key === 'ArrowRight' || event.key === 'ArrowUp'
+          ? offset + step
+          : event.key === 'Home'
+            ? min
+            : event.key === 'End'
+              ? max
+              : null;
+    if (next === null) return;
+    event.preventDefault();
+    moveAdded(next);
   });
   const clipHelp = el(
     'p',
@@ -133,13 +193,20 @@ export function mountMixWaveform(
       const included = isAdded || original.include;
       lane.node.hidden = isAdded ? !value.added : !originalPeaks;
       lane.label.textContent = isAdded ? 'Added' : included ? 'Original' : 'Original · Removed';
+      if (isAdded && added) {
+        const range = offsetRange();
+        lane.canvas.setAttribute('aria-valuemin', String(range.min));
+        lane.canvas.setAttribute('aria-valuemax', String(range.max));
+        lane.canvas.setAttribute('aria-valuenow', String(added.offset));
+        lane.canvas.setAttribute('aria-valuetext', describeAddedOffset(added.offset));
+      }
       lane.canvas.dataset.ready = String(!!peaks);
       lane.canvas.dataset.gain = String(
         included ? dbGain(volumeDb + master.gainDb + normalizationDb) : 0,
       );
       lane.canvas.dataset.removed = String(!included);
       const width = lane.canvas.clientWidth;
-      const height = 48;
+      const height = lane.canvas.clientHeight || 56;
       if (!width) continue;
       const scale = window.devicePixelRatio || 1;
       lane.canvas.width = Math.round(width * scale);

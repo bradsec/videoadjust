@@ -22,6 +22,8 @@ export interface AddedAudio {
 }
 
 const finite = (value: number | undefined) => (Number.isFinite(value) ? value! : 0);
+// A negative offset starts the added file partway in; callers clamp to the file's length.
+const MAX_LEAD_IN_SEC = 86400;
 const volume = (value: number | undefined) => Math.min(12, Math.max(-30, finite(value)));
 
 export function normalizeAudioMix(value: AudioMix | undefined, duration: number): AudioMix {
@@ -36,13 +38,25 @@ export function normalizeAudioMix(value: AudioMix | undefined, duration: number)
             volumeDb: volume(value.added.volumeDb),
             offset: Math.min(
               Math.max(0, finite(duration)),
-              Math.max(0, finite(value.added.offset)),
+              Math.max(-MAX_LEAD_IN_SEC, finite(value.added.offset)),
             ),
             loop: value.added.loop === true,
           },
         }
       : {}),
   };
+}
+
+/** Offset range for an added file: from almost its end playing at trim start, to trim end. */
+export function addedOffsetRange(addedDuration: number, keptDuration: number) {
+  return { min: -Math.max(0, addedDuration - 0.1), max: Math.max(0, keptDuration) };
+}
+
+/** Plain wording for an offset: when it starts, or how far into the file it starts. */
+export function describeAddedOffset(offset: number): string {
+  return offset < 0
+    ? `${(-offset).toFixed(1)} s into the track`
+    : `starts at ${offset.toFixed(1)} s`;
 }
 
 export function hasAudioMix(value?: AudioMix): boolean {
