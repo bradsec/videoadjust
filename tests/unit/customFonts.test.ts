@@ -101,3 +101,45 @@ test('a font is not reported saved when its write transaction aborts', async () 
 
   expect(result.saved).toBe(false);
 });
+
+test('a font stays listed when its deletion fails to commit', async () => {
+  const transaction = {
+    error: new Error('commit failed'),
+    onabort: null as (() => void) | null,
+    objectStore: () => ({
+      getAll: () => request([{ id: 'saved', name: 'Saved', data: new ArrayBuffer(1) }]),
+      delete: () => {
+        const pending = request(undefined);
+        queueMicrotask(() => transaction.onabort?.());
+        return pending;
+      },
+    }),
+  };
+  vi.stubGlobal('indexedDB', {
+    open: () => request({ transaction: () => transaction, close: () => {} }),
+  });
+  const { listCustomFonts, removeCustomFont } = await import('../../src/core/customFonts');
+  await listCustomFonts();
+
+  await expect(removeCustomFont('saved')).rejects.toThrow('commit failed');
+  transaction.onabort = null;
+  expect((await listCustomFonts()).map((font) => font.id)).toEqual(['saved']);
+});
+
+test('a session-only font is removed when the browser blocks font storage', async () => {
+  vi.stubGlobal('indexedDB', {
+    open: () => {
+      const pending = { error: new Error('blocked'), onerror: null as (() => void) | null };
+      queueMicrotask(() => pending.onerror?.());
+      return pending;
+    },
+  });
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const { addCustomFont, listCustomFonts, removeCustomFont } =
+    await import('../../src/core/customFonts');
+  const { font, saved } = await addCustomFont(new File(['font'], 'test.ttf'));
+  expect(saved).toBe(false);
+
+  await removeCustomFont(font.id);
+  expect(await listCustomFonts()).toEqual([]);
+});

@@ -24,12 +24,17 @@ const session = new Map<string, CustomFont>();
 const registered = new Map<string, Promise<void>>();
 const faces = new Map<string, FontFace>();
 
+/** IndexedDB itself is unavailable, as opposed to one transaction failing. */
+class FontStorageUnavailableError extends Error {}
+
 function open(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  return new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1);
     request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: 'id' });
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('Font storage is unavailable.'));
+    request.onerror = () => reject(request.error);
+  }).catch((cause: unknown) => {
+    throw new FontStorageUnavailableError('Font storage is unavailable.', { cause });
   });
 }
 
@@ -96,13 +101,21 @@ export async function addCustomFont(file: File): Promise<{ font: CustomFont; sav
   }
 }
 
+/**
+ * Removes a font from this device. Rejects, keeping the font, when the saved copy could not
+ * be deleted; a browser that blocks font storage only ever held the session copy.
+ */
 export async function removeCustomFont(id: string): Promise<void> {
+  try {
+    await transact('readwrite', (store) => store.delete(id));
+  } catch (error) {
+    if (!(error instanceof FontStorageUnavailableError)) throw error;
+  }
   session.delete(id);
   registered.delete(id);
   const face = faces.get(id);
   if (face) document.fonts.delete(face);
   faces.delete(id);
-  await transact('readwrite', (store) => store.delete(id));
 }
 
 /** Registers a saved font with the document so canvas text can use it. */

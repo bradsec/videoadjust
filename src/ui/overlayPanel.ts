@@ -296,9 +296,17 @@ export function mountOverlayPanel(
     const font = value.text.font;
     if (!isCustomFont(font)) return;
     removeCustomFont(customFontId(font))
-      .catch((error: unknown) => console.warn('Could not remove the saved font', error))
-      .then(refreshFonts)
-      .then(() => text({ font: 'Inter' }))
+      .then(
+        async () => {
+          fontStatus.textContent = '';
+          await refreshFonts();
+          text({ font: 'Inter' });
+        },
+        (error: unknown) => {
+          console.warn('Could not remove the saved font', error);
+          fontStatus.textContent = 'Could not remove the font. Try again.';
+        },
+      )
       .catch((error: unknown) => console.warn('Could not refresh saved fonts', error));
   });
   patches.push(renderFonts);

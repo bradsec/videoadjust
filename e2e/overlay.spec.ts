@@ -344,6 +344,35 @@ test('a user font is validated, used, kept across a reload, and removable', asyn
   await expect(font).toHaveValue('Inter');
 });
 
+test('a user font that cannot be deleted stays selected and says so', async ({ page }) => {
+  const fontFile = new URL(
+    '../node_modules/@fontsource/caveat/files/caveat-latin-400-normal.woff2',
+    import.meta.url,
+  ).pathname;
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  await page.locator('.overlay-adjust > summary').click();
+  await page.getByLabel('Text overlay', { exact: true }).check();
+  await page.getByLabel('Add your font', { exact: true }).setInputFiles({
+    name: 'Stuck.woff2',
+    mimeType: 'font/woff2',
+    buffer: readFileSync(fontFile),
+  });
+  const font = page.getByLabel('Text font', { exact: true });
+  await expect(font.locator('option:checked')).toHaveText('Stuck (your font)');
+  await page.evaluate(() => {
+    const remove = IDBObjectStore.prototype.delete;
+    IDBObjectStore.prototype.delete = function (this: IDBObjectStore, key) {
+      const request = remove.call(this, key);
+      this.transaction.abort();
+      return request;
+    };
+  });
+  await page.getByRole('button', { name: 'Remove this font' }).click();
+  await expect(page.getByText('Could not remove the font. Try again.')).toBeVisible();
+  await expect(font.locator('option:checked')).toHaveText('Stuck (your font)');
+});
+
 test('the text effect can be turned off', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('#file', fixture);
