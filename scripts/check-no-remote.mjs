@@ -28,7 +28,7 @@ export const LINK_URLS = [
   'https://github.com/bradsec',
   'https://mediabunny.dev/',
   'https://github.com/mattdesl/gifenc',
-  'https://buymeacoffee.com/markbradley',
+  'https://ko-fi.com/bradsec',
 ];
 const escape = (url) => url.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 const LINK_HREF = new RegExp(
