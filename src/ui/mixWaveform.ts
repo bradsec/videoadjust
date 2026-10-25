@@ -77,6 +77,8 @@ export function mountMixWaveform(
   sourceDuration: number,
   video?: HTMLVideoElement,
   onAddedOffset?: (offset: number) => void,
+  // Reserve the original lane while its peaks decode, so the trim controls below never jump.
+  sourceHasAudio = true,
 ) {
   let destroyed = false;
   let value: WaveformValue = { trim: { start: 0, end: sourceDuration } };
@@ -152,6 +154,11 @@ export function mountMixWaveform(
     event.preventDefault();
     moveAdded(next);
   });
+  let drawFrame = 0;
+  const status = el('p', 'setting-help mix-waveform-status');
+  status.setAttribute('role', 'status');
+  status.hidden = true;
+  section.append(status);
   const clipHelp = el(
     'p',
     'setting-help',
@@ -176,7 +183,7 @@ export function mountMixWaveform(
     const normalizationDb = value.normalizationDb ?? 0;
     const original = value.mix?.original ?? { include: true, volumeDb: 0 };
     const added = value.mix?.added;
-    section.hidden = !originalPeaks && !value.added;
+    section.hidden = !sourceHasAudio && !value.added;
     const theme = getComputedStyle(section);
     const accent = theme.getPropertyValue('--accent').trim();
     const muted = theme.getPropertyValue('--text-3').trim();
@@ -191,7 +198,7 @@ export function mountMixWaveform(
       const duration = isAdded ? (value.added?.duration ?? 0) : sourceDuration;
       const volumeDb = isAdded ? (added?.volumeDb ?? 0) : original.volumeDb;
       const included = isAdded || original.include;
-      lane.node.hidden = isAdded ? !value.added : !originalPeaks;
+      lane.node.hidden = isAdded ? !value.added : !sourceHasAudio;
       lane.label.textContent = isAdded ? 'Added' : included ? 'Original' : 'Original · Removed';
       if (isAdded && added) {
         const range = offsetRange();
@@ -222,6 +229,9 @@ export function mountMixWaveform(
       if (peaks && duration > 0 && sourceDuration > 0) {
         for (let x = 0; x < width; x++) {
           const sourceTime = ((x + 0.5) / width) * sourceDuration;
+          // Added audio only exists in the export inside the kept range; drawing a slid track's
+          // earlier part over the trimmed-away source would suggest it plays there.
+          if (isAdded && (sourceTime < trim.start || sourceTime >= trim.end)) continue;
           const time = isAdded
             ? addedWaveformTime(
                 sourceTime,
@@ -337,10 +347,22 @@ export function mountMixWaveform(
           });
         }
       }
-      draw();
+      // Slider drags update many times per frame; draw once per frame.
+      if (!drawFrame)
+        drawFrame = requestAnimationFrame(() => {
+          drawFrame = 0;
+          if (!destroyed) draw();
+        });
+    },
+    /** Shows a short note while preview audio is being measured, or hides it with null. */
+    setStatus(message: string | null): void {
+      status.textContent = message ?? '';
+      status.hidden = !message;
+      section.setAttribute('aria-busy', String(!!message));
     },
     destroy(): void {
       destroyed = true;
+      cancelAnimationFrame(drawFrame);
       sourceAbort.abort();
       addedAbort?.abort();
       if (addedInput) cache.delete(addedInput);

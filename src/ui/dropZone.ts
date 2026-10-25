@@ -15,8 +15,8 @@ export function mountDropZone(
   grid.className = 'drop-grid';
   grid.innerHTML = `
     <div class="hero">
-      <h1>Video tools that <span class="hl">stay on your device</span>.</h1>
-      <p>Shrink, trim, crop and convert videos, correct colour or apply a style, add text or a watermark, add music and balance or normalize the audio, or turn clips into GIFs and still frames. Everything runs in this browser and nothing is uploaded.</p>
+      <h1>Edit videos privately, <span class="hl">right in your browser</span>.</h1>
+      <p>Shrink, trim, crop and convert videos, correct colour or apply a style, add text or a watermark, add music and balance or normalize the audio, or turn clips into GIFs and still frames. Your videos are processed on this device and never uploaded.</p>
       <ul class="tool-tags" aria-label="Tools">
         <li>Shrink</li><li>Trim</li><li>Crop</li><li>Convert</li><li>Colour</li><li>Styles</li><li>Text and watermark</li><li>Add music</li><li>Normalize audio</li><li>Extract audio</li><li>GIF</li><li>Save frames</li>
       </ul>
@@ -25,7 +25,7 @@ export function mountDropZone(
       <span class="drop-art" aria-hidden="true"></span>
       <button class="btn btn-primary" type="button"></button>
       <p class="hint">or drop a video file here</p>
-      <p class="formats">MP4, MOV, WebM, MKV. Works best up to 2&nbsp;GB.</p>
+      <p class="formats">MP4, MOV, WebM, MKV. Over 2&nbsp;GB works best in desktop Chrome or Edge, which save straight to disk.</p>
     </div>`;
   const zone = grid.querySelector<HTMLElement>('.dropzone')!;
   zone.querySelector('button')!.append(icon('i-film'), 'Choose video');

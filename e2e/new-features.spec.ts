@@ -262,3 +262,31 @@ test(
     }
   },
 );
+
+test('a tapped toast still closes on its own', { tag: '@mobile' }, async ({ page }, info) => {
+  test.setTimeout(60_000);
+  const touch = !!info.project.use.hasTouch;
+  await load(page);
+  await expect
+    .poll(() =>
+      page.locator('.preview-video').evaluate((video: HTMLVideoElement) => video.readyState),
+    )
+    .toBeGreaterThanOrEqual(2);
+  const save = page
+    .getByRole('region', { name: 'Edit', exact: true })
+    .getByRole('button', { name: 'Save frame as PNG' });
+  const download = page.waitForEvent('download');
+  if (touch) await save.tap();
+  else await save.click();
+  await download;
+  const toast = page.locator('.toasts .toast').first();
+  await expect(toast).toBeVisible();
+  if (touch) {
+    // iOS keeps :hover after a tap; a touch on the toast must not pause it forever.
+    await toast.locator('p').tap();
+  } else {
+    // A resting mouse pauses the toast by design, so move it away first.
+    await page.mouse.move(0, 0);
+  }
+  await expect(toast).toHaveCount(0, { timeout: 15_000 });
+});

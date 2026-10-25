@@ -1,7 +1,7 @@
 {
   "name": "videoadjust",
   "short_name": "videoadjust",
-  "description": "Edit, compress and convert videos locally in your browser. Trim, crop, add styles and overlays, adjust or extract audio, make GIFs and save frames. No upload.",
+  "description": "Private video editing in your browser. Trim, crop, fix colour, add text, music and styles, make GIFs, compress or convert. Processed locally, never uploaded.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

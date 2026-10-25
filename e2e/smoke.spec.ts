@@ -13,7 +13,7 @@ test(
     });
 
     await page.goto('/');
-    await expect(page).toHaveTitle('videoadjust - Edit, Compress and Convert Videos in Browser');
+    await expect(page).toHaveTitle('videoadjust - Private Video Editor in Your Browser');
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);

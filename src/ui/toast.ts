@@ -67,10 +67,20 @@ export function toast(message: string, tone: ToastTone = 'info'): void {
     remaining = Math.max(1000, remaining - (Date.now() - started));
   };
   const resume = () => {
-    if (timer === undefined && !item.matches(':hover, :focus-within')) run();
+    if (timer === undefined && !hovered && !item.matches(':focus-within')) run();
   };
-  item.addEventListener('pointerenter', pause);
-  item.addEventListener('pointerleave', resume);
+  // Only a mouse hover pauses: iOS keeps :hover after a tap, which would pause forever.
+  let hovered = false;
+  item.addEventListener('pointerenter', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    hovered = true;
+    pause();
+  });
+  item.addEventListener('pointerleave', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    hovered = false;
+    resume();
+  });
   item.addEventListener('focusin', pause);
   item.addEventListener('focusout', resume);
   close.addEventListener('click', dismiss);

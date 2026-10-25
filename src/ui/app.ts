@@ -453,6 +453,7 @@ function renderPrepare(
       if (mix?.added)
         dispatch({ type: 'setMix', value: { ...mix, added: { ...mix.added, offset } } });
     },
+    !!state.source.audio?.decodable,
   );
   function updateWaveform(): void {
     waveform.update({
@@ -656,6 +657,7 @@ function renderPrepare(
         audioPreviewNote.textContent = message;
         audioPreviewNote.hidden = !message;
       },
+      (busy) => waveform.setStatus(busy ? 'Measuring loudness for the preview…' : null),
     );
     previewAudio.update(previewAudioTarget(state));
     if (state.source.video)

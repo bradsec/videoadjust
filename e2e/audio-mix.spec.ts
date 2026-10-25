@@ -169,12 +169,14 @@ test('waveform lanes scale without decoding again when volume changes', async ({
 });
 
 test('preview graph sets separate original, added and master gains', async ({ page }) => {
+  // WebKit can hand back a new AudioParam wrapper per access, so tag nothing: keep the recent
+  // values from every gain update and check the expected set is among them.
   await page.addInitScript(() => {
-    const original = AudioParam.prototype.setTargetAtTime;
+    const state = window as Window & { mixGains?: number[] };
+    const setTarget = AudioParam.prototype.setTargetAtTime;
     AudioParam.prototype.setTargetAtTime = function (value, start, constant) {
-      const state = window as Window & { mixGains?: number[] };
-      state.mixGains = [...(state.mixGains ?? []).slice(-8), value];
-      return original.call(this, value, start, constant);
+      state.mixGains = [...(state.mixGains ?? []).slice(-11), value];
+      return setTarget.call(this, value, start, constant);
     };
   });
   await load(page);
@@ -185,17 +187,21 @@ test('preview graph sets separate original, added and master gains', async ({ pa
   await page.locator('.preview-video').evaluate(async (video: HTMLVideoElement) => {
     await video.play();
   });
-  await expect
-    .poll(() =>
-      page.evaluate(() => (window as Window & { mixGains?: number[] }).mixGains?.slice(-3)),
-    )
-    .toEqual([10 ** (-6 / 20), 10 ** (-3 / 20), 10 ** (-2 / 20)]);
+  const recent = () =>
+    page.evaluate(() =>
+      ((window as Window & { mixGains?: number[] }).mixGains ?? []).map((v) => v.toFixed(4)),
+    );
+  const original = (10 ** (-6 / 20)).toFixed(4);
+  const added = (10 ** (-3 / 20)).toFixed(4);
+  const master = (10 ** (-2 / 20)).toFixed(4);
+  await expect.poll(recent).toEqual(expect.arrayContaining([original, added, master]));
   await page.getByRole('checkbox', { name: 'Original audio', exact: true }).uncheck();
   await expect
-    .poll(() =>
-      page.evaluate(() => (window as Window & { mixGains?: number[] }).mixGains?.slice(-3)[0]),
-    )
-    .toBe(0);
+    .poll(async () => {
+      const values = await recent();
+      return values.includes('0.0000') && !values.includes(original) && values.includes(added);
+    })
+    .toBe(true);
 });
 
 test('files without decodable audio show an error and preserve the existing mix', async ({
@@ -257,4 +263,53 @@ test('a longer added track slides by dragging or arrow keys on its waveform', as
     .toBeCloseTo(-1, 1);
   const result = await exportWav(page);
   expect(result.durationSec).toBeCloseTo(2, 1);
+});
+
+test('a slid added track draws only inside the kept range', async ({ page }) => {
+  await load(page, 'land-4k60-aac.mp4');
+  const start = page.getByRole('slider', { name: 'Start', exact: true });
+  await start.focus();
+  for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowRight');
+  await expect(start).toHaveAttribute('aria-valuenow', '1');
+  await addAudio(page);
+  const lane = page.getByRole('slider', { name: 'Added audio position' });
+  await lane.focus();
+  await page.keyboard.press('Home');
+  await expect(lane).toHaveAttribute('aria-valuenow', '-2.9');
+  await expect(lane).toHaveAttribute('data-ready', 'true');
+  // At 20% of a 2 s strip (0.4 s) the source is trimmed away: only background and the axis.
+  const stray = await page
+    .locator('canvas[data-track="added"]')
+    .evaluate((canvas: HTMLCanvasElement) => {
+      const context = canvas.getContext('2d')!;
+      const x = Math.floor(canvas.width * 0.2);
+      const column = context.getImageData(x, 0, 1, canvas.height).data;
+      const background = context.getImageData(x, 0, 1, 1).data.join();
+      const axis = context.getImageData(x, Math.floor(canvas.height / 2), 1, 1).data.join();
+      let count = 0;
+      for (let i = 0; i < column.length; i += 4) {
+        const pixel = column.slice(i, i + 4).join();
+        if (pixel !== background && pixel !== axis) count++;
+      }
+      return count;
+    });
+  expect(stray).toBe(0);
+});
+
+test('preview shows a status while measuring mixed loudness', async ({ page }) => {
+  await load(page);
+  await addAudio(page);
+  // A 3 s clip measures quickly, so record every status text instead of racing the check.
+  await page.locator('.mix-waveform-status').evaluate((node) => {
+    const seen: string[] = [];
+    (window as Window & { statusSeen?: string[] }).statusSeen = seen;
+    new MutationObserver(() => {
+      if (!(node as HTMLElement).hidden) seen.push(node.textContent ?? '');
+    }).observe(node, { attributes: true, childList: true, characterData: true, subtree: true });
+  });
+  await page.getByLabel('Normalize loudness', { exact: true }).selectOption('-16');
+  await expect
+    .poll(() => page.evaluate(() => (window as Window & { statusSeen?: string[] }).statusSeen))
+    .toContain('Measuring loudness for the preview…');
+  await expect(page.locator('.mix-waveform-status')).toBeHidden({ timeout: 15_000 });
 });

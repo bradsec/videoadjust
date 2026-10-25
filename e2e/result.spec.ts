@@ -437,3 +437,40 @@ test('a saved export is read back from disk so the result previews it', async ({
   await expect(page.locator('.compare-skipped')).toHaveCount(0);
   await expect(page.getByRole('link', { name: /Download/ })).toHaveCount(0);
 });
+
+test('comparison labels follow the wipe line and hide when their side is too narrow', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.addInitScript(() => {
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
+    delete (Window.prototype as unknown as Record<string, unknown>).showSaveFilePicker;
+  });
+  await page.goto('/');
+  await page.setInputFiles(
+    '#file',
+    new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname,
+  );
+  const card = page.getByRole('region', { name: 'Export summary' });
+  await card.getByRole('checkbox', { name: 'Re-encode anyway' }).check();
+  await card.getByRole('button', { name: /^Export/ }).click();
+  await expect(page.getByRole('link', { name: /Download/ })).toBeVisible({ timeout: 60_000 });
+  const line = page.locator('.wipe-line');
+  const original = page.locator('.side-tag.l');
+  const next = page.locator('.side-tag.r');
+  const knob = page.getByRole('slider', { name: 'Wipe position' });
+  await knob.focus();
+  for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowRight');
+  await expect
+    .poll(async () => {
+      const at = (await line.boundingBox())!.x;
+      const a = (await original.boundingBox())!;
+      const b = (await next.boundingBox())!;
+      return a.x + a.width < at && b.x > at && b.x - at < 20 && at - (a.x + a.width) < 20;
+    })
+    .toBe(true);
+  await page.keyboard.press('End');
+  await expect(next).toHaveCSS('opacity', '0');
+  await expect(original).toHaveCSS('opacity', '1');
+});

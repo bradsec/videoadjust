@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/github/license/bradsec/videoadjust)](LICENSE)
 [![Live site](https://img.shields.io/website?url=https%3A%2F%2Fvideoadjust.com%2F&label=videoadjust.com)](https://videoadjust.com/)
 
-Edit, compress and convert videos entirely in your browser. Trim, crop, resize and rotate, correct colour, apply styles and overlays, adjust or extract audio, make GIFs and save frames. [Mediabunny](https://mediabunny.dev/) runs conversion locally through WebCodecs. Nothing is uploaded.
+A private video editor that runs in your browser. Trim, crop, resize and rotate, correct colour, apply styles and overlays, add music and adjust or extract audio, make GIFs and save frames. [Mediabunny](https://mediabunny.dev/) runs conversion locally through WebCodecs, so your videos are processed on your device and never uploaded.
 
 **Live app: https://videoadjust.com/**
 
@@ -53,7 +53,7 @@ Edit, compress and convert videos entirely in your browser. Trim, crop, resize a
 - Look: The app is dark only, with the same cool greys as rastertrace (`#111419` background, `#20252c` raised surfaces, `#e9ecef` text) and videoadjust's chartreuse accent (`#c6ef3a`). It uses system sans-serif fonts with tabular figures for times and sizes. Checkboxes draw as sliding switches. The logo is a lowercase va monogram in a chartreuse-framed rounded square, drawn as Inter Bold outlines, beside the lowercase name videoadjust, matching rastertrace's rt mark. Theater mode is saved in `localStorage`; overlay fonts you add are kept in IndexedDB.
 - Phones: Quick taps never trigger double-tap zoom, and every text field and menu uses at least 16px text so iOS does not zoom the page when one takes focus. Pinch zoom still works.
 - About: The info button at the top right of the header opens the About dialog with the version, what the app does, offline use, credits, the libraries, a link to the third-party licences and a Buy Me a Coffee support link. The GitHub icon, app name and version in the footer link to the repo.
-- Size guidance: Designed and tested for inputs up to 2 GB. Above 2 GB the app warns and lets you continue. Where there is no save picker (iOS Safari, Firefox) the output stays in memory until you download or share it, and a large estimate asks before it starts.
+- Size guidance: There is no hard size limit; the source is read from disk in chunks. Above 2 GB the app warns and lets you continue. Desktop Chrome and Edge save the output straight to disk while encoding, so they handle the largest files. Where there is no save picker (iOS Safari, Firefox) the output stays in memory until you download or share it, and a large estimate asks before it starts.
 - Offline: A service worker (`public/sw.js`, registered only in production builds) precaches every built file, including the lazy AAC and MP3 encoder chunks. Navigations are network-first, revalidated with the server (so the host's max-age cannot serve an old page), with the precached page used when offline or after 4 s; network responses never overwrite that page, keeping its HTML and assets from the same build. Hashed assets are cache-first. The previous version's cache is kept until the next update so an open tab can still load the AAC chunk. The build fills in the file list and a cache version at build time.
 
 ## Structure

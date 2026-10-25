@@ -1987,11 +1987,19 @@ input[type='checkbox']:disabled {
   font-weight: 500;
   pointer-events: none;
 }
+.side-tag {
+  white-space: nowrap;
+  transition: opacity var(--dur) ease-out;
+}
+/* compare.ts places the tags beside the wipe line; these are the unplayable-original fallback. */
 .side-tag.l {
-  left: var(--s-3);
+  left: auto;
 }
 .side-tag.r {
   right: var(--s-3);
+}
+.side-tag.is-tucked {
+  opacity: 0;
 }
 .wipe-line {
   position: absolute;

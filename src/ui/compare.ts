@@ -111,12 +111,35 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
     output.style.clipPath = originalPlayable ? `inset(0 0 0 ${position}%)` : 'none';
     line.style.left = `${position}%`;
     knob.style.left = `${position}%`;
+    placeTags();
     knob.setAttribute('aria-valuenow', String(Math.round(position)));
     knob.setAttribute(
       'aria-valuetext',
       `${Math.round(position)}% original, ${100 - Math.round(position)}% new`,
     );
   }
+
+  // Labels ride beside the wipe line so each always names the side it sits on; one fades out
+  // when its side is too narrow to hold it, rather than spilling onto the other video.
+  const TAG_GAP = 8;
+  function placeTags(): void {
+    if (!originalPlayable) {
+      tagNew.style.removeProperty('left');
+      tagNew.style.removeProperty('right');
+      tagNew.classList.remove('is-tucked');
+      return;
+    }
+    tagOriginal.style.right = `calc(${100 - position}% + ${TAG_GAP}px)`;
+    tagNew.style.left = `calc(${position}% + ${TAG_GAP}px)`;
+    tagNew.style.right = 'auto';
+    const width = stage.clientWidth;
+    if (!width) return;
+    const left = (width * position) / 100;
+    tagOriginal.classList.toggle('is-tucked', left < tagOriginal.offsetWidth + 2 * TAG_GAP);
+    tagNew.classList.toggle('is-tucked', width - left < tagNew.offsetWidth + 2 * TAG_GAP);
+  }
+  const tagObserver = new ResizeObserver(placeTags);
+  tagObserver.observe(stage);
 
   function showOriginalUnplayable(): void {
     if (!originalPlayable) return;
@@ -257,6 +280,7 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
 
   return {
     destroy() {
+      tagObserver.disconnect();
       if (frameHandle !== undefined) output.cancelVideoFrameCallback(frameHandle);
       output.removeEventListener('timeupdate', onTimeUpdate);
       for (const v of [original, output]) {

@@ -95,6 +95,7 @@ export function mountPreviewAudio(
   input: Input,
   onNormalization: (db: number) => void = () => {},
   onUnavailable: (message: string) => void = () => {},
+  onAnalysing: (busy: boolean) => void = () => {},
 ) {
   let context: AudioContext | undefined;
   let originalGain: GainNode | undefined;
@@ -290,6 +291,7 @@ export function mountPreviewAudio(
     analysisInput = addedInput;
     analysis?.abort();
     clearTimeout(analysisTimer);
+    onAnalysing(false);
     normalizationDb = 0;
     onNormalization(0);
     if (!key || !target) return;
@@ -297,6 +299,7 @@ export function mountPreviewAudio(
     analysisTimer = setTimeout(() => {
       const controller = new AbortController();
       analysis = controller;
+      onAnalysing(true);
       const measure = async () => {
         if (hasAudioMix(mix)) {
           const processor = createMixProcessor(
@@ -325,6 +328,9 @@ export function mountPreviewAudio(
         .catch((error: unknown) => {
           if (!controller.signal.aborted)
             console.warn('Preview loudness analysis failed; preview is not normalized.', error);
+        })
+        .finally(() => {
+          if (analysis === controller) onAnalysing(false);
         });
     }, ANALYSIS_DELAY_MS);
   }

@@ -34,10 +34,10 @@ async function dropSyntheticFile(page: Page, name: string, size: number) {
 // Reading is under way (status text) or has already failed (alert), depending on engine speed.
 const readingOrFailed = (page: Page) => page.locator('[role=status]:not(:empty), [role=alert]');
 
-test('shows the drop zone and says files stay on this device', async ({ page }) => {
+test('shows the drop zone and says editing is private and local', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(page.getByText('Stays on this device')).toBeVisible();
-  await expect(page.getByText('Nothing is uploaded')).toBeVisible();
+  await expect(page.getByText('Private · runs in your browser')).toBeVisible();
+  await expect(page.locator('.hero').getByText('never uploaded')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Choose video' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'About', exact: true })).toBeVisible();
 });
