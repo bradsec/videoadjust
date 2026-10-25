@@ -5,6 +5,12 @@ import {
 } from '../core/audioProcess';
 import { el, icon } from './dom';
 
+// Fades past 10 s are rare; a shorter range keeps 0.1 s steps usable on long clips.
+const fadeMax = (duration: number) => Math.min(10, Math.max(0, duration));
+
+const format = (key: 'gainDb' | 'fadeIn' | 'fadeOut', value: number) =>
+  key === 'gainDb' ? `${value > 0 ? '+' : ''}${value.toFixed(1)} dB` : `${value.toFixed(1)} s`;
+
 export function mountAudioProcessing(
   host: HTMLElement,
   value: Partial<AudioProcessing> | undefined,
@@ -19,29 +25,33 @@ export function mountAudioProcessing(
   reset.prepend(icon('i-reset'));
   reset.addEventListener('click', () => {
     onChange(normalizeAudioProcessing({}, duration));
-    fields.get('gainDb')?.focus();
+    fields.get('gainDb')?.input.focus();
   });
   head.append(el('strong', undefined, 'Audio processing'), reset);
   section.append(head);
-  const fields = new Map<'gainDb' | 'fadeIn' | 'fadeOut', HTMLInputElement>();
+  const fields = new Map<
+    'gainDb' | 'fadeIn' | 'fadeOut',
+    { input: HTMLInputElement; output: HTMLElement }
+  >();
   for (const [key, name, min, max, step] of [
     ['gainDb', 'Gain (dB)', -20, 20, 0.5],
-    ['fadeIn', 'Fade in (seconds)', 0, duration, 0.1],
-    ['fadeOut', 'Fade out (seconds)', 0, duration, 0.1],
+    ['fadeIn', 'Fade in (seconds)', 0, fadeMax(duration), 0.1],
+    ['fadeOut', 'Fade out (seconds)', 0, fadeMax(duration), 0.1],
   ] as const) {
     const label = el('label', 'setting-label', name);
-    const input = el('input', 'setting-select num');
-    input.type = 'number';
+    const output = el('output', 'num');
+    const input = el('input', 'setting-range');
+    input.type = 'range';
     input.min = String(min);
     input.max = String(max);
     input.step = String(step);
     input.setAttribute('aria-label', name);
-    input.addEventListener('change', () =>
+    input.addEventListener('input', () =>
       onChange(normalizeAudioProcessing({ ...settings, [key]: input.valueAsNumber }, duration)),
     );
-    label.append(input);
+    label.append(output, input);
     section.append(label);
-    fields.set(key, input);
+    fields.set(key, { input, output });
   }
   const label = el('label', 'setting-label', 'Normalize loudness');
   const normalize = el('select', 'setting-select');
@@ -79,9 +89,11 @@ export function mountAudioProcessing(
   function update(value: Partial<AudioProcessing> | undefined, span: number): void {
     duration = span;
     settings = normalizeAudioProcessing(value, duration);
-    for (const [key, input] of fields) {
+    for (const [key, { input, output }] of fields) {
+      if (key !== 'gainDb') input.max = String(fadeMax(duration));
       input.value = String(settings[key]);
-      if (key !== 'gainDb') input.max = String(duration);
+      input.setAttribute('aria-valuetext', format(key, settings[key]));
+      output.textContent = format(key, settings[key]);
     }
     normalize.value = String(settings.normalize ?? 'off');
     reset.hidden = !hasAudioProcessing(settings);
