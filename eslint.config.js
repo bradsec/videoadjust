@@ -26,6 +26,10 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/**/*.ts'],
+    rules: { 'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }] },
+  },
+  {
     files: ['scripts/**/*.{js,mjs}', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
