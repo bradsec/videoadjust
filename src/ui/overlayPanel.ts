@@ -105,9 +105,12 @@ export function mountOverlayPanel(
     const label = el('label', 'setting-label', name);
     if (tip) label.title = tip;
     const controls = el('span', 'overlay-percentage');
-    const unit = el('span', undefined, '%');
+    const unit = el('span', 'overlay-unit', '%');
     unit.setAttribute('aria-hidden', 'true');
-    controls.append(slider, input, unit);
+    // One bordered box holds the number and its unit, so the % reads as part of the value.
+    const value = el('span', 'overlay-value');
+    value.append(input, unit);
+    controls.append(slider, value);
     label.append(controls);
     parent.append(label);
     patches.push(() => {

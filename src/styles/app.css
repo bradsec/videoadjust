@@ -1080,16 +1080,47 @@ input[type='checkbox']:disabled {
 }
 .overlay-percentage {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 3.5rem auto;
-  gap: var(--s-1);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-3);
   align-items: center;
+}
+.overlay-value {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--tap);
+  padding-inline: var(--s-2) var(--s-3);
+  border: 1px solid var(--ctl);
+  border-radius: var(--r-md);
+  background: var(--bg);
+}
+.overlay-value:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.overlay-unit {
+  color: var(--text-2);
 }
 .overlay-percentage .setting-range {
   min-width: 0;
 }
 .overlay-setting .overlay-percentage input[type='number'] {
+  width: 3.5ch;
   min-width: 0;
-  padding-inline: var(--s-1);
+  min-height: 0;
+  padding: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: 0;
+  outline: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.overlay-setting .overlay-percentage input[type='number']::-webkit-inner-spin-button,
+.overlay-setting .overlay-percentage input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 .overlay-setting input[type='number'],
 .overlay-setting textarea {
