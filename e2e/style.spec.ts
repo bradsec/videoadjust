@@ -106,7 +106,7 @@ test('Video Style carries into GIF export', async ({ page }) => {
     input.value = '#ff0000';
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  await expect(page.locator('.live-preview-style')).toBeVisible();
+  await expect(page.locator('.live-preview-palette')).toBeVisible();
   const panel = page.getByRole('tabpanel');
   await panel.getByRole('button', { name: 'Export GIF' }).click();
   await expect(page.getByRole('link', { name: /Download .*\.gif/i })).toBeVisible({

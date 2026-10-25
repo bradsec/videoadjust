@@ -168,7 +168,9 @@ hardware, and other browsers are not covered by the automated tests; see "Manual
 
 ## Support
 
-If videoadjust is useful to you, please consider starring the repository to help others discover it. You can also support its development on [Ko-fi](https://ko-fi.com/bradsec).
+If videoadjust is useful to you, please consider starring the repository to help others discover it.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/C8G129FZKM)
 
 ## Acknowledgements and credits
 
