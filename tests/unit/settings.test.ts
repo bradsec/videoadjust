@@ -1,3 +1,4 @@
+import { toConversionOptions } from '../../src/core/convert';
 import { defaultOverlays } from '../../src/core/overlays';
 import { describe, expect, it } from 'vitest';
 import { autoSettings, targetVideoBitrate } from '../../src/core/autoSettings';
@@ -31,6 +32,80 @@ const source: SourceInfo = {
 
 describe('settings validation', () => {
   const auto = autoSettings(source, caps);
+  it('strips source metadata by default', () => {
+    expect(auto.settings.metadata).toEqual({ title: '', strip: true });
+    expect(toConversionOptions(auto.settings).tags).toEqual({});
+  });
+  it('keeps neutral mix copy eligible and track volume preserves video copy', () => {
+    const neutral = { original: { include: true, volumeDb: 0 } };
+    const settings = validateSettings(
+      { ...auto.settings, passthrough: true, mix: neutral },
+      auto,
+      caps,
+      source,
+    );
+    expect(settings.audio?.copy).toBe(auto.settings.audio?.copy);
+    expect(settings.passthrough).toBe(true);
+    const changed = validateSettings(
+      { ...settings, mix: { original: { include: true, volumeDb: -6 } } },
+      auto,
+      caps,
+      source,
+    );
+    expect(changed.audio?.copy).toBe(false);
+    expect(changed.passthrough).toBe(true);
+  });
+  it('uses original include as the audio removal control', () => {
+    const removed = validateSettings(
+      { ...auto.settings, mix: { original: { include: false, volumeDb: 0 } } },
+      auto,
+      caps,
+      source,
+    );
+    expect(removed.audio).toBeNull();
+    const restored = validateSettings(
+      { ...removed, mix: { original: { include: true, volumeDb: 0 } } },
+      auto,
+      caps,
+      source,
+    );
+    expect(restored.audio).not.toBeNull();
+  });
+  it('budgets added audio on a silent source and clamps the mix to the trim', () => {
+    const silent = { ...source, audio: null };
+    const silentAuto = autoSettings(silent, caps);
+    const mixed = validateSettings(
+      {
+        ...silentAuto.settings,
+        trim: { start: 1, end: 3 },
+        mix: {
+          original: { include: false, volumeDb: -50 },
+          added: { volumeDb: 99, offset: 20, loop: true },
+        },
+      },
+      silentAuto,
+      caps,
+      silent,
+    );
+    expect(mixed.mix).toEqual({
+      original: { include: false, volumeDb: -30 },
+      added: { volumeDb: 12, offset: 2, loop: true },
+    });
+    expect(mixed.audio).toMatchObject({ channels: 2, copy: false });
+    expect(estimateBytes(mixed, silent).mid).toBeGreaterThan(
+      estimateBytes({ ...mixed, audio: null }, silent).mid,
+    );
+    const target = { ...mixed, trim: { start: 0, end: 20 }, targetSizeMB: 1, passthrough: false };
+    const withAudio = validateSettings(target, silentAuto, caps, silent);
+    const withoutAudio = validateSettings(
+      { ...target, mix: { original: { include: false, volumeDb: 0 } } },
+      silentAuto,
+      caps,
+      silent,
+    );
+    expect(withAudio.audio).not.toBeNull();
+    expect(withAudio.video!.bitrate).toBeLessThan(withoutAudio.video!.bitrate);
+  });
   it('keeps video copy eligible with processed audio and clamps fades to the trim', () => {
     const settings = validateSettings(
       {
@@ -46,7 +121,7 @@ describe('settings validation', () => {
     expect(settings.passthrough).toBe(true);
     expect(settings.audio?.copy).toBe(false);
     expect(settings.audioProcessing).toMatchObject({ gainDb: 3, fadeIn: 1, fadeOut: 1 });
-    expect(settingsChangeCount(settings, auto, caps, source)).toBe(1);
+    expect(settingsChangeCount(settings, auto, caps, source)).toBe(2);
   });
   it('validates overlays and counts independently enabled layers', () => {
     const overlays = defaultOverlays();

@@ -1,0 +1,41 @@
+.audio-tracks {
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-2) 0 var(--s-4);
+}
+.audio-track-row {
+  display: grid;
+  gap: var(--s-2);
+  min-width: 0;
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+.audio-track-row strong {
+  overflow-wrap: anywhere;
+}
+.audio-track-toggle {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  min-height: var(--tap);
+}
+.mix-waveforms {
+  display: grid;
+  gap: var(--s-2);
+  margin: var(--s-3) 14px 0;
+}
+.mix-waveform-lane {
+  display: grid;
+  gap: var(--s-1);
+  min-width: 0;
+}
+.mix-waveform-label {
+  color: var(--text-2);
+  font-size: var(--fs-12);
+}
+.mix-waveform-lane canvas {
+  display: block;
+  width: 100%;
+  height: 48px;
+  border-radius: var(--r-sm);
+}

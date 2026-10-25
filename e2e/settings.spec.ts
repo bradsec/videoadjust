@@ -1,3 +1,4 @@
+import { openSection } from './sections';
 import { expect, test } from '@playwright/test';
 
 const fixture = new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname;
@@ -165,11 +166,14 @@ for (const theater of [false, true]) {
 test('audio removal and WebM selection stay valid', async ({ page }) => {
   const card = page.getByRole('region', { name: 'Export summary' });
   await card.locator('summary').click();
-  await card.getByLabel('Audio codec', { exact: true }).selectOption('none');
+  await openSection(page, 'audio');
+  await page.getByRole('checkbox', { name: 'Original audio', exact: true }).uncheck();
   await expect(card.locator('h2')).toContainText('MP4');
   await expect(card.locator('.export-sub')).toContainText('no audio');
-  await card.getByRole('button', { name: 'Reset to auto: Audio codec' }).click();
+  await page.getByRole('checkbox', { name: 'Original audio', exact: true }).check();
   await expect(card.locator('.export-sub')).toContainText('AAC');
+  // Opening Audio closed Output.
+  await card.locator('summary').click();
   const webm = card.getByLabel('Format', { exact: true }).locator('option[value="webm"]');
   test.skip(!(await webm.isEnabled()), 'WebM is unavailable in this browser');
   await card.getByLabel('Format', { exact: true }).selectOption('webm');

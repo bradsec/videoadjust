@@ -161,3 +161,30 @@ test(
     expect(inspector.x).toBeCloseTo(canvas.x, 0);
   },
 );
+
+test('result comparison offers theater mode on desktop and leaves it on Start over', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.addInitScript(() => {
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
+    delete (Window.prototype as unknown as Record<string, unknown>).showSaveFilePicker;
+  });
+  await page.goto('/');
+  await page.setInputFiles('#file', landscapeFixture);
+  const card = page.getByRole('region', { name: 'Export summary' });
+  await card.getByRole('checkbox', { name: 'Re-encode anyway' }).check();
+  await card.locator('summary').click();
+  await card.getByLabel('Resolution', { exact: true }).selectOption({ index: 2 });
+  await card.getByRole('button', { name: /^Export/ }).click();
+  await expect(page.getByRole('link', { name: /Download/ })).toBeVisible({ timeout: 60_000 });
+  const stage = page.locator('.compare-stage');
+  const before = (await stage.boundingBox())!.width;
+  const toggle = page.getByRole('button', { name: 'Theater mode' });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => (await stage.boundingBox())!.width).toBeGreaterThan(before);
+  await page.getByRole('button', { name: 'Start over' }).click();
+  await expect(page.locator('body')).not.toHaveClass(/is-theater/);
+});

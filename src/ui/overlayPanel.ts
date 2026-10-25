@@ -13,6 +13,7 @@ import {
   type Overlays,
 } from '../core/overlays';
 import { el } from './dom';
+import { toast } from './toast';
 
 export function mountOverlayPanel(
   host: HTMLElement,
@@ -280,6 +281,7 @@ export function mountOverlayPanel(
         fontStatus.textContent = saved
           ? ''
           : 'This browser blocks saved fonts, so this one lasts until the page closes.';
+        toast(`${font.name} added.`, 'success');
         await refreshFonts();
         text({ font: `custom:${font.id}`, weight: 400 });
       })

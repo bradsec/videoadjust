@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CropPreset, Rotation } from '../../src/core/types';
-import { livePreviewGeometry } from '../../src/ui/livePreview';
+import { livePreviewGeometry, previewFidelity } from '../../src/ui/livePreview';
 
 const source = { width: 640, height: 360 };
 const container = { width: 640, height: 640 };
@@ -142,5 +142,28 @@ describe('live preview geometry', () => {
   it.each([0, -1, NaN, Infinity])('ignores unavailable or invalid dimensions: %s', (width) => {
     expect(livePreviewGeometry(source, undefined, { width, height: 100 })).toBeNull();
     expect(livePreviewGeometry({ width, height: 100 }, undefined, container)).toBeNull();
+  });
+});
+
+describe('preview fidelity', () => {
+  const frame = { width: 1920, height: 1080 };
+  it('renders through the canvas when the output is smaller or slower than the source', () => {
+    expect(previewFidelity({ output: frame, fps: 30, sourceFps: 30 }, frame)).toEqual({
+      scaled: false,
+      reduced: false,
+    });
+    expect(
+      previewFidelity({ output: { width: 854, height: 480 }, fps: 30, sourceFps: 30 }, frame),
+    ).toEqual({ scaled: true, reduced: false });
+    expect(previewFidelity({ output: frame, fps: 15, sourceFps: 29.97 }, frame)).toEqual({
+      scaled: false,
+      reduced: true,
+    });
+  });
+  it('ignores rounding in frame rates and missing rates', () => {
+    expect(previewFidelity({ output: frame, fps: 29.97, sourceFps: 29.97 }, frame).reduced).toBe(
+      false,
+    );
+    expect(previewFidelity({ output: frame, fps: null, sourceFps: 30 }, frame).reduced).toBe(false);
   });
 });

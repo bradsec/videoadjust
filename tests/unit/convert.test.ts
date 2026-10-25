@@ -23,6 +23,7 @@ import {
 import type { AudioExtractSettings } from '../../src/core/audioExtract';
 import type { Settings } from '../../src/core/types';
 import { cropRectangle, outputSize, rotatedSize } from '../../src/core/videoGeometry';
+import type { AddedAudio } from '../../src/core/audioMix';
 
 const base: Settings = {
   container: 'mp4',
@@ -41,6 +42,33 @@ const audio: AudioExtractSettings = {
 };
 
 describe('conversion jobs', () => {
+  it('keeps neutral mixes on the existing copy path and discards excluded originals', () => {
+    const mix = { original: { include: true, volumeDb: 0 } };
+    expect(shrinkJob({ ...base, passthrough: true, mix }).options.audio).toEqual({});
+    expect(audioExtractJob({ ...audio, format: 'm4a', copy: true, mix }).options.audio).toEqual({
+      codec: 'aac',
+      forceTranscode: false,
+    });
+    const removed = shrinkJob({ ...base, mix: { original: { include: false, volumeDb: 0 } } });
+    expect(removed.options.audio).toEqual({ discard: true });
+    expect(removed.keeps.audio).toBe(false);
+  });
+
+  it('uses one custom audio source for mixes while preserving video copy', () => {
+    const mix = {
+      original: { include: false, volumeDb: 0 },
+      added: { volumeDb: 0, offset: 0, loop: false },
+    };
+    const added = {} as AddedAudio;
+    const job = shrinkJob({ ...base, passthrough: true, mix }, undefined, {}, added);
+    expect(job.copiesVideo).toBe(true);
+    expect(job.options.audio).toEqual({ discard: true });
+    expect(job.customAudio).toBeDefined();
+    expect(job.keeps.audio).toBe(true);
+    expect(
+      audioExtractJob({ ...audio, format: 'wav', mix }, added).customAudio?.encoding.codec,
+    ).toBe('pcm-s16');
+  });
   it('cancels during analysis before starting the encoder', async () => {
     const init = vi.spyOn(Conversion, 'init');
     const cleanup = vi.fn();
@@ -101,6 +129,7 @@ describe('conversion jobs', () => {
     expect(audioExtractJob(audio)).toEqual({
       options: {
         trim: audio.trim,
+        tags: {},
         video: { discard: true },
         audio: { codec: 'mp3', quality: new Quality({ bitrate: 128_000 }), numberOfChannels: 2 },
       },

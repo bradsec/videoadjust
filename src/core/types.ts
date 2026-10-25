@@ -1,6 +1,7 @@
 import type { Overlays } from './overlays';
 import type { StyleSettings } from './style';
 import type { AudioProcessing } from './audioProcess';
+import type { AudioMix } from './audioMix';
 
 export type Container = 'mp4' | 'webm';
 export type VideoCodecId = 'avc' | 'hevc' | 'av1' | 'vp9';
@@ -43,6 +44,7 @@ export interface Capabilities {
 }
 
 export interface Settings {
+  mix?: AudioMix;
   audioProcessing?: Partial<AudioProcessing>;
   overlays?: Overlays;
   style?: StyleSettings;

@@ -46,6 +46,52 @@ function auto(src = source()): AudioExtractSettings {
 }
 
 describe('audio extract rules', () => {
+  it('normalizes mix settings and preserves copy eligibility only for a neutral mix', () => {
+    const src = source({ bitrate: 96000 });
+    const automatic = auto(src);
+    const selected = {
+      ...automatic,
+      format: 'm4a' as const,
+      copy: true,
+      mix: { original: { include: true, volumeDb: 0 } },
+    };
+    expect(validateAudioExtract(selected, automatic, src, caps()).copy).toBe(true);
+    const mixed = validateAudioExtract(
+      {
+        ...selected,
+        mix: {
+          original: { include: false, volumeDb: -99 },
+          added: { volumeDb: 99, offset: 100, loop: true },
+        },
+        trim: { start: 2, end: 5 },
+      },
+      automatic,
+      src,
+      caps(),
+    );
+    expect(mixed.copy).toBe(false);
+    expect(mixed.mix).toEqual({
+      original: { include: false, volumeDb: -30 },
+      added: { volumeDb: 12, offset: 3, loop: true },
+    });
+  });
+
+  it('estimates mixed WAV at the mixer sample rate even without original audio', () => {
+    const src = { ...source(), audio: null };
+    const estimate = estimateAudioBytes(
+      {
+        ...auto(),
+        format: 'wav',
+        trim: { start: 0, end: 2 },
+        mix: {
+          original: { include: false, volumeDb: 0 },
+          added: { volumeDb: 0, offset: 0, loop: false },
+        },
+      },
+      src,
+    );
+    expect(estimate.mid).toBe(48000 * 2 * 2 * 2 + 44);
+  });
   it('disables AAC copy for processing and restores eligibility at neutral settings', () => {
     const src = source({ bitrate: 96000 });
     const automatic = auto(src);

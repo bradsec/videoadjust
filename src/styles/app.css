@@ -775,8 +775,14 @@ input[type='checkbox']:disabled {
   flex-wrap: wrap;
   gap: var(--s-3);
 }
-.edit-tools .frame-format {
-  width: auto;
+.edit-frame {
+  flex: none;
+  width: var(--tap);
+  padding: 0;
+}
+.edit-frame svg.i {
+  width: 28px;
+  height: 28px;
 }
 .edit-tool {
   flex: 1 1 0;
@@ -1637,6 +1643,9 @@ input[type='checkbox']:disabled {
   margin-right: auto;
   font-weight: 650;
 }
+.reset-all .adjust-state {
+  margin-left: 0;
+}
 .setting-auto {
   font-size: var(--fs-14);
   color: var(--text-2);
@@ -2345,13 +2354,20 @@ table.stats {
   body.is-theater .foot-in {
     justify-content: flex-start;
   }
-  .is-theater .prepare-regions {
+  .is-theater .prepare-regions,
+  .is-theater .result {
     grid-template-columns: minmax(0, 1fr) 380px;
     column-gap: var(--s-6);
   }
   .is-theater .prepare-regions > .canvas,
-  .is-theater .prepare-regions > .inspector {
+  .is-theater .prepare-regions > .inspector,
+  .is-theater .result > .canvas,
+  .is-theater .result > .inspector {
     grid-column: auto;
+  }
+  .is-theater .result .compare-stage {
+    /* Header, toggle row and compare bar stay on screen. */
+    max-height: calc(100dvh - 260px);
   }
   .is-theater .live-preview-stage {
     /* JS measures the stage's top edge and playback bar, including wrapped controls. */

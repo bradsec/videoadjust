@@ -9,14 +9,19 @@ import { el, icon } from './dom';
 
 export function mountStylePanel(
   host: HTMLElement,
+  colourHost: HTMLElement,
   initial: StyleSettings | undefined,
   onChange: (style: StyleSettings) => void,
 ): { update(style: StyleSettings | undefined, unavailable?: string): void } {
   let value = normalizeStyle(initial);
   const heading = el('summary');
   const state = el('span', 'adjust-state');
-  heading.append('Style Filter', state, icon('i-chev'));
+  heading.append('Style', state, icon('i-chev'));
   const controls = el('div', 'settings-controls style-controls');
+  const colourHeading = el('summary');
+  const colourState = el('span', 'adjust-state');
+  colourHeading.append('Colour correction', colourState, icon('i-chev'));
+  const colourControls = el('div', 'settings-controls style-controls');
   const correction = el('div', 'setting');
   const correctionHead = el('div', 'setting-head');
   const reset = el('button', 'setting-reset', 'Reset colour correction');
@@ -101,15 +106,24 @@ export function mountStylePanel(
     onChange({ ...value, intensity: intensity.valueAsNumber / 100 }),
   );
   detail.addEventListener('input', () => onChange({ ...value, detail: detail.valueAsNumber }));
-  controls.append(correction, presetLabel, intensityLabel, detailLabel, colors, unavailableNote);
+  colourControls.append(correction);
+  colourHost.append(colourHeading, colourControls);
+  controls.append(presetLabel, intensityLabel, detailLabel, colors, unavailableNote);
   host.append(heading, controls);
 
   return {
     update(next, unavailable) {
       value = normalizeStyle(next);
       const selected = STYLE_PRESETS.find((style) => style.id === value.id)!;
-      state.textContent = `${selected.label}${hasColorCorrection(value) ? ' · Corrected' : ''}`;
-      state.classList.toggle('is-changed', value.id !== 'none' || hasColorCorrection(value));
+      state.textContent = selected.label;
+      state.classList.toggle('is-changed', value.id !== 'none');
+      const corrected = (Object.keys(value.correction) as (keyof ColorCorrection)[]).filter(
+        (key) => value.correction[key] !== normalizeStyle().correction[key],
+      ).length;
+      colourState.textContent = corrected
+        ? `${corrected} ${corrected === 1 ? 'change' : 'changes'}`
+        : 'Neutral';
+      colourState.classList.toggle('is-changed', corrected > 0);
       reset.hidden = !hasColorCorrection(value);
       reset.disabled = !!unavailable;
       for (const [key, { input, output }] of corrections) {

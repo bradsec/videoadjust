@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ConversionCanceledError, Mp3OutputFormat, Quality, type Input } from 'mediabunny';
 import type { AudioFormat } from '../../src/core/audioExtract';
+import { defaultOverlays } from '../../src/core/overlays';
+import { normalizeStyle } from '../../src/core/style';
+import type { AddedAudio } from '../../src/core/audioMix';
 import { audioExtractJob, ConversionInvalidError } from '../../src/core/convert';
 import { autoSettings, targetVideoBitrate } from '../../src/core/autoSettings';
 import type { Capabilities, Settings, SourceInfo } from '../../src/core/types';
 import {
   createController,
+  allSettingsChangeCount,
   LARGE_FILE_BYTES,
   type AppDeps,
   type AppState,
@@ -134,6 +138,133 @@ describe('stale source loads', () => {
     expect(ctl.getState().kind).toBe('prepare');
     ctl.dispatch({ type: 'reset' });
     expect(pending[0]!.input.dispose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('audio mix state', () => {
+  it('keeps the pending audio read busy across tool and track changes', () => {
+    const ctl = createController(
+      { readAddedAudio: () => new Promise(() => {}) } as unknown as AppDeps,
+      () => {},
+    );
+    const source = {
+      ...info('clip.mp4'),
+      audio: { codec: 'aac', decodable: true, channels: 2, sampleRate: 48000, bitrate: 128000 },
+    };
+    ctl.dispatch({
+      type: 'loaded',
+      file: fakeFile(source.name),
+      source,
+      input: fakeInput(),
+      auto: autoSettings(source, caps),
+      caps,
+    });
+    ctl.dispatch({ type: 'addAudio', file: fakeFile('music.mp4') });
+    ctl.dispatch({ type: 'setTool', tool: 'audio' });
+    expect(ctl.getState()).toMatchObject({ kind: 'prepare', addingAudio: true });
+    ctl.dispatch({ type: 'setMix', value: { original: { include: true, volumeDb: -6 } } });
+    expect(ctl.getState()).toMatchObject({ kind: 'prepare', addingAudio: true });
+    ctl.dispatch({ type: 'export' });
+    expect(ctl.getState()).toMatchObject({ kind: 'prepare', addingAudio: true });
+    ctl.dispatch({ type: 'reset' });
+  });
+  it('shares tracks and master across tools, enables extraction for added-only audio, and disposes removed inputs', async () => {
+    const added = {
+      file: fakeFile('music.mp4'),
+      input: fakeInput(),
+      duration: 2,
+      channels: 1,
+      sampleRate: 48000,
+    } as AddedAudio;
+    const ctl = createController(
+      {
+        readAddedAudio: async () => added,
+      } as unknown as AppDeps,
+      () => {},
+    );
+    const source = info('silent.mp4');
+    ctl.dispatch({
+      type: 'loaded',
+      file: fakeFile(source.name),
+      source,
+      input: fakeInput(),
+      auto: autoSettings(source, caps),
+      caps,
+    });
+    ctl.dispatch({ type: 'addAudio', file: added.file });
+    await flush();
+    expect(ctl.getState()).toMatchObject({
+      kind: 'prepare',
+      addedAudio: added,
+      audioSettings: { copy: false },
+    });
+    ctl.dispatch({
+      type: 'setMix',
+      value: {
+        original: { include: false, volumeDb: -6 },
+        added: { volumeDb: -3, offset: 1, loop: true },
+      },
+    });
+    ctl.dispatch({
+      type: 'setAudioProcessing',
+      value: { gainDb: -2, fadeIn: 0, fadeOut: 0, normalize: null },
+    });
+    const state = ctl.getState();
+    if (state.kind !== 'prepare') throw new Error('Expected prepare');
+    expect(state.settings.mix).toEqual(state.audioSettings!.mix);
+    expect(state.settings.audioProcessing).toEqual(state.audioSettings!.audioProcessing);
+    ctl.dispatch({ type: 'setTool', tool: 'audio' });
+    expect(ctl.getState()).toMatchObject({ tool: 'audio' });
+    ctl.dispatch({ type: 'removeAddedAudio' });
+    expect(added.input.dispose).toHaveBeenCalledOnce();
+    expect(ctl.getState()).toMatchObject({
+      tool: 'shrink',
+      settings: { audio: null },
+      audioSettings: null,
+    });
+  });
+
+  it('disposes a late added file after reset and reports decode errors', async () => {
+    let resolve!: (added: AddedAudio) => void;
+    const readAddedAudio = vi.fn(
+      () =>
+        new Promise<AddedAudio>((done) => {
+          resolve = done;
+        }),
+    );
+    const ctl = createController({ readAddedAudio } as unknown as AppDeps, () => {});
+    const source = info('silent.mp4');
+    const load = () =>
+      ctl.dispatch({
+        type: 'loaded',
+        file: fakeFile(source.name),
+        source,
+        input: fakeInput(),
+        auto: autoSettings(source, caps),
+        caps,
+      });
+    load();
+    ctl.dispatch({ type: 'addAudio', file: fakeFile('music.mp4') });
+    ctl.dispatch({ type: 'reset' });
+    const added = {
+      file: fakeFile('music.mp4'),
+      input: fakeInput(),
+      duration: 2,
+      channels: 1,
+      sampleRate: 48000,
+    } as AddedAudio;
+    resolve(added);
+    await flush();
+    expect(added.input.dispose).toHaveBeenCalledOnce();
+    expect(ctl.getState()).toEqual({ kind: 'drop' });
+    readAddedAudio.mockRejectedValueOnce(new Error('This file has no decodable audio.'));
+    load();
+    ctl.dispatch({ type: 'addAudio', file: fakeFile('bad.mp4') });
+    await flush();
+    expect(ctl.getState()).toMatchObject({
+      kind: 'prepare',
+      notice: { tone: 'error', message: 'This file has no decodable audio.' },
+    });
   });
 });
 
@@ -651,6 +782,7 @@ describe('export flow', () => {
     const t = exportSetup({ outputBytes: 400_000 });
     const initial = t.ctl.getState();
     if (initial.kind !== 'prepare') throw new Error('Expected prepare');
+    expect(allSettingsChangeCount(initial)).toBe(0);
     t.ctl.dispatch({
       type: 'setSettings',
       value: { ...initial.settings, targetSizeMB: 0.2, passthrough: false },
@@ -1158,4 +1290,268 @@ describe('export flow', () => {
       expect(t.ctl.getState()).toEqual({ kind: 'drop' });
     });
   });
+});
+
+describe('reset all', () => {
+  it.each(['shrink', 'audio', 'gif'] as const)(
+    'restores load-time defaults and keeps the file and %s tab',
+    async (tool) => {
+      const added = {
+        file: fakeFile('music.mp4'),
+        input: fakeInput(),
+        duration: 2,
+        channels: 1,
+        sampleRate: 48000,
+      };
+      const ctl = createController(
+        { readAddedAudio: async () => added } as unknown as AppDeps,
+        () => {},
+      );
+      const source = {
+        ...info('clip.mp4'),
+        audio: { codec: 'aac', decodable: true, channels: 2, sampleRate: 48000, bitrate: 128000 },
+      };
+      const input = fakeInput();
+      const file = fakeFile(source.name);
+      ctl.dispatch({ type: 'loaded', file, input, source, caps, auto: autoSettings(source, caps) });
+      const initial = ctl.getState();
+      if (initial.kind !== 'prepare') throw new Error('Expected prepare');
+      expect(allSettingsChangeCount(initial)).toBe(0);
+
+      ctl.dispatch({ type: 'setTrim', value: { start: 0.5, end: 2 } });
+      const overlays = defaultOverlays();
+      overlays.text.enabled = true;
+      overlays.text.content = 'Reset this caption';
+      ctl.dispatch({
+        type: 'setSettings',
+        value: {
+          ...initial.settings,
+          overlays,
+          trimPrecision: 'exact',
+          metadata: { title: 'changed', strip: true },
+          transform: { rotate: 90, flip: true, crop: 'square' },
+          style: {
+            id: 'grain',
+            intensity: 0.7,
+            detail: 0.4,
+            colorA: '#172448',
+            colorB: '#f5bd69',
+            correction: { exposure: 1 },
+          },
+        },
+      });
+      ctl.dispatch({
+        type: 'setAudioSettings',
+        value: { ...initial.audioSettings!, format: 'wav', channels: 1 },
+      });
+      ctl.dispatch({
+        type: 'setGifSettings',
+        value: { ...initial.gifSettings!, colors: 64, loop: 'once', compression: 'small' },
+      });
+      ctl.dispatch({
+        type: 'setAudioProcessing',
+        value: { gainDb: -6, fadeIn: 0.2, fadeOut: 0.3, normalize: -16 },
+      });
+      ctl.dispatch({ type: 'addAudio', file: added.file });
+      await flush();
+      ctl.dispatch({
+        type: 'setMix',
+        value: {
+          original: { include: false, volumeDb: -3 },
+          added: { volumeDb: -6, offset: 0.5, loop: true },
+        },
+      });
+      ctl.dispatch({ type: 'setTool', tool });
+      const changed = ctl.getState();
+      if (changed.kind !== 'prepare') throw new Error('Expected prepare');
+      expect(allSettingsChangeCount(changed)).toBeGreaterThan(0);
+
+      ctl.dispatch({ type: 'resetAll' });
+      const reset = ctl.getState();
+      if (reset.kind !== 'prepare') throw new Error('Expected prepare');
+      expect(allSettingsChangeCount(reset)).toBe(0);
+      expect(reset.settings).toEqual(initial.settings);
+      expect(reset.audioAuto).toEqual(initial.audioAuto);
+      expect(reset.audioSettings).toEqual(initial.audioSettings);
+      expect(reset.gifSettings).toEqual(initial.gifSettings);
+      expect(reset.file).toBe(file);
+      expect(reset.input).toBe(input);
+      expect(reset.tool).toBe(tool);
+      expect(reset.addedAudio).toBeUndefined();
+      expect(reset.overlayAssets).toBeUndefined();
+
+      expect(added.input.dispose).toHaveBeenCalledOnce();
+      expect(input.dispose).not.toHaveBeenCalled();
+    },
+  );
+});
+
+it('resetAll aborts pending added audio and disposes its late result', async () => {
+  let finish!: (audio: AddedAudio) => void;
+  let signal!: AbortSignal;
+  const ctl = createController(
+    {
+      readAddedAudio: (_file, value) => {
+        signal = value;
+        return new Promise<AddedAudio>((resolve) => {
+          finish = resolve;
+        });
+      },
+    } as AppDeps,
+    () => {},
+  );
+  const source = info('clip.mp4');
+  ctl.dispatch({
+    type: 'loaded',
+    file: fakeFile(source.name),
+    source,
+    input: fakeInput(),
+    auto: autoSettings(source, caps),
+    caps,
+  });
+  ctl.dispatch({ type: 'addAudio', file: fakeFile('music.mp4') });
+  ctl.dispatch({ type: 'resetAll' });
+  const reset = ctl.getState();
+  expect(signal.aborted).toBe(true);
+  const added = {
+    file: fakeFile('music.mp4'),
+    input: fakeInput(),
+    duration: 2,
+    channels: 1,
+    sampleRate: 48000,
+  };
+  finish(added);
+  await flush();
+  expect(ctl.getState()).toBe(reset);
+  expect(added.input.dispose).toHaveBeenCalledOnce();
+});
+
+it('resetAll keeps an added-only audio tab selected but prevents extraction without audio', async () => {
+  const added = {
+    file: fakeFile('music.mp4'),
+    input: fakeInput(),
+    duration: 2,
+    channels: 1,
+    sampleRate: 48000,
+  };
+  const startConversion = vi.fn();
+  const ctl = createController(
+    { readAddedAudio: async () => added, startConversion } as unknown as AppDeps,
+    () => {},
+  );
+  const source = info('silent.mp4');
+  ctl.dispatch({
+    type: 'loaded',
+    file: fakeFile(source.name),
+    source,
+    input: fakeInput(),
+    auto: autoSettings(source, caps),
+    caps,
+  });
+  ctl.dispatch({ type: 'addAudio', file: added.file });
+  await flush();
+  ctl.dispatch({ type: 'setTool', tool: 'audio' });
+  ctl.dispatch({ type: 'resetAll' });
+  expect(ctl.getState()).toMatchObject({ tool: 'audio', audioAuto: null, audioSettings: null });
+  const reset = ctl.getState();
+  ctl.dispatch({ type: 'export' });
+  expect(ctl.getState()).toBe(reset);
+  expect(startConversion).not.toHaveBeenCalled();
+});
+
+it('resetAll does not change settings while an export is starting', async () => {
+  const { ctl, pending } = setup();
+  ctl.dispatch({ type: 'pick', file: fakeFile('clip.mp4') });
+  await flush();
+  pending[0]!.resolve();
+  await flush();
+  ctl.dispatch({ type: 'setTrim', value: { start: 0.5, end: 2 } });
+  ctl.dispatch({ type: 'export' });
+  const exporting = ctl.getState();
+  expect(exporting).toMatchObject({ kind: 'prepare', exporting: true });
+  ctl.dispatch({ type: 'resetAll' });
+  expect(ctl.getState()).toBe(exporting);
+  ctl.dispatch({ type: 'reset' });
+});
+
+it('resetAll releases the watermark and ignores a pending watermark decode', async () => {
+  const image = { width: 4, height: 4, close: vi.fn() } as unknown as ImageBitmap;
+  let finish!: (image: ImageBitmap) => void;
+  const decode = vi
+    .fn()
+    .mockResolvedValueOnce(image)
+    .mockImplementationOnce(
+      () =>
+        new Promise<ImageBitmap>((resolve) => {
+          finish = resolve;
+        }),
+    );
+  vi.stubGlobal('createImageBitmap', decode);
+  try {
+    const { ctl, pending } = setup();
+    ctl.dispatch({ type: 'pick', file: fakeFile('clip.mp4') });
+    await flush();
+    pending[0]!.resolve();
+    await flush();
+    const file = { ...fakeFile('mark.png'), type: 'image/png' } as File;
+    ctl.dispatch({ type: 'setOverlayImage', file });
+    await flush();
+    expect(ctl.getState()).toMatchObject({ overlayAssets: { image } });
+    ctl.dispatch({ type: 'resetAll' });
+    expect(image.close).toHaveBeenCalledOnce();
+    ctl.dispatch({ type: 'setOverlayImage', file });
+    ctl.dispatch({ type: 'resetAll' });
+    const reset = ctl.getState();
+    const late = { width: 4, height: 4, close: vi.fn() } as unknown as ImageBitmap;
+    finish(late);
+    await flush();
+    expect(ctl.getState()).toBe(reset);
+    expect(late.close).toHaveBeenCalledOnce();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('counts settings on hidden tabs and disabled effect settings', () => {
+  const ctl = createController({} as AppDeps, () => {});
+  const source = {
+    ...info('clip.mp4'),
+    audio: { codec: 'aac', decodable: true, channels: 2, sampleRate: 48000, bitrate: 128000 },
+  };
+  ctl.dispatch({
+    type: 'loaded',
+    file: fakeFile(source.name),
+    source,
+    input: fakeInput(),
+    auto: autoSettings(source, caps),
+    caps,
+  });
+  const initial = ctl.getState();
+  if (initial.kind !== 'prepare') throw new Error('Expected prepare');
+  expect(allSettingsChangeCount(initial)).toBe(0);
+  expect(
+    allSettingsChangeCount({
+      ...initial,
+      audioSettings: { ...initial.audioSettings!, format: 'wav' },
+    }),
+  ).toBeGreaterThan(0);
+  expect(
+    allSettingsChangeCount({ ...initial, gifSettings: { ...initial.gifSettings!, loop: 'once' } }),
+  ).toBeGreaterThan(0);
+  const overlays = defaultOverlays();
+  overlays.text.content = 'Disabled caption';
+  for (const patch of [
+    { trim: { start: 0.5, end: 2 } },
+    { trimPrecision: 'exact' as const },
+    { transform: { rotate: 90 as const, flip: false, crop: 'original' as const } },
+    { style: normalizeStyle({ correction: { exposure: 1 } }) },
+    { style: normalizeStyle({ intensity: 0.3 }) },
+    { overlays },
+    { audioProcessing: { gainDb: -3 } },
+    { mix: { original: { include: false, volumeDb: 0 } } },
+  ]) {
+    expect(
+      allSettingsChangeCount({ ...initial, settings: { ...initial.settings, ...patch } }),
+    ).toBeGreaterThan(0);
+  }
 });

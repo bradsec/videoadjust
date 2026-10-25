@@ -3,6 +3,7 @@ import { hasOverlays, renderOverlayLayer, type OverlayAssets } from '../core/ove
 import {
   createStyleRenderer,
   hasStyleEffects,
+  normalizeStyle,
   STYLE_PRESETS,
   type StyleSettings,
 } from '../core/style';
@@ -53,8 +54,8 @@ function looksDifferent(a: PreviewSettings, b: PreviewSettings): boolean {
   return (
     a.enabled !== b.enabled ||
     a.assets?.image !== b.assets?.image ||
-    JSON.stringify([a.transform, a.overlays, a.output, a.style]) !==
-      JSON.stringify([b.transform, b.overlays, b.output, b.style])
+    JSON.stringify([a.transform, a.overlays, a.output, a.style, a.fps]) !==
+      JSON.stringify([b.transform, b.overlays, b.output, b.style, b.fps])
   );
 }
 
@@ -63,8 +64,22 @@ interface PreviewSettings {
   overlays: Settings['overlays'];
   style: StyleSettings | undefined;
   output: Size;
+  /** Output and source frame rates; a lower output rate holds frames to show the stepping. */
+  fps?: number | null;
+  sourceFps?: number | null;
   assets?: OverlayAssets;
   enabled: boolean;
+}
+
+/** Whether the export would visibly differ from the source in resolution or frame rate. */
+export function previewFidelity(
+  settings: Pick<PreviewSettings, 'output' | 'fps' | 'sourceFps'>,
+  frame: Size,
+): { scaled: boolean; reduced: boolean } {
+  return {
+    scaled: settings.output.width * settings.output.height < frame.width * frame.height,
+    reduced: !!settings.fps && !!settings.sourceFps && settings.fps < settings.sourceFps - 0.01,
+  };
 }
 
 export function mountLivePreview(
@@ -122,10 +137,19 @@ export function mountLivePreview(
   const styleContext = styleSource.getContext('2d');
   let styleFailed = false;
   let frameCallback = 0;
+  // Style effects, or an output smaller or slower than the source, render through the canvas.
+  let processed = false;
+  let reduced = false;
+  let lastFrame = -1;
 
   function drawStyle(time = video.currentTime): void {
-    if (!active || !settings || !hasStyleEffects(settings.style) || styleFailed) return;
+    if (!active || !settings || !processed || styleFailed) return;
     if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+    if (reduced && settings.fps) {
+      const index = Math.floor(time * settings.fps + 1e-6);
+      if (index === lastFrame) return;
+      lastFrame = index;
+    }
     try {
       if (!styleContext) throw new Error('Canvas is unavailable for Video Style preview.');
       const output = settings.output;
@@ -133,7 +157,13 @@ export function mountLivePreview(
       if (styleSource.height !== output.height) styleSource.height = output.height;
       drawPreparedFrame(styleContext, video, source, output, settings.transform);
       styleRenderer ??= createStyleRenderer(styleCanvas);
-      styleRenderer.draw(styleSource, output.width, output.height, time, settings.style!);
+      styleRenderer.draw(
+        styleSource,
+        output.width,
+        output.height,
+        time,
+        normalizeStyle(settings.style),
+      );
       styleCanvas.hidden = false;
       video.style.opacity = '0';
     } catch {
@@ -148,7 +178,7 @@ export function mountLivePreview(
     if (
       !active ||
       !settings ||
-      !hasStyleEffects(settings.style) ||
+      !processed ||
       styleFailed ||
       !('requestVideoFrameCallback' in video) ||
       frameCallback
@@ -239,12 +269,19 @@ export function mountLivePreview(
   function refresh(): void {
     if (!settings) return;
     const geometry = livePreviewGeometry(source, settings.transform, source);
+    const shown =
+      geometry?.crop ?? rotatedSize(source.width, source.height, settings.transform?.rotate ?? 0);
+    const fidelity = previewFidelity(settings, shown);
+    reduced = fidelity.reduced;
+    lastFrame = -1;
+    processed =
+      hasStyleEffects(settings.style) || (!styleFailed && (fidelity.scaled || fidelity.reduced));
     const edited =
       settings.enabled &&
       (!!settings.transform?.rotate ||
         !!settings.transform?.flip ||
         !!geometry?.crop ||
-        hasStyleEffects(settings.style) ||
+        processed ||
         (!!settings.overlays && hasOverlays(settings.overlays)));
     if (!edited) showingOriginal = false;
     active = edited && !showingOriginal;
@@ -262,16 +299,14 @@ export function mountLivePreview(
     controls.hidden = !edited;
     video.controls = !edited;
     frame.classList.toggle('is-edited', active);
-    if ((!active || !hasStyleEffects(settings.style)) && frameCallback) {
+    if ((!active || !processed) && frameCallback) {
       video.cancelVideoFrameCallback(frameCallback);
       frameCallback = 0;
     }
     styleCanvas.hidden = true;
     video.style.removeProperty('opacity');
     if (active) {
-      const rotated = rotatedSize(source.width, source.height, settings.transform?.rotate ?? 0);
-      const size = geometry?.crop ?? rotated;
-      stage.style.aspectRatio = `${size.width} / ${size.height}`;
+      stage.style.aspectRatio = `${shown.width} / ${shown.height}`;
       layout();
     } else {
       stage.style.removeProperty('aspect-ratio');
@@ -284,7 +319,7 @@ export function mountLivePreview(
     status.hidden = true;
     void drawOverlay();
     drawStyle();
-    if (active && hasStyleEffects(settings.style)) scheduleStyle();
+    if (active && processed) scheduleStyle();
     syncPlayback();
   }
 
@@ -311,7 +346,10 @@ export function mountLivePreview(
   ] as const;
   for (const event of playbackEvents) video.addEventListener(event, syncPlayback);
   video.addEventListener('play', scheduleStyle);
-  video.addEventListener('seeked', () => drawStyle());
+  video.addEventListener('seeked', () => {
+    lastFrame = -1;
+    drawStyle();
+  });
   video.addEventListener('loadeddata', () => drawStyle());
   video.addEventListener('timeupdate', () => {
     if (!('requestVideoFrameCallback' in video)) drawStyle();

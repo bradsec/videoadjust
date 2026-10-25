@@ -1,10 +1,12 @@
 import { AUDIO_MONO_BPS, AUDIO_STEREO_BPS } from './autoSettings';
 import { hasAudioProcessing, normalizeAudioProcessing, type AudioProcessing } from './audioProcess';
+import { hasAudioMix, normalizeAudioMix, type AudioMix } from './audioMix';
 import type { Capabilities, SourceInfo } from './types';
 
 export type AudioFormat = 'mp3' | 'm4a' | 'wav';
 
 export interface AudioExtractSettings {
+  mix?: AudioMix;
   audioProcessing?: Partial<AudioProcessing>;
   format: AudioFormat;
   trim: { start: number; end: number };
@@ -54,11 +56,13 @@ export function validateAudioExtract(
     Object.hasOwn(AUDIO_FORMATS, value.format) && (value.format !== 'm4a' || caps.audio.aac)
       ? value.format
       : auto.format;
-  const channels: 1 | 2 = src.audio?.channels === 1 || value.channels === 1 ? 1 : 2;
+  const channels: 1 | 2 =
+    (!value.mix?.added && src.audio?.channels === 1) || value.channels === 1 ? 1 : 2;
   const target = channels === 1 ? AUDIO_MONO_BPS : AUDIO_STEREO_BPS;
   const copy =
     value.copy &&
     !hasAudioProcessing(value.audioProcessing) &&
+    !hasAudioMix(value.mix) &&
     format === 'm4a' &&
     src.audio?.codec === 'aac' &&
     src.audio.bitrate !== null &&
@@ -67,6 +71,7 @@ export function validateAudioExtract(
 
   return {
     format,
+    ...(value.mix ? { mix: normalizeAudioMix(value.mix, value.trim.end - value.trim.start) } : {}),
     ...(value.audioProcessing
       ? {
           audioProcessing: normalizeAudioProcessing(
@@ -94,10 +99,12 @@ export function audioExtractChangeCount(
 ): number {
   const settings = validateAudioExtract(value, auto, src, caps);
   return (
+    Number(settings.trim.start !== auto.trim.start || settings.trim.end !== auto.trim.end) +
     Number(settings.format !== auto.format) +
     Number(settings.format !== 'wav' && settings.bitrate !== auto.bitrate) +
     Number(settings.channels !== auto.channels) +
-    Number(hasAudioProcessing(settings.audioProcessing))
+    Number(hasAudioProcessing(settings.audioProcessing)) +
+    Number(hasAudioMix(settings.mix))
   );
 }
 
@@ -126,7 +133,8 @@ export function estimateAudioBytes(
 ): { low: number; high: number; mid: number } {
   const seconds = Math.max(0, s.trim.end - s.trim.start);
   if (s.format === 'wav') {
-    const mid = (src.audio?.sampleRate ?? 0) * s.channels * 2 * seconds + 44;
+    const mid =
+      (hasAudioMix(s.mix) ? 48000 : (src.audio?.sampleRate ?? 0)) * s.channels * 2 * seconds + 44;
     return { low: mid, high: mid, mid };
   }
 

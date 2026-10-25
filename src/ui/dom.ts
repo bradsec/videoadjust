@@ -21,3 +21,6 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   if (text !== undefined) node.textContent = text;
   return node;
 }
+
+/** Shared `<details name>` so inspector sections open one at a time. */
+export const INSPECTOR_GROUP = 'inspector';

@@ -1,7 +1,7 @@
+import { mountResetAll } from './resetAll';
 import { targetVideoBitrate } from '../core/autoSettings';
 import { estimateBytes } from '../core/estimate';
 import { targetSizeStatus } from '../core/targetSize';
-import { mountAudioProcessing } from './audioProcessingControls';
 import {
   normalizeCrop,
   outputSize,
@@ -18,8 +18,8 @@ import type {
   SourceInfo,
   VideoCodecId,
 } from '../core/types';
-import { availableVideoCodecs, codecLabel, settingsChangeCount } from './controller';
-import { el, icon } from './dom';
+import { availableVideoCodecs, codecLabel, outputChangeCount } from './controller';
+import { el, icon, INSPECTOR_GROUP } from './dom';
 import { formatBitrate, formatBytes } from './format';
 import { formatByteRange, sizeMeter } from './progress';
 
@@ -30,6 +30,7 @@ export interface SettingsPanelOptions {
   value: Settings;
   onChange(s: Settings): void;
   onExport?: () => void;
+  onResetAll?: () => void;
 }
 
 const videoCodecs: VideoCodecId[] = ['avc', 'hevc', 'av1', 'vp9'];
@@ -54,6 +55,7 @@ export function mountSettings(
   host: HTMLElement,
   opts: SettingsPanelOptions,
 ): {
+  resetAll: ReturnType<typeof mountResetAll>;
   update(s: Settings): void;
   setBusy(busy: boolean): void;
   changeTransform(t: NonNullable<Settings['transform']>): void;
@@ -106,9 +108,10 @@ export function mountSettings(
     opts.onExport?.();
   });
   const details = el('details', 'adjust');
+  details.name = INSPECTOR_GROUP;
   const disclosure = el('summary');
   const changeCount = el('span', 'adjust-state');
-  disclosure.append(document.createTextNode('Adjust'), changeCount, icon('i-chev'));
+  disclosure.append(document.createTextNode('Output'), changeCount, icon('i-chev'));
   const controls = el('div', 'settings-controls');
   const passthroughReason = el('p', 'setting-reason', 'Not needed for a trimmed copy');
   details.append(disclosure, controls);
@@ -127,6 +130,7 @@ export function mountSettings(
   dock.append(dockNote, estimate, exportButton);
   const spec = el('div', 'spec');
   spec.append(eyebrow, title, meter.node, optimal, warning, passthroughReason);
+  const resetAll = mountResetAll(spec, opts.onResetAll);
   card.append(spec, dock, details);
   host.replaceChildren(card);
 
@@ -222,7 +226,6 @@ export function mountSettings(
       );
   }
   let structure = '';
-  let processing: ReturnType<typeof mountAudioProcessing> | undefined;
   // The resolution the user asked for, so a crop that shrinks the frame does not lose it when undone.
   let preferredEdge: number | null = null;
   function renderControls(): void {
@@ -569,11 +572,11 @@ export function mountSettings(
     metadata.append(stripLabel);
     groups.push(metadata);
 
-    if (opts.source.audio && opts.auto.settings.audio) {
-      const automatic = opts.auto.settings.audio;
+    if (value.audio) {
+      const automatic = opts.auto.settings.audio ?? value.audio;
       const audio = group(
         'Audio codec',
-        'Choose how audio is compressed, or remove it. AAC suits most MP4 players; WebM requires Opus audio',
+        'Choose how audio is compressed. AAC suits most MP4 players; WebM requires Opus audio',
         audioLabels[automatic.codec],
         () =>
           change({
@@ -588,14 +591,10 @@ export function mountSettings(
           disabled: !opts.caps.audio[id] || (value.container === 'webm' && id !== 'opus'),
         }),
       );
-      audioOptions.push({ value: 'none', label: 'Remove audio', disabled: false });
-      select(audio, 'Audio codec', audioOptions, value.audio?.codec ?? 'none', (id) =>
+      select(audio, 'Audio codec', audioOptions, value.audio.codec, (id) =>
         change({
           ...value,
-          audio:
-            id === 'none'
-              ? null
-              : { ...(value.audio ?? automatic), codec: id as AudioCodecId, copy: false },
+          audio: { ...(value.audio ?? automatic), codec: id as AudioCodecId, copy: false },
         }),
       );
       groups.push(audio);
@@ -610,7 +609,7 @@ export function mountSettings(
               audio: { ...value.audio!, bitrate: automatic.bitrate, copy: automatic.copy },
             }),
         );
-        const max = opts.source.audio.bitrate ?? Infinity;
+        const max = value.mix?.added ? Infinity : (opts.source.audio?.bitrate ?? Infinity);
         const rates = [
           ...new Set([...audioRates.filter((rate) => rate <= max), value.audio.bitrate]),
         ].sort((a, b) => a - b);
@@ -634,17 +633,8 @@ export function mountSettings(
       }
     }
     controls.replaceChildren(precision, ...groups);
-    processing = value.audio
-      ? mountAudioProcessing(
-          controls,
-          value.audioProcessing,
-          value.trim.end - value.trim.start,
-          (audioProcessing) => change({ ...value, audioProcessing }),
-        )
-      : undefined;
   }
   function patchControls(next: Settings): void {
-    processing?.update(next.audioProcessing, next.trim.end - next.trim.start);
     const selected = (name: string, selectedValue: string) => {
       const input = controls.querySelector<HTMLSelectElement>(`select[aria-label="${name}"]`);
       if (input && input.value !== selectedValue) input.value = selectedValue;
@@ -766,7 +756,7 @@ export function mountSettings(
           ? `${videoName} may not play on every device. H.264 MP4 is the most compatible choice.`
           : '';
     warning.hidden = !warning.textContent;
-    const changes = settingsChangeCount(next, opts.auto, opts.caps, opts.source);
+    const changes = outputChangeCount(next, opts.auto, opts.caps, opts.source);
     changeCount.textContent = changes
       ? `${changes} ${changes === 1 ? 'change' : 'changes'}`
       : 'All automatic';
@@ -805,5 +795,5 @@ export function mountSettings(
     renderExportLabel();
   }
   update(value);
-  return { update, setBusy, changeTransform };
+  return { update, setBusy, changeTransform, resetAll };
 }

@@ -1,6 +1,7 @@
 import {
   Conversion,
   ConversionCanceledError,
+  AudioSampleSource,
   Mp3OutputFormat,
   Mp4OutputFormat,
   Output,
@@ -8,6 +9,8 @@ import {
   WavOutputFormat,
   WebMOutputFormat,
   type ConversionOptions,
+  type AudioEncodingConfig,
+  type AudioSample,
   type ConversionAudioOptions,
   type DiscardedTrack,
   type Input,
@@ -17,7 +20,14 @@ import {
   type VideoSample,
 } from 'mediabunny';
 import type { AudioExtractSettings, AudioFormat } from './audioExtract';
-import { processedAudioOptions, hasAudioProcessing } from './audioProcess';
+import { processedAudioOptions, hasAudioProcessing, type AudioProcessing } from './audioProcess';
+import {
+  createMixProcessor,
+  hasAudioMix,
+  mixHasAudio,
+  type AddedAudio,
+  type AudioMix,
+} from './audioMix';
 import { registerFrameCrop } from './frameCrop';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from './overlays';
 import { createStyleRenderer, hasStyleEffects } from './style';
@@ -39,20 +49,58 @@ export type ConversionJob = {
   cleanup?: () => void;
   readonly styleDropped?: boolean;
   prepare?: (input: Input, signal: AbortSignal, progress: (p: number) => void) => Promise<void>;
+  customAudio?: {
+    encoding: AudioEncodingConfig;
+    samples(input: Input, signal: AbortSignal): AsyncGenerator<AudioSample>;
+  };
 };
 
 // Quality rejects non-integer bitrates; source bitrates come from packet statistics and can be fractional.
 const quality = (bitrate: number) => new Quality({ bitrate: Math.round(bitrate) });
 
+function mixedAudioJob(
+  encoding: AudioEncodingConfig,
+  channels: number,
+  trim: { start: number; end: number },
+  mix: AudioMix | undefined,
+  processing: Partial<AudioProcessing> | undefined,
+  added: AddedAudio | undefined,
+): Pick<ConversionJob, 'customAudio' | 'prepare'> {
+  let processor: ReturnType<typeof createMixProcessor>;
+  return {
+    customAudio: {
+      encoding,
+      samples: (_input, signal) => processor.samples(signal),
+    },
+    async prepare(input, signal, progress) {
+      processor = createMixProcessor(input, added, mix, trim, channels, 48000, processing);
+      await processor.prepare(signal, progress);
+    },
+  };
+}
+
 export function shrinkJob(
   s: Settings,
   source?: SourceInfo,
   assets: OverlayAssets = {},
+  added?: AddedAudio,
 ): ConversionJob & { copiesVideo: boolean } {
   const v = s.video;
   const a = s.audio;
+  const keepsAudio = !!a && mixHasAudio(s.mix, true);
+  const mixed =
+    keepsAudio && (hasAudioMix(s.mix) || !!added)
+      ? mixedAudioJob(
+          { codec: a!.codec, quality: quality(a!.bitrate) },
+          a!.channels,
+          s.trim,
+          s.mix,
+          s.audioProcessing,
+          added,
+        )
+      : undefined;
   const audioProcessor =
-    a && hasAudioProcessing(s.audioProcessing)
+    keepsAudio && !mixed && a && hasAudioProcessing(s.audioProcessing)
       ? processedAudioOptions(s.audioProcessing!, s.trim, a.channels, {
           codec: a.codec,
           quality: quality(a.bitrate),
@@ -149,22 +197,24 @@ export function shrinkJob(
             ...(crop ? { crop } : {}),
           }
       : { discard: true },
-    audio: !a
-      ? { discard: true }
-      : audioProcessor
-        ? audioProcessor.audio
-        : s.passthrough
-          ? {}
-          : a.copy
-            ? // Any bitrate or channel option would force a transcode, so copy names only the codec.
-              { codec: a.codec, forceTranscode: false }
-            : { codec: a.codec, quality: quality(a.bitrate), numberOfChannels: a.channels },
+    audio:
+      !keepsAudio || mixed
+        ? { discard: true }
+        : audioProcessor
+          ? audioProcessor.audio
+          : s.passthrough
+            ? {}
+            : a.copy
+              ? // Any bitrate or channel option would force a transcode, so copy names only the codec.
+                { codec: a.codec, forceTranscode: false }
+              : { codec: a.codec, quality: quality(a.bitrate), numberOfChannels: a.channels },
   };
   return {
     options,
-    keeps: { video: !!v, audio: !!a },
+    keeps: { video: !!v, audio: keepsAudio },
     copiesVideo,
     ...(audioProcessor ? { prepare: audioProcessor.prepare } : {}),
+    ...mixed,
     get styleDropped() {
       return styleUnavailable;
     },
@@ -180,8 +230,22 @@ export function toConversionOptions(
   return shrinkJob(s, source, assets).options;
 }
 
-export function audioExtractJob(s: AudioExtractSettings): ConversionJob {
+export function audioExtractJob(s: AudioExtractSettings, added?: AddedAudio): ConversionJob {
   const active = hasAudioProcessing(s.audioProcessing);
+  const mixed =
+    (hasAudioMix(s.mix) || !!added) && mixHasAudio(s.mix, true)
+      ? mixedAudioJob(
+          {
+            codec: s.format === 'wav' ? 'pcm-s16' : s.format === 'mp3' ? 'mp3' : 'aac',
+            ...(s.format === 'wav' ? {} : { quality: quality(s.bitrate) }),
+          },
+          s.channels,
+          s.trim,
+          s.mix,
+          s.audioProcessing,
+          added,
+        )
+      : undefined;
   const audio: ConversionAudioOptions =
     s.format === 'wav'
       ? { codec: 'pcm-s16', numberOfChannels: s.channels }
@@ -192,17 +256,21 @@ export function audioExtractJob(s: AudioExtractSettings): ConversionJob {
             quality: quality(s.bitrate),
             numberOfChannels: s.channels,
           };
-  const processor = active
-    ? processedAudioOptions(s.audioProcessing!, s.trim, s.channels, audio)
-    : undefined;
+  const processor =
+    active && !mixed
+      ? processedAudioOptions(s.audioProcessing!, s.trim, s.channels, audio)
+      : undefined;
   return {
     options: {
       trim: { start: s.trim.start, end: s.trim.end },
+      // Extracted audio never carries source tags (location, device, dates); there is no keep option.
+      tags: {},
       video: { discard: true },
-      audio: processor?.audio ?? audio,
+      audio: mixed || !mixHasAudio(s.mix, true) ? { discard: true } : (processor?.audio ?? audio),
     },
     keeps: { video: false, audio: true },
     ...(processor ? { prepare: processor.prepare } : {}),
+    ...mixed,
   };
 }
 
@@ -255,13 +323,14 @@ export function startConversion(args: {
   onProgress(p: number, bytesWritten: number, phase?: 'analysis' | 'encoding'): void;
 }): { done: Promise<void>; cancel(): Promise<void> } {
   let conversion: Conversion | undefined;
+  let output: Output | undefined;
   let canceled = false;
   let bytesWritten = 0;
   const controller = new AbortController();
 
   registerFrameCrop();
   const done = (async () => {
-    const output = new Output({ format: args.format, target: args.target });
+    output = new Output({ format: args.format, target: args.target });
     const stopListening = args.target.on('write', ({ end }) => {
       bytesWritten = Math.max(bytesWritten, end);
     });
@@ -271,11 +340,16 @@ export function startConversion(args: {
       );
       if (canceled) throw new ConversionCanceledError();
       args.onProgress(0, 0, 'encoding');
+      const custom = args.job.customAudio;
+      const { tags, ...trackOptions } = args.job.options;
+      const audioSource = custom ? new AudioSampleSource(custom.encoding) : undefined;
+      if (audioSource) output.addAudioTrack(audioSource);
       conversion = await Conversion.init({
         input: args.input,
         output,
-        ...args.job.options,
+        ...(custom ? trackOptions : args.job.options),
         showWarnings: false,
+        ...(custom ? { composable: true, tracks: 'primary' } : {}),
       });
       if (canceled) {
         await conversion.cancel();
@@ -299,9 +373,39 @@ export function startConversion(args: {
         );
       }
       conversion.onProgress = (p) => args.onProgress(p, bytesWritten, 'encoding');
-      await conversion.execute();
+      if (custom && audioSource) {
+        const inputTags = await args.input.getMetadataTags();
+        output.setMetadataTags(
+          typeof tags === 'function' ? await tags(inputTags) : (tags ?? inputTags),
+        );
+        await output.start();
+        for await (const sample of custom.samples(args.input, controller.signal)) {
+          try {
+            controller.signal.throwIfAborted();
+            // Advance both tracks together so neither the decoder nor muxer accumulates the whole clip.
+            await Promise.all([
+              conversion.execute({ until: sample.timestamp + sample.duration }),
+              audioSource.add(sample),
+            ]);
+          } finally {
+            sample.close();
+          }
+        }
+        audioSource.close();
+        await conversion.execute();
+        controller.signal.throwIfAborted();
+        await output.finalize();
+      } else {
+        await conversion.execute();
+      }
       args.onProgress(1, bytesWritten);
     } catch (err) {
+      controller.abort();
+      if (args.job.customAudio) {
+        const cleanups = await Promise.allSettled([conversion?.cancel(), output.cancel()]);
+        for (const result of cleanups)
+          if (result.status === 'rejected') console.warn('Export cleanup failed:', result.reason);
+      }
       // A cancel that lands before the output starts surfaces from Mediabunny as a plain
       // "Output has been canceled." Error; callers get one error type for every cancel.
       if (canceled && !(err instanceof ConversionCanceledError))
@@ -319,6 +423,7 @@ export function startConversion(args: {
       canceled = true;
       controller.abort();
       await conversion?.cancel();
+      if (args.job.customAudio) await output?.cancel();
     },
   };
 }

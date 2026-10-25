@@ -1,3 +1,4 @@
+import { mountResetAll } from './resetAll';
 import {
   gifBudgetError,
   gifDimensions,
@@ -7,7 +8,7 @@ import {
   type GifSettings,
 } from '../core/gifExport';
 import type { Settings, SourceInfo } from '../core/types';
-import { el, icon } from './dom';
+import { el, icon, INSPECTOR_GROUP } from './dom';
 import { formatDuration } from './format';
 
 export function mountGifPanel(
@@ -18,8 +19,10 @@ export function mountGifPanel(
     transform: Settings['transform'];
     onChange(value: GifSettings): void;
     onExport(): void;
+    onResetAll?: () => void;
   },
 ): {
+  resetAll: ReturnType<typeof mountResetAll>;
   update(value: GifSettings, transform: Settings['transform']): void;
   setBusy(value: boolean): void;
 } {
@@ -31,6 +34,7 @@ export function mountGifPanel(
   const heading = el('h2', 'num');
   const sub = el('p', 'export-sub num');
   spec.append(el('span', 'overline', 'Ready to export'), heading, sub);
+  const resetAll = mountResetAll(spec, opts.onResetAll);
   const dock = el('div', 'dock');
   const count = el('div', 'export-estimate');
   const big = el('strong', 'export-estimate-big num');
@@ -56,8 +60,9 @@ export function mountGifPanel(
   dock.append(dockNote, count, button);
 
   const details = el('details', 'adjust');
+  details.name = INSPECTOR_GROUP;
   const disclosure = el('summary');
-  disclosure.append('Adjust', icon('i-chev'));
+  disclosure.append('Output', icon('i-chev'));
   const controls = el('div', 'settings-controls');
   details.append(disclosure, controls);
 
@@ -198,5 +203,5 @@ export function mountGifPanel(
     button.replaceChildren(icon('i-down'), busy ? 'Exporting GIF...' : 'Export GIF');
   }
   update(value, transform);
-  return { update, setBusy };
+  return { update, setBusy, resetAll };
 }

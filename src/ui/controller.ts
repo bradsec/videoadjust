@@ -12,6 +12,7 @@ import {
 } from 'mediabunny';
 import {
   AUDIO_FORMATS,
+  audioExtractChangeCount,
   audioOutputName,
   autoAudioExtract,
   estimateAudioBytes,
@@ -63,7 +64,13 @@ import type {
 } from '../core/types';
 import { formatBitrate, formatBytes } from './format';
 import { clampTrim } from './trimBar';
-import { hasAudioProcessing, normalizeAudioProcessing } from '../core/audioProcess';
+import {
+  hasAudioProcessing,
+  normalizeAudioProcessing,
+  type AudioProcessing,
+} from '../core/audioProcess';
+import { hasAudioMix, normalizeAudioMix, type AddedAudio, type AudioMix } from '../core/audioMix';
+import { readAddedAudio } from '../core/addedAudio';
 
 /** Above this the app warns before reading the file (decimal, matching formatBytes). */
 export const LARGE_FILE_BYTES = 2e9;
@@ -82,6 +89,7 @@ export type Tool = 'shrink' | 'audio' | 'gif';
 
 /** The loaded source and its derived limits, carried from prepare through result. */
 interface Loaded {
+  addedAudio?: AddedAudio;
   overlayAssets?: OverlayAssets;
   file: File;
   source: SourceInfo;
@@ -105,6 +113,7 @@ export type AppState =
       notice?: Notice;
       /** An export started and still awaits its encoder check or save picker. */
       exporting?: boolean;
+      addingAudio?: boolean;
     })
   | (Loaded & {
       kind: 'working';
@@ -142,6 +151,10 @@ export type AppAction =
     }
   | { type: 'setTrim'; value: Settings['trim'] }
   | { type: 'setSettings'; value: Settings }
+  | { type: 'setMix'; value: AudioMix }
+  | { type: 'setAudioProcessing'; value: AudioProcessing }
+  | { type: 'addAudio'; file: File }
+  | { type: 'removeAddedAudio' }
   | { type: 'setOverlayImage'; file: File }
   | { type: 'setTool'; tool: Tool }
   | { type: 'setAudioSettings'; value: AudioExtractSettings }
@@ -150,9 +163,11 @@ export type AppAction =
   | { type: 'cancel' }
   | { type: 'smaller' }
   | { type: 'failed'; notice: Notice }
+  | { type: 'resetAll' }
   | { type: 'reset' };
 
 export interface AppDeps {
+  readAddedAudio?: typeof readAddedAudio;
   probeCapabilities: typeof probeCapabilitiesFn;
   canEncodeVideo: typeof canEncodeVideo;
   readSource: typeof readSourceFn;
@@ -175,6 +190,15 @@ export const codecLabel = (c: string | null) =>
 
 export function inputOf(state: AppState): Input | undefined {
   return state.kind === 'drop' ? undefined : state.input;
+}
+
+export function audioMixSource(source: SourceInfo, added?: AddedAudio): SourceInfo {
+  return added
+    ? {
+        ...source,
+        audio: { codec: null, decodable: true, channels: 2, sampleRate: 48000, bitrate: null },
+      }
+    : source;
 }
 
 /** "IMG_4821.MOV" -> "IMG_4821-small.mp4" */
@@ -247,6 +271,53 @@ export function smallerSettings(
 const isAbortError = (err: unknown) => err instanceof DOMException && err.name === 'AbortError';
 const PARTIAL_FILE = 'A partial file may remain at the location you chose. You can delete it.';
 
+/** Count all tools, including settings on tabs that are not currently visible. */
+export function allSettingsChangeCount(state: Loaded & { addingAudio?: boolean }): number {
+  const { settings, auto, caps, source, audioSettings, gifSettings, gifAuto } = state;
+  const audioAuto = autoAudioExtract(source, caps);
+  const audioChanges =
+    audioSettings && audioAuto
+      ? audioExtractChangeCount(
+          { ...audioSettings, trim: audioAuto.trim, audioProcessing: undefined, mix: undefined },
+          audioAuto,
+          source,
+          caps,
+        )
+      : 0;
+  const gifChanges =
+    gifSettings && gifAuto
+      ? (['size', 'fps', 'loop', 'colors', 'compression'] as const).filter(
+          (key) => gifSettings[key] !== gifAuto[key],
+        ).length
+      : 0;
+  const overlays = normalizeOverlays(settings.overlays);
+  const defaultOverlays = normalizeOverlays(auto.settings.overlays);
+  // Disabled effects can still hold edited settings that Reset all must clear.
+  const inactiveChanges =
+    Number(
+      !hasStyleEffects(settings.style) &&
+        JSON.stringify(normalizeStyle(settings.style)) !==
+          JSON.stringify(normalizeStyle(auto.settings.style)),
+    ) +
+    (['text', 'image'] as const).filter(
+      (key) =>
+        !overlays[key].enabled &&
+        JSON.stringify(overlays[key]) !== JSON.stringify(defaultOverlays[key]),
+    ).length;
+  const shrinkChanges = settingsChangeCount(settings, auto, caps, source);
+  return (
+    shrinkChanges +
+    audioChanges +
+    gifChanges +
+    inactiveChanges +
+    // Re-encode anyway on its own; other changes already turn passthrough off.
+    Number(state.auto.alreadyOptimal && !settings.passthrough && shrinkChanges === 0) +
+    Number(!!state.addedAudio && !settings.mix?.added) +
+    Number(!!state.addingAudio) +
+    Number(!!state.overlayAssets?.image && !settings.overlays?.image.enabled)
+  );
+}
+
 /** What the result shows for a file-stream output, where no Blob exists to read back. */
 function describeWritten(
   name: string,
@@ -277,18 +348,20 @@ function describeWritten(
               bitrate: v.bitrate,
             }
         : null,
-    audio:
-      a && source.audio
-        ? (settings.passthrough || a.copy) && !hasAudioProcessing(settings.audioProcessing)
-          ? source.audio
-          : {
-              codec: a.codec,
-              decodable: true,
-              channels: a.channels,
-              sampleRate: source.audio.sampleRate,
-              bitrate: a.bitrate,
-            }
-        : null,
+    audio: a
+      ? source.audio &&
+        (settings.passthrough || a.copy) &&
+        !hasAudioProcessing(settings.audioProcessing) &&
+        !hasAudioMix(settings.mix)
+        ? source.audio
+        : {
+            codec: a.codec,
+            decodable: true,
+            channels: a.channels,
+            sampleRate: hasAudioMix(settings.mix) ? 48000 : (source.audio?.sampleRate ?? 48000),
+            bitrate: a.bitrate,
+          }
+      : null,
   };
 }
 
@@ -365,11 +438,12 @@ export function validateSettings(
 ): Settings {
   const fallback = auto.settings;
   const trim = clampTrim(value.trim, source.durationSec, 'end');
+  const mix = value.mix ? normalizeAudioMix(value.mix, trim.end - trim.start) : undefined;
   const overlays = normalizeOverlays(value.overlays);
   const style = normalizeStyle(value.style);
   const container =
     availableVideoCodecs(value.container, caps).length &&
-    (value.container !== 'webm' || !source.audio || caps.audio.opus)
+    (value.container !== 'webm' || (!source.audio && !mix?.added) || caps.audio.opus)
       ? value.container
       : fallback.container;
   const supported = availableVideoCodecs(container, caps);
@@ -415,19 +489,30 @@ export function validateSettings(
     video = { codec, width, height, fps, bitrate };
   }
   let audio: Settings['audio'] = null;
-  if (source.audio && value.audio) {
+  const requestedAudio = value.audio ??
+    fallback.audio ?? {
+      codec: container === 'webm' ? 'opus' : 'aac',
+      bitrate: 160_000,
+      channels: 2,
+      copy: false,
+    };
+  const includesAudio = mix
+    ? !!mix.added || (mix.original.include && !!source.audio)
+    : !!source.audio && !!value.audio;
+  if (includesAudio) {
     const codec =
       container === 'webm'
         ? 'opus'
-        : caps.audio[value.audio.codec]
-          ? value.audio.codec
+        : caps.audio[requestedAudio.codec]
+          ? requestedAudio.codec
           : (fallback.audio?.codec ?? 'aac');
-    const max = source.audio.bitrate ?? Infinity;
+    const max = mix?.added ? Infinity : (source.audio?.bitrate ?? Infinity);
     const allowed = [64_000, 96_000, 128_000, 160_000].filter((n) => n <= max);
-    const requested = value.audio.bitrate;
+    const requested = requestedAudio.bitrate;
     const bitrate = allowed.includes(requested) ? requested : Math.min(requested, max);
     const copy =
       !hasAudioProcessing(value.audioProcessing) &&
+      !hasAudioMix(mix) &&
       container === fallback.container &&
       codec === fallback.audio?.codec &&
       bitrate === fallback.audio.bitrate &&
@@ -435,7 +520,7 @@ export function validateSettings(
     audio = {
       codec,
       bitrate: Math.max(1, bitrate),
-      channels: Math.min(source.audio.channels, 2),
+      channels: mix?.added ? 2 : Math.min(source.audio?.channels ?? 2, 2),
       copy,
     };
   }
@@ -455,6 +540,7 @@ export function validateSettings(
     {
       overlays,
       style,
+      ...(mix ? { mix } : {}),
       ...(value.audioProcessing
         ? {
             audioProcessing: normalizeAudioProcessing(value.audioProcessing, trim.end - trim.start),
@@ -492,7 +578,7 @@ export function validateSettings(
         : fallback.transform,
       metadata: {
         title: value.metadata?.title.trim().slice(0, 200) ?? '',
-        strip: value.metadata?.strip ?? false,
+        strip: value.metadata?.strip ?? true,
       },
       video,
       audio,
@@ -503,6 +589,34 @@ export function validateSettings(
 }
 
 /** Compare the effective values shown by the controls, after applying the same limits to both sides. */
+// Trim and the edit sections (audio, colour, style, overlays) count in their own places.
+function editChangeCount(current: Settings, auto: AutoResult): number {
+  return (
+    Number(
+      current.trim.start !== auto.settings.trim.start ||
+        current.trim.end !== auto.settings.trim.end,
+    ) +
+    Number(!!current.overlays?.text.enabled) +
+    Number(!!current.overlays?.image.enabled) +
+    Number(hasStyleEffects(current.style)) +
+    Number(hasAudioProcessing(current.audioProcessing)) +
+    Number(hasAudioMix(current.mix))
+  );
+}
+
+/** Changes shown on the Shrink Output section: encoding settings only. */
+export function outputChangeCount(
+  value: Settings,
+  auto: AutoResult,
+  caps: Capabilities,
+  source: SourceInfo,
+): number {
+  return (
+    settingsChangeCount(value, auto, caps, source) -
+    editChangeCount(validateSettings(value, auto, caps, source), auto)
+  );
+}
+
 export function settingsChangeCount(
   value: Settings,
   auto: AutoResult,
@@ -536,10 +650,7 @@ export function settingsChangeCount(
         )
       : null;
   return (
-    Number(!!current.overlays?.text.enabled) +
-    Number(!!current.overlays?.image.enabled) +
-    Number(hasStyleEffects(current.style)) +
-    Number(!!current.audio && hasAudioProcessing(current.audioProcessing)) +
+    editChangeCount(current, auto) +
     Number(current.trimPrecision === 'exact') +
     Number(!!current.targetSizeMB) +
     Number(current.container !== automatic.container) +
@@ -629,6 +740,8 @@ export function createController(
   let caps: Promise<Capabilities> | undefined;
   let exportToken = 0;
   let imageToken = 0;
+  let addedToken = 0;
+  let addedRead: AbortController | undefined;
   let cancelExport: (() => void) | undefined;
 
   // Any in-flight read is superseded: its late result is dropped and its Input disposed.
@@ -636,6 +749,8 @@ export function createController(
   const cancelLoad = () => {
     loadToken++;
     imageToken++;
+    addedToken++;
+    addedRead?.abort();
     exportToken++;
     cancelExport?.();
     cancelExport = undefined;
@@ -650,18 +765,21 @@ export function createController(
   function setState(next: AppState): void {
     const prev = state;
     const prevInput = inputOf(prev);
+    const previousAdded = prev.kind === 'drop' ? undefined : prev.addedAudio;
+    const nextAdded = next.kind === 'drop' ? undefined : next.addedAudio;
     state = next;
     const previousImage = prev.kind !== 'drop' ? prev.overlayAssets?.image : undefined;
     const nextImage = next.kind !== 'drop' ? next.overlayAssets?.image : undefined;
     if (previousImage && previousImage !== nextImage) previousImage.close();
     if (prevInput && inputOf(next) !== prevInput) prevInput.dispose();
+    if (previousAdded && previousAdded !== nextAdded) previousAdded.input.dispose();
     const prevUrl = prev.kind === 'result' ? prev.output.url : null;
     if (prevUrl && !(next.kind === 'result' && next.output.url === prevUrl))
       URL.revokeObjectURL(prevUrl);
     onChange(state);
   }
 
-  function toPrepare(from: Loaded, notice?: Notice): void {
+  function toPrepare(from: Loaded & { addingAudio?: boolean }, notice?: Notice): void {
     const {
       file,
       source,
@@ -689,12 +807,87 @@ export function createController(
       gifAuto,
       gifSettings,
       overlayAssets: from.overlayAssets,
+      addedAudio: from.addedAudio,
+      ...(from.addingAudio ? { addingAudio: true } : {}),
       notice,
     });
   }
 
   function dispatch(action: AppAction): void {
     switch (action.type) {
+      case 'addAudio':
+        if (state.kind === 'prepare' && !state.exporting) void loadAddedAudio(action.file);
+        return;
+      case 'resetAll':
+        if (state.kind === 'prepare' && !state.exporting) {
+          imageToken++;
+          addedToken++;
+          addedRead?.abort();
+          const audioAuto = autoAudioExtract(state.source, state.caps);
+          setState({
+            ...state,
+            settings: { ...state.auto.settings, passthrough: state.auto.alreadyOptimal },
+            audioAuto,
+            audioSettings: audioAuto,
+            gifSettings: state.gifAuto,
+            addedAudio: undefined,
+            addingAudio: undefined,
+            overlayAssets: undefined,
+            notice: undefined,
+          });
+        }
+        return;
+      case 'removeAddedAudio':
+        if (state.kind === 'prepare' && !state.exporting) {
+          addedToken++;
+          addedRead?.abort();
+          const mix = normalizeAudioMix(
+            state.settings.mix,
+            state.settings.trim.end - state.settings.trim.start,
+          );
+          delete mix.added;
+          applyMix({ ...state, addingAudio: undefined }, mix, undefined);
+        }
+        return;
+      case 'setMix':
+        if (state.kind === 'prepare' && !state.exporting) {
+          supersedePending();
+          const mix = normalizeAudioMix(
+            action.value,
+            state.settings.trim.end - state.settings.trim.start,
+          );
+          if (!state.addedAudio) delete mix.added;
+          applyMix(state, mix, state.addedAudio);
+        }
+        return;
+      case 'setAudioProcessing':
+        if (state.kind === 'prepare') {
+          supersedePending();
+          const audioProcessing = normalizeAudioProcessing(
+            action.value,
+            state.settings.trim.end - state.settings.trim.start,
+          );
+          setState({
+            ...state,
+            exporting: undefined,
+            notice: unlessMemoryConfirm(state.notice),
+            settings: validateSettings(
+              { ...state.settings, audioProcessing },
+              state.auto,
+              state.caps,
+              state.source,
+            ),
+            audioSettings:
+              state.audioSettings &&
+              validateAudioExtract(
+                { ...state.audioSettings, audioProcessing },
+                state.audioAuto!,
+                audioMixSource(state.source, state.addedAudio),
+                state.caps,
+              ),
+          });
+        }
+        return;
       case 'pick':
         cancelLoad();
         pick(action.file);
@@ -763,6 +956,9 @@ export function createController(
               : {
                   ...state.settings,
                   trim,
+                  ...(state.settings.mix
+                    ? { mix: normalizeAudioMix(state.settings.mix, trim.end - trim.start) }
+                    : {}),
                   ...(state.settings.audioProcessing
                     ? {
                         audioProcessing: normalizeAudioProcessing(
@@ -775,6 +971,9 @@ export function createController(
             audioSettings: state.audioSettings && {
               ...state.audioSettings,
               trim,
+              ...(state.audioSettings.mix
+                ? { mix: normalizeAudioMix(state.audioSettings.mix, trim.end - trim.start) }
+                : {}),
               ...(state.audioSettings.audioProcessing
                 ? {
                     audioProcessing: normalizeAudioProcessing(
@@ -794,7 +993,7 @@ export function createController(
           const value = validateAudioExtract(
             { ...action.value, trim: state.settings.trim },
             state.audioAuto,
-            state.source,
+            audioMixSource(state.source, state.addedAudio),
             state.caps,
           );
           setState({
@@ -868,7 +1067,12 @@ export function createController(
         }
         return;
       case 'export':
-        if (state.kind === 'prepare' && !state.exporting)
+        if (
+          state.kind === 'prepare' &&
+          !state.exporting &&
+          !state.addingAudio &&
+          (state.tool !== 'audio' || state.audioSettings)
+        )
           void startExport(state, action.confirmed === true);
         return;
       case 'cancel':
@@ -1024,6 +1228,77 @@ export function createController(
     } catch (err) {
       if (token !== loadToken) return;
       dispatch({ type: 'failed', notice: noticeForError(file, err) });
+    }
+  }
+
+  function applyMix(
+    from: Extract<AppState, { kind: 'prepare' }>,
+    mix: AudioMix,
+    addedAudio?: AddedAudio,
+  ): void {
+    const effectiveSource = audioMixSource(from.source, addedAudio);
+    const audioAuto =
+      (mix.original.include && from.source.audio?.decodable) || (mix.added && addedAudio)
+        ? autoAudioExtract(effectiveSource, from.caps)
+        : null;
+    const audioSettings = audioAuto
+      ? validateAudioExtract(
+          {
+            ...(from.audioSettings ?? audioAuto),
+            trim: from.settings.trim,
+            mix,
+            audioProcessing: from.settings.audioProcessing,
+          },
+          audioAuto,
+          effectiveSource,
+          from.caps,
+        )
+      : null;
+    setState({
+      ...from,
+      addedAudio,
+      addingAudio: from.addingAudio,
+      notice: undefined,
+      exporting: undefined,
+      settings: validateSettings({ ...from.settings, mix }, from.auto, from.caps, from.source),
+      audioAuto,
+      audioSettings,
+      tool: from.tool === 'audio' && !audioAuto ? 'shrink' : from.tool,
+    });
+  }
+
+  async function loadAddedAudio(file: File): Promise<void> {
+    if (state.kind !== 'prepare') return;
+    const input = state.input;
+    const token = ++addedToken;
+    addedRead?.abort();
+    const controller = new AbortController();
+    addedRead = controller;
+    supersedePending();
+    setState({ ...state, addingAudio: true, exporting: undefined, notice: undefined });
+    try {
+      const added = await (deps.readAddedAudio ?? readAddedAudio)(file, controller.signal);
+      if (token !== addedToken || state.kind !== 'prepare' || state.input !== input) {
+        added.input.dispose();
+        return;
+      }
+      const mix = normalizeAudioMix(
+        state.settings.mix,
+        state.settings.trim.end - state.settings.trim.start,
+      );
+      mix.added = { volumeDb: 0, offset: 0, loop: false };
+      applyMix({ ...state, addingAudio: undefined }, mix, added);
+    } catch (error) {
+      if (token !== addedToken || state.kind !== 'prepare' || state.input !== input) return;
+      setState({
+        ...state,
+        addingAudio: undefined,
+        notice: {
+          tone: 'error',
+          title: 'Audio could not be added',
+          message: error instanceof Error ? error.message : 'Choose a file with decodable audio.',
+        },
+      });
     }
   }
 
@@ -1286,7 +1561,7 @@ export function createController(
     const { settings, source } = prep;
     const mime = settings.container === 'webm' ? 'video/webm' : 'video/mp4';
     const outputName = outputNameFor(prep.file.name, settings.container);
-    const job = shrinkJob(settings, source, prep.overlayAssets);
+    const job = shrinkJob(settings, source, prep.overlayAssets, prep.addedAudio);
     return {
       outputName,
       mime,
@@ -1331,8 +1606,8 @@ export function createController(
     return {
       outputName,
       mime,
-      estimate: estimateAudioBytes(a, prep.source),
-      job: audioExtractJob(a),
+      estimate: estimateAudioBytes(a, audioMixSource(prep.source, prep.addedAudio)),
+      job: audioExtractJob(a, prep.addedAudio),
       format: (sinkKind) => createAudioOutputFormat(a.format, sinkKind),
       async preflight() {
         if (a.format !== 'mp3') return undefined;
@@ -1348,7 +1623,8 @@ export function createController(
           };
         }
       },
-      describe: (bytes) => describeAudioWritten(outputName, bytes, a, prep.source),
+      describe: (bytes) =>
+        describeAudioWritten(outputName, bytes, a, audioMixSource(prep.source, prep.addedAudio)),
       failure: {
         title: `The ${label} export failed`,
         message:

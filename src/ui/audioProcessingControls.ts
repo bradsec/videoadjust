@@ -27,7 +27,7 @@ export function mountAudioProcessing(
     onChange(normalizeAudioProcessing({}, duration));
     fields.get('gainDb')?.input.focus();
   });
-  head.append(el('strong', undefined, 'Audio processing'), reset);
+  head.append(el('strong', undefined, 'Master'), reset);
   section.append(head);
   const fields = new Map<
     'gainDb' | 'fadeIn' | 'fadeOut',

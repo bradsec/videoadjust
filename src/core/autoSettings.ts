@@ -99,7 +99,7 @@ export function autoSettings(src: SourceInfo, caps: Capabilities): AutoResult {
       trim: { start: 0, end: src.durationSec },
       keyFrameInterval: null,
       transform: { rotate: 0, flip: false, crop: 'original', rect: null },
-      metadata: { title: '', strip: false },
+      metadata: { title: '', strip: true },
       video,
       audio,
     },

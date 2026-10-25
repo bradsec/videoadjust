@@ -1,3 +1,4 @@
+import { mountResetAll } from './resetAll';
 import {
   AUDIO_BITRATE_STEPS,
   AUDIO_FORMATS,
@@ -8,10 +9,9 @@ import {
   type AudioFormat,
 } from '../core/audioExtract';
 import type { Capabilities, SourceInfo } from '../core/types';
-import { el, icon } from './dom';
+import { el, icon, INSPECTOR_GROUP } from './dom';
 import { formatBytes, formatDuration } from './format';
 import { formatByteRange, sizeMeter } from './progress';
-import { mountAudioProcessing } from './audioProcessingControls';
 
 export interface AudioPanelOptions {
   auto: AudioExtractSettings;
@@ -20,6 +20,7 @@ export interface AudioPanelOptions {
   value: AudioExtractSettings;
   onChange(s: AudioExtractSettings): void;
   onExport(): void;
+  onResetAll?: () => void;
 }
 
 const FORMATS: AudioFormat[] = ['mp3', 'm4a', 'wav'];
@@ -31,7 +32,11 @@ const wholeSeconds = (sec: number) => formatDuration(Math.round(sec));
 export function mountAudioPanel(
   host: HTMLElement,
   opts: AudioPanelOptions,
-): { update(s: AudioExtractSettings): void; setBusy(busy: boolean): void } {
+): {
+  resetAll: ReturnType<typeof mountResetAll>;
+  update(s: AudioExtractSettings): void;
+  setBusy(busy: boolean): void;
+} {
   const { auto, source, caps } = opts;
   let value = opts.value;
   const card = el('section', 'card export-summary');
@@ -55,9 +60,10 @@ export function mountAudioPanel(
   });
 
   const details = el('details', 'adjust');
+  details.name = INSPECTOR_GROUP;
   const disclosure = el('summary');
   const changeCount = el('span', 'adjust-state');
-  disclosure.append(document.createTextNode('Adjust'), changeCount, icon('i-chev'));
+  disclosure.append(document.createTextNode('Output'), changeCount, icon('i-chev'));
   const controls = el('div', 'settings-controls');
   details.append(disclosure, controls);
 
@@ -177,17 +183,12 @@ export function mountAudioPanel(
   if (monoSource) channels.section.append(el('p', 'setting-reason', 'The original audio is mono.'));
 
   controls.append(format.section, bitrate.section, channels.section);
-  const processing = mountAudioProcessing(
-    controls,
-    value.audioProcessing,
-    value.trim.end - value.trim.start,
-    (audioProcessing) => change({ audioProcessing }),
-  );
   // The estimate and the one primary action are docked together, above Adjust.
   const dock = el('div', 'dock');
   dock.append(estimate, exportButton);
   const spec = el('div', 'spec');
   spec.append(eyebrow, title, meter.node);
+  const resetAll = mountResetAll(spec, opts.onResetAll);
   card.append(spec, dock, details);
   host.replaceChildren(card);
 
@@ -201,7 +202,6 @@ export function mountAudioPanel(
   }
   function update(next: AudioExtractSettings): void {
     value = next;
-    processing.update(next.audioProcessing, next.trim.end - next.trim.start);
     const wav = next.format === 'wav';
     heading.textContent = wav
       ? `WAV · uncompressed ${channelName(next.channels)}`
@@ -214,7 +214,13 @@ export function mountAudioPanel(
     meter.newValue.textContent = text;
     meter.show(low, high, source.sizeBytes);
 
-    const changes = audioExtractChangeCount(next, auto, source, caps);
+    // Trim and the shared Audio section count in their own places.
+    const changes = audioExtractChangeCount(
+      { ...next, trim: auto.trim, audioProcessing: undefined, mix: undefined },
+      auto,
+      source,
+      caps,
+    );
     changeCount.textContent = changes
       ? `${changes} ${changes === 1 ? 'change' : 'changes'}`
       : 'All automatic';
@@ -253,5 +259,5 @@ export function mountAudioPanel(
     exportButton.replaceChildren(icon('i-audio'), busy ? 'Extracting...' : 'Extract audio');
   }
   update(value);
-  return { update, setBusy };
+  return { update, setBusy, resetAll };
 }

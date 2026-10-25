@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import { openSection } from './sections';
 import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -33,8 +34,9 @@ test('preview applies gain and loudness normalization', async ({ page }) => {
     };
   });
   await load(page);
-  const shrink = await openShrinkAdjust(page);
-  const gain = shrink.getByLabel('Gain (dB)', { exact: true });
+  await openShrinkAdjust(page);
+  await openSection(page, 'audio');
+  const gain = page.getByLabel('Gain (dB)', { exact: true });
   await gain.fill('-6');
   await gain.blur();
   await expect
@@ -52,7 +54,7 @@ test('preview applies gain and loudness normalization', async ({ page }) => {
   const expectedGain = 10 ** (-6 / 20);
   await expect.poll(recordedGain, { timeout: 15_000 }).toBeCloseTo(expectedGain, 3);
 
-  await shrink.getByLabel('Normalize loudness').selectOption('-16');
+  await page.getByLabel('Normalize loudness').selectOption('-16');
   await expect
     .poll(
       async () => {
@@ -69,16 +71,17 @@ test('preview applies gain and loudness normalization', async ({ page }) => {
 test('Shrink exports with gain, fades and normalization', async ({ page }) => {
   await load(page);
   const shrink = await openShrinkAdjust(page);
-  const gain = shrink.getByLabel('Gain (dB)', { exact: true });
+  await openSection(page, 'audio');
+  const gain = page.getByLabel('Gain (dB)', { exact: true });
   await gain.fill('-6');
   await gain.blur();
-  const fadeIn = shrink.getByLabel('Fade in (seconds)', { exact: true });
+  const fadeIn = page.getByLabel('Fade in (seconds)', { exact: true });
   await fadeIn.fill('0.5');
   await fadeIn.blur();
-  const fadeOut = shrink.getByLabel('Fade out (seconds)', { exact: true });
+  const fadeOut = page.getByLabel('Fade out (seconds)', { exact: true });
   await fadeOut.fill('0.5');
   await fadeOut.blur();
-  await shrink.getByLabel('Normalize loudness').selectOption('-16');
+  await page.getByLabel('Normalize loudness').selectOption('-16');
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shrink.getByRole('button', { name: /^Export/ }).click();
   await expect(page.getByRole('link', { name: /Download .*\.mp4/i })).toBeVisible({
@@ -92,10 +95,11 @@ test('Extract audio exports WAV with processing', async ({ page }) => {
   const audio = page.getByRole('region', { name: 'Audio summary' });
   await audio.locator('summary').click();
   await audio.getByRole('radio', { name: /WAV/ }).check();
-  const fadeIn = audio.getByLabel('Fade in (seconds)', { exact: true });
+  await openSection(page, 'audio');
+  const fadeIn = page.getByLabel('Fade in (seconds)', { exact: true });
   await fadeIn.fill('0.5');
   await fadeIn.blur();
-  await audio.getByLabel('Normalize loudness').selectOption('-23');
+  await page.getByLabel('Normalize loudness').selectOption('-23');
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await audio.getByRole('button', { name: 'Extract audio' }).click();
   await expect(page.getByRole('link', { name: /Download .*\.wav/i })).toBeVisible({
@@ -105,9 +109,10 @@ test('Extract audio exports WAV with processing', async ({ page }) => {
 
 test('Reset audio processing restores neutral gain', async ({ page }) => {
   await load(page);
-  const shrink = await openShrinkAdjust(page);
-  const gain = shrink.getByLabel('Gain (dB)', { exact: true });
-  const reset = shrink.getByRole('button', { name: 'Reset audio processing' });
+  await openShrinkAdjust(page);
+  await openSection(page, 'audio');
+  const gain = page.getByLabel('Gain (dB)', { exact: true });
+  const reset = page.getByRole('button', { name: 'Reset audio processing' });
   await expect(reset).toBeHidden();
   await gain.fill('-6');
   await gain.blur();
@@ -130,6 +135,7 @@ test('colour correction changes the preview with Style None and resets', async (
     .toBeGreaterThanOrEqual(2);
   const frame = page.locator('.live-preview-frame');
   const before = await frame.screenshot();
+  await openSection(page, 'colour');
   const exposure = page.getByLabel('Exposure (stops)', { exact: true });
   await exposure.evaluate((input: HTMLInputElement) => {
     input.value = '1';
@@ -168,9 +174,8 @@ test('Save current frame downloads valid PNG and JPEG files', async ({ page }) =
     )
     .toBeGreaterThanOrEqual(2);
   const edit = page.getByRole('region', { name: 'Edit', exact: true });
-  await edit.getByLabel('Frame format').selectOption('PNG');
   const pngDownload = page.waitForEvent('download');
-  await edit.getByRole('button', { name: 'Save current frame' }).click();
+  await edit.getByRole('button', { name: 'Save frame as PNG' }).click();
   const png = await pngDownload;
   expect(png.suggestedFilename()).toMatch(/-frame-\d+\.\d{3}\.png$/);
   const pngPath = await png.path();
@@ -180,10 +185,17 @@ test('Save current frame downloads valid PNG and JPEG files', async ({ page }) =
   expect(pngBytes.toString('ascii', 12, 16)).toBe('IHDR');
   expect(pngBytes.readUInt32BE(16)).toBeGreaterThan(0);
   expect(pngBytes.readUInt32BE(20)).toBeGreaterThan(0);
+  // The confirmation floats as a toast: announced politely, focus stays on the button.
+  const toast = page.locator('.toasts .toast', { hasText: /\.png saved\.$/ });
+  await expect(toast).toBeVisible();
+  await expect(page.locator('.toasts')).toHaveAttribute('aria-live', 'polite');
+  await expect(edit.getByRole('button', { name: 'Save frame as PNG' })).toBeFocused();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await toast.getByRole('button', { name: 'Dismiss notification' }).click();
+  await expect(toast).toHaveCount(0);
 
-  await edit.getByLabel('Frame format').selectOption('JPEG');
   const jpegDownload = page.waitForEvent('download');
-  await edit.getByRole('button', { name: 'Save current frame' }).click();
+  await edit.getByRole('button', { name: 'Save frame as JPEG' }).click();
   const jpeg = await jpegDownload;
   expect(jpeg.suggestedFilename()).toMatch(/-frame-\d+\.\d{3}\.jpg$/);
   const jpegPath = await jpeg.path();

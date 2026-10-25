@@ -15,7 +15,9 @@ for (const tool of ['Shrink', 'GIF']) {
       const video = page.locator('.preview-video');
       const frame = page.locator('.live-preview-frame');
       const layer = page.locator('.live-preview-overlay');
-      await expect(original).toBeHidden();
+      // A GIF is smaller and slower than the source, so its preview starts in output view.
+      if (tool === 'GIF') await expect(original).toBeVisible();
+      else await expect(original).toBeHidden();
       const before = await video.evaluate((node) => getComputedStyle(node).transform);
 
       await page.getByRole('button', { name: 'Crop and rotate' }).click();

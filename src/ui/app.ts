@@ -7,6 +7,10 @@ import { gifDimensions, gifUnavailable } from '../core/gifExport';
 import { hasStyleEffects, normalizeStyle } from '../core/style';
 import type { Settings, SourceInfo } from '../core/types';
 import { mountAudioPanel } from './audioPanel';
+import { audioChangeCount } from '../core/audioMix';
+import { mountAudioProcessing } from './audioProcessingControls';
+import { mountAudioTracks } from './audioTracksControls';
+import { mountMixWaveform } from './mixWaveform';
 import { mountAudioPlayer } from './audioPlayer';
 import { canPlaySource, mountCompare } from './compare';
 import { mountCropEditor } from './cropEditor';
@@ -14,6 +18,8 @@ import { mountOverlayEditor } from './overlayEditor';
 import { mountOverlayPanel } from './overlayPanel';
 import {
   codecLabel,
+  allSettingsChangeCount,
+  audioMixSource,
   createController,
   type AppAction,
   type AppDeps,
@@ -21,13 +27,15 @@ import {
   type Notice,
   type Tool,
 } from './controller';
-import { el, icon } from './dom';
+import { el, icon, INSPECTOR_GROUP } from './dom';
 import { mountDropZone } from './dropZone';
 import { formatBitrate, formatBytes, formatDuration } from './format';
 import { mountGifPanel } from './gifPanel';
 import { mountLivePreview } from './livePreview';
 import { mountPreviewAudio, type PreviewAudioTarget } from './previewAudio';
 import { mountProgress, sizeMeter } from './progress';
+import { mountResetAll } from './resetAll';
+import { mountToasts, toast } from './toast';
 import { mountSettings } from './settingsPanel';
 import { mountStylePanel } from './stylePanel';
 import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
@@ -68,6 +76,7 @@ export function createApp(
   const state = () => controller.getState();
 
   const noticeSlot = el('div', 'notice-slot');
+  mountToasts();
   const status = el('p', 'sr');
   status.setAttribute('role', 'status');
   const view = el('div', 'view');
@@ -189,6 +198,14 @@ function renderPrepare(
   noticeSlot: HTMLElement,
 ): Mounted {
   const onExport = () => dispatch({ type: 'export' });
+  const onResetAll = () => {
+    // Rebuild local drafts and remembered resolution alongside the controller defaults.
+    shownTool = undefined;
+    dispatch({ type: 'resetAll' });
+    toast('All settings reset to automatic defaults.', 'success');
+    // Reset all is now disabled, so focus the count that reports the new state.
+    panelHost.querySelector<HTMLElement>('.reset-all .adjust-state')?.focus();
+  };
   const head = el('div', 'file-line');
   const fileText = el('div', 'file-text');
   const title = screenHeading('file-name');
@@ -198,28 +215,7 @@ function renderPrepare(
   const stage = el('div', 'prepare-regions work');
   stage.dataset.region = 'prepare';
   const canvas = el('div', 'canvas');
-  const theater = el('button', 'btn btn-text theater-toggle');
-  theater.type = 'button';
-  theater.title = 'Use a wider preview with a fixed-width controls panel';
-  theater.append(icon('i-theater'), 'Theater mode');
-  let theaterOn = false;
-  try {
-    theaterOn = localStorage.getItem('videoadjust-theater') === 'true';
-  } catch {
-    // Browsers can block storage; the default layout still works.
-  }
-  document.body.classList.toggle('is-theater', theaterOn);
-  theater.setAttribute('aria-pressed', String(theaterOn));
-  theater.addEventListener('click', () => {
-    theaterOn = !theaterOn;
-    document.body.classList.toggle('is-theater', theaterOn);
-    theater.setAttribute('aria-pressed', String(theaterOn));
-    try {
-      localStorage.setItem('videoadjust-theater', String(theaterOn));
-    } catch {
-      // Theater mode remains usable when storage is unavailable.
-    }
-  });
+  const theater = theaterToggle('Use a wider preview with a fixed-width controls panel');
   const toolsHost = el('div', 'tools-host');
   const video = el('video', 'preview-video');
   video.controls = true;
@@ -234,7 +230,15 @@ function renderPrepare(
   );
   previewNote.hidden = true;
   const trimHost = el('div');
+  const waveformHost = el('div');
   const settingsHost = el('aside', 'settings-host inspector');
+  const tracksHost = el('div');
+  const audioDetails = el('details', 'adjust audio-adjust');
+  const audioHeading = el('summary');
+  const audioState = el('span', 'adjust-state');
+  audioHeading.append('Audio', audioState, icon('i-chev'));
+  audioDetails.append(audioHeading, tracksHost);
+  const colourDetails = el('details', 'adjust colour-adjust');
   const panelHost = el('div', 'tool-panel');
   panelHost.id = TOOL_PANEL_ID;
   panelHost.setAttribute('role', 'tabpanel');
@@ -249,9 +253,38 @@ function renderPrepare(
   const overlayState = el('span', 'adjust-state');
   overlayHeading.append('Overlay', overlayState, icon('i-chev'));
   overlayDetails.append(overlayHeading);
-  settingsHost.append(panelHost, styleDetails, overlayDetails);
+  settingsHost.append(panelHost, audioDetails, colourDetails, styleDetails, overlayDetails);
+  // Inspector sections share one name so opening one closes the others; panels add their own.
+  for (const details of [audioDetails, colourDetails, styleDetails, overlayDetails])
+    details.name = INSPECTOR_GROUP;
+  // Closing a section above the one just opened shifts it up; keep its header in view.
+  const keepOpenedInView = (event: Event) => {
+    const details = event.target as HTMLDetailsElement;
+    if (details instanceof HTMLDetailsElement && details.open)
+      details.querySelector('summary')?.scrollIntoView({ block: 'nearest' });
+  };
+  settingsHost.addEventListener('toggle', keepOpenedInView, true);
   let current = state;
-  const stylePanel = mountStylePanel(styleDetails, state.settings.style, (style) =>
+  const tracks = mountAudioTracks(tracksHost, {
+    sourceHasAudio: !!state.source.audio?.decodable,
+    mix: state.settings.mix,
+    added: state.addedAudio,
+    duration: state.settings.trim.end - state.settings.trim.start,
+    onChange: (value) => dispatch({ type: 'setMix', value }),
+    onAdd: (file) => dispatch({ type: 'addAudio', file }),
+    onRemove: () => dispatch({ type: 'removeAddedAudio' }),
+  });
+  const master = mountAudioProcessing(
+    tracksHost.firstElementChild as HTMLElement,
+    state.settings.audioProcessing,
+    state.settings.trim.end - state.settings.trim.start,
+    (value) => dispatch({ type: 'setAudioProcessing', value }),
+  );
+  const audioPreviewNote = el('p', 'setting-help');
+  audioPreviewNote.setAttribute('role', 'status');
+  audioPreviewNote.hidden = true;
+  tracksHost.firstElementChild!.append(audioPreviewNote);
+  const stylePanel = mountStylePanel(styleDetails, colourDetails, state.settings.style, (style) =>
     dispatch({ type: 'setSettings', value: { ...current.settings, style } }),
   );
   const changeOverlays = (overlays: Settings['overlays']) =>
@@ -277,26 +310,49 @@ function renderPrepare(
     root.style.setProperty('--dock-space', fixed && dock ? `${dock.offsetHeight}px` : '0px');
   });
   let shownTool: Tool | undefined;
+  let shownAdded = state.addedAudio;
   let changeTransform: ((t: NonNullable<Settings['transform']>) => void) | undefined;
-  let panel: { update(value: Of<'prepare'>): void; setBusy(busy: boolean): void } | undefined;
+  let panel:
+    | {
+        resetAll: ReturnType<typeof mountResetAll>;
+        update(value: Of<'prepare'>): void;
+        setBusy(busy: boolean): void;
+      }
+    | undefined;
   // Each tool's panel is mounted fresh on a switch; its settings live in the controller.
   function showPanel(value: Of<'prepare'>): void {
+    panel?.resetAll.destroy();
     shownTool = value.tool;
+    shownAdded = value.addedAudio;
     panelHost.setAttribute('aria-labelledby', toolTabId(value.tool));
     if (value.tool === 'audio' && value.audioAuto && value.audioSettings) {
       changeTransform = undefined;
       const audio = mountAudioPanel(panelHost, {
         auto: value.audioAuto,
-        source: value.source,
+        source: audioMixSource(value.source, value.addedAudio),
         caps: value.caps,
         value: value.audioSettings,
         onChange: (next) => dispatch({ type: 'setAudioSettings', value: next }),
         onExport,
+        onResetAll,
       });
       panel = {
+        resetAll: audio.resetAll,
         update: (s) => s.audioSettings && audio.update(s.audioSettings),
         setBusy: audio.setBusy,
       };
+      return;
+    }
+    if (value.tool === 'audio') {
+      changeTransform = undefined;
+      const card = el('section', 'card export-summary');
+      card.setAttribute('aria-label', 'Audio summary');
+      const spec = el('div', 'spec');
+      spec.append(el('h2', undefined, 'No audio to extract'));
+      const resetAll = mountResetAll(spec, onResetAll);
+      card.append(spec);
+      panelHost.replaceChildren(card);
+      panel = { resetAll, update() {}, setBusy() {} };
       return;
     }
     if (value.tool === 'gif' && value.gifSettings) {
@@ -306,10 +362,12 @@ function renderPrepare(
         transform: value.settings.transform,
         onChange: (next) => dispatch({ type: 'setGifSettings', value: next }),
         onExport,
+        onResetAll,
       });
       changeTransform = (transform) =>
         dispatch({ type: 'setSettings', value: { ...current.settings, transform } });
       panel = {
+        resetAll: gif.resetAll,
         update: (s) => s.gifSettings && gif.update(s.gifSettings, s.settings.transform),
         setBusy: gif.setBusy,
       };
@@ -322,9 +380,14 @@ function renderPrepare(
       value: value.settings,
       onChange: (next) => dispatch({ type: 'setSettings', value: next }),
       onExport,
+      onResetAll,
     });
     changeTransform = shrink.changeTransform;
-    panel = { update: (s) => shrink.update(s.settings), setBusy: shrink.setBusy };
+    panel = {
+      resetAll: shrink.resetAll,
+      update: (s) => shrink.update(s.settings),
+      setBusy: shrink.setBusy,
+    };
   }
   const thumbnails = async (
     count: number,
@@ -380,6 +443,17 @@ function renderPrepare(
     previewPlayable,
     onChange: (value) => dispatch({ type: 'setTrim', value }),
   });
+  let normalizationDb = 0;
+  const waveform = mountMixWaveform(waveformHost, state.input, state.source.durationSec, video);
+  function updateWaveform(): void {
+    waveform.update({
+      trim: current.settings.trim,
+      mix: current.settings.mix,
+      added: current.addedAudio,
+      processing: current.settings.audioProcessing,
+      normalizationDb,
+    });
+  }
   const showPreviewUnplayable = () => {
     if (!previewPlayable) return;
     previewPlayable = false;
@@ -408,16 +482,19 @@ function renderPrepare(
   editHead.append(el('h2', undefined, 'Edit'));
   const editTools = el('div', 'edit-tools');
   editSection.append(editHead, editTools);
-  const frameFormat = el('select', 'setting-select frame-format');
-  frameFormat.setAttribute('aria-label', 'Frame format');
-  for (const format of ['PNG', 'JPEG']) {
-    const option = el('option', undefined, format);
-    option.value = format;
-    frameFormat.append(option);
-  }
-  const saveFrame = el('button', 'btn btn-text', 'Save current frame');
-  saveFrame.type = 'button';
-  saveFrame.title = 'Save the current frame at output resolution, including all edits';
+  // Icon-only so the row fits beside Crop and rotate on a phone; the format is in the icon.
+  const frameButtons = (['png', 'jpeg'] as const).map((format) => {
+    const name = format === 'png' ? 'PNG' : 'JPEG';
+    const button = el('button', 'btn edit-frame');
+    button.type = 'button';
+    button.setAttribute('aria-label', `Save frame as ${name}`);
+    button.title = `Save the current frame as ${name} at output resolution, including all edits`;
+    button.append(icon(`i-${format === 'png' ? 'png' : 'jpg'}`));
+    button.addEventListener('click', () => {
+      void saveCurrentFrame(format === 'jpeg');
+    });
+    return button;
+  });
   const frameStatus = el('p', 'note');
   frameStatus.setAttribute('role', 'status');
   let savingFrame = false;
@@ -425,26 +502,25 @@ function renderPrepare(
   let frameUrl: string | undefined;
   let destroyed = false;
   function updateFrameButton(): void {
-    saveFrame.disabled =
-      savingFrame || !!current.exporting || video.readyState < 2 || video.seeking;
-    frameFormat.disabled = savingFrame;
+    const disabled = !!current.exporting || video.readyState < 2 || video.seeking;
+    for (const button of frameButtons) {
+      button.disabled = disabled;
+      // aria-disabled while saving keeps keyboard focus on the button that was pressed.
+      button.setAttribute('aria-disabled', String(savingFrame));
+    }
   }
   for (const event of ['loadeddata', 'seeking', 'seeked'])
     video.addEventListener(event, updateFrameButton);
-  saveFrame.addEventListener('click', () => {
-    void saveCurrentFrame();
-  });
-  async function saveCurrentFrame(): Promise<void> {
+  async function saveCurrentFrame(jpeg: boolean): Promise<void> {
     const source = current.source.video;
     const output =
       current.tool === 'gif' && current.gifSettings
         ? gifDimensions(current.gifSettings, current.source, current.settings.transform)
         : current.settings.video;
-    if (!source || !output || saveFrame.disabled) return;
+    if (!source || !output || savingFrame || frameButtons[0]!.disabled) return;
     savingFrame = true;
     updateFrameButton();
     frameStatus.textContent = 'Saving frame…';
-    const jpeg = frameFormat.value === 'JPEG';
     const mime = jpeg ? 'image/jpeg' : 'image/png';
     const base = current.file.name.replace(/\.[^.]+$/, '');
     const name = `${base}-frame-${video.currentTime.toFixed(3)}.${jpeg ? 'jpg' : 'png'}`;
@@ -487,17 +563,19 @@ function renderPrepare(
         download.download = name;
         frameStatus.replaceChildren(download);
         download.click();
-      } else frameStatus.textContent = `${name} saved.`;
+      } else frameStatus.textContent = '';
+      toast(`${name} saved.`, 'success');
     } catch (error) {
       const sink = await pendingSink.catch(() => undefined);
       await sink?.abort();
       if (destroyed) return;
-      if (error instanceof DOMException && error.name === 'AbortError')
-        frameStatus.textContent = '';
-      else {
+      frameStatus.textContent = '';
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
         console.error('saving the current frame failed', error);
-        frameStatus.textContent =
-          'The frame could not be saved. Check that the preview and selected style are available, then try again.';
+        toast(
+          'The frame could not be saved. Check that the preview and selected style are available, then try again.',
+          'error',
+        );
       }
     } finally {
       savingFrame = false;
@@ -518,7 +596,6 @@ function renderPrepare(
       event.repeat ||
       event.defaultPrevented ||
       !livePreview ||
-      current.tool === 'audio' ||
       editorsHost.querySelector(':scope > :not([hidden])') ||
       document.querySelector('dialog[open], [aria-modal="true"]:not([hidden])')
     )
@@ -559,10 +636,19 @@ function renderPrepare(
       );
     else previewHost.append(video);
     video.src = url;
-    if (state.source.audio) {
-      previewAudio = mountPreviewAudio(video, state.input);
-      previewAudio.update(previewAudioTarget(state));
-    }
+    previewAudio = mountPreviewAudio(
+      video,
+      state.input,
+      (db) => {
+        normalizationDb = db;
+        updateWaveform();
+      },
+      (message) => {
+        audioPreviewNote.textContent = message;
+        audioPreviewNote.hidden = !message;
+      },
+    );
+    previewAudio.update(previewAudioTarget(state));
     if (state.source.video)
       cropEditor = mountCropEditor(
         editorsHost,
@@ -585,8 +671,8 @@ function renderPrepare(
     previewNote.hidden = false;
     canvas.append(previewNote);
   }
-  editTools.append(saveFrame, frameFormat);
-  canvas.append(noticeSlot, trimHost);
+  editTools.append(...frameButtons);
+  canvas.append(noticeSlot, trimHost, waveformHost);
   stage.append(canvas, settingsHost);
   container.replaceChildren(stage);
   title.focus();
@@ -594,6 +680,24 @@ function renderPrepare(
     if (value.kind !== 'prepare') return;
     trim.update(value.settings.trim);
     current = value;
+    audioDetails.hidden = value.tool === 'gif';
+    const audioChanges = audioChangeCount(value.settings.mix, value.settings.audioProcessing);
+    audioState.textContent = audioChanges
+      ? `${audioChanges} ${audioChanges === 1 ? 'change' : 'changes'}`
+      : 'Unchanged';
+    audioState.classList.toggle('is-changed', audioChanges > 0);
+    waveformHost.hidden = value.tool === 'gif';
+    tracks.update({
+      busy: value.addingAudio,
+      sourceHasAudio: !!value.source.audio?.decodable,
+      mix: value.settings.mix,
+      added: value.addedAudio,
+      duration: value.settings.trim.end - value.settings.trim.start,
+    });
+    master.update(
+      value.settings.audioProcessing,
+      value.settings.trim.end - value.settings.trim.start,
+    );
     updateFrameButton();
     cropEditor?.update(value.settings);
     cropEditor?.setTool(value.tool !== 'audio');
@@ -601,9 +705,11 @@ function renderPrepare(
     overlayEditor?.setTool(value.tool !== 'audio');
     overlayDetails.hidden = value.tool === 'audio' || !value.source.video;
     styleDetails.hidden = value.tool === 'audio' || !value.source.video;
+    colourDetails.hidden = styleDetails.hidden;
     stylePanel.update(value.settings.style, styleUnavailable);
     editSection.hidden = value.tool === 'audio' || !previewPlayable || !value.source.video;
     previewAudio?.update(previewAudioTarget(value));
+    updateWaveform();
     const previewOutput =
       value.tool === 'gif' && value.gifSettings
         ? gifDimensions(value.gifSettings, value.source, value.settings.transform)
@@ -618,6 +724,11 @@ function renderPrepare(
           width: value.source.video.displayWidth,
           height: value.source.video.displayHeight,
         },
+        fps:
+          value.tool === 'gif' && value.gifSettings
+            ? value.gifSettings.fps
+            : (value.settings.video?.fps ?? null),
+        sourceFps: value.source.video.fps,
         enabled: value.tool !== 'audio',
       });
     overlayState.textContent = overlaySummary(
@@ -627,7 +738,7 @@ function renderPrepare(
     overlayState.classList.toggle('is-changed', overlayState.textContent !== 'Off');
     overlayPanel.update(value.settings.overlays);
     tabs.update(value.tool, audioReason(value), gifReason(value));
-    if (value.tool !== shownTool) {
+    if (value.tool !== shownTool || value.addedAudio !== shownAdded) {
       showPanel(value);
       dockSpace.disconnect();
       dockSpace.observe(root);
@@ -635,13 +746,15 @@ function renderPrepare(
       if (dock) dockSpace.observe(dock);
     }
     panel?.update(value);
-    panel?.setBusy(value.exporting === true);
+    panel?.resetAll.update(allSettingsChangeCount(value), value.exporting === true);
+    panel?.setBusy(value.exporting === true || value.addingAudio === true);
   }
   update(state);
   return {
     update,
     destroy() {
       destroyed = true;
+      panel?.resetAll.destroy();
       void frameSink?.abort();
       if (frameUrl) URL.revokeObjectURL(frameUrl);
       document.body.classList.remove('is-theater');
@@ -649,6 +762,7 @@ function renderPrepare(
       dockSpace.disconnect();
       root.style.removeProperty('--dock-space');
       trim.destroy();
+      waveform.destroy();
       cropEditor?.destroy();
       overlayEditor?.destroy();
       livePreview?.destroy();
@@ -670,14 +784,45 @@ function previewAudioTarget(state: Of<'prepare'>): PreviewAudioTarget {
           processing: state.audioSettings.audioProcessing,
           trim: state.audioSettings.trim,
           channels: state.audioSettings.channels,
+          mix: state.audioSettings.mix,
+          added: state.addedAudio,
         }
       : null;
-  if (state.tool === 'gif' || !state.settings.audio) return null;
+  if (state.tool === 'gif') return null;
   return {
     processing: state.settings.audioProcessing,
     trim: state.settings.trim,
-    channels: state.settings.audio.channels,
+    channels: state.settings.audio?.channels ?? 2,
+    mix: state.settings.mix,
+    added: state.addedAudio,
   };
+}
+
+/** Desktop wide layout shared by Prepare and the result comparison; remembered per browser. */
+function theaterToggle(title: string): HTMLButtonElement {
+  const theater = el('button', 'btn btn-text theater-toggle');
+  theater.type = 'button';
+  theater.title = title;
+  theater.append(icon('i-theater'), 'Theater mode');
+  let theaterOn = false;
+  try {
+    theaterOn = localStorage.getItem('videoadjust-theater') === 'true';
+  } catch {
+    // Browsers can block storage; the default layout still works.
+  }
+  document.body.classList.toggle('is-theater', theaterOn);
+  theater.setAttribute('aria-pressed', String(theaterOn));
+  theater.addEventListener('click', () => {
+    theaterOn = !theaterOn;
+    document.body.classList.toggle('is-theater', theaterOn);
+    theater.setAttribute('aria-pressed', String(theaterOn));
+    try {
+      localStorage.setItem('videoadjust-theater', String(theaterOn));
+    } catch {
+      // Theater mode remains usable when storage is unavailable.
+    }
+  });
+  return theater;
 }
 
 function audioReason(state: Of<'prepare'>): string | null {
@@ -1199,6 +1344,9 @@ function renderResult(
   actions.append(restart);
   side.append(actions);
 
+  // Only a video comparison benefits from the wide layout.
+  if (compare)
+    canvas.prepend(theaterToggle('Use a wider comparison with a fixed-width details panel'));
   work.append(canvas, side);
   container.replaceChildren(work);
   figure.focus();
@@ -1206,6 +1354,7 @@ function renderResult(
   return {
     update() {},
     destroy() {
+      document.body.classList.remove('is-theater');
       peaksAbort.abort();
       compare?.destroy();
       if (originalUrl) URL.revokeObjectURL(originalUrl);

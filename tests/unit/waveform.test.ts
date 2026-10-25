@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { peaksFromSamples } from '../../src/ui/waveform';
+import { AudioSampleSink, InputAudioTrack, type AudioSample, type Input } from 'mediabunny';
+import { describe, expect, it, vi } from 'vitest';
+import { computePeaks, peaksFromSamples } from '../../src/ui/waveform';
 
 describe('peaksFromSamples', () => {
   it('returns one peak per bin', () => {
@@ -31,4 +32,39 @@ describe('peaksFromSamples', () => {
     expect(Math.max(...peaks)).toBeCloseTo(0.8);
     expect(peaks.filter((p) => p > 0)).toHaveLength(2);
   });
+});
+
+it('stops a pending waveform decoder immediately on cancellation', async () => {
+  const track = Object.assign(Object.create(InputAudioTrack.prototype) as InputAudioTrack, {
+    canDecode: async () => true,
+  });
+  const input = { getPrimaryAudioTrack: async () => track } as unknown as Input;
+  let resolve!: (result: IteratorResult<AudioSample, void>) => void;
+  const iterator = {
+    next: vi.fn(
+      () =>
+        new Promise<IteratorResult<AudioSample, void>>((done) => {
+          resolve = done;
+        }),
+    ),
+    return: vi.fn(async () => {
+      resolve({ done: true, value: undefined });
+      return { done: true, value: undefined };
+    }),
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+  } as unknown as AsyncGenerator<AudioSample, void, unknown>;
+  const samples = vi.spyOn(AudioSampleSink.prototype, 'samples').mockReturnValue(iterator);
+  const controller = new AbortController();
+  const result = computePeaks(input, { start: 0, end: 1 }, 2048, controller.signal);
+  await new Promise((done) => setTimeout(done, 0));
+  try {
+    controller.abort();
+    expect(iterator.return).toHaveBeenCalled();
+  } finally {
+    await iterator.return();
+    expect(await result).toBeNull();
+    samples.mockRestore();
+  }
 });
