@@ -20,7 +20,7 @@ Scale (px): 12 meta, 14 body-small and labels, 16 body, 18 section title, 24 scr
 
 ## Spacing, grid, radius
 
-4 px base: 4, 8, 12, 16, 24, 32, 48, 64. Desktop: 12-column grid, 1280 px max content width, 32 px gutters; header, tool switch, canvas and inspector share the same left and right edges. Inspector rail inset 24 px everywhere. Radius: 6 inset pieces, 10 controls, 14 cards/surfaces, full circle only for play and drag knobs. Elevation on dark by lighter surface steps, not shadows.
+4 px base: 4, 8, 12, 16, 24, 32, 48, 64. Desktop: 12-column grid, 1280 px max content width, 32 px gutters; header, tool switch, canvas and inspector share the same left and right edges. Theater mode widens the prepare canvas across the window with a fixed 380 px inspector. Inspector rail inset 24 px everywhere. Radius: 6 inset pieces, 10 controls, 14 cards/surfaces, full circle only for play and drag knobs. Elevation on dark by lighter surface steps, not shadows.
 
 ## Buttons (one system)
 

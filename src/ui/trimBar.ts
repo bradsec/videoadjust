@@ -1,5 +1,6 @@
 import { el, icon } from './dom';
 import { formatDuration } from './format';
+import { formatTimelineLabel, parseTimecode, pickTickStep } from './timelineTicks';
 
 export const MIN_TRIM_SPAN = 0.1;
 export type Trim = { start: number; end: number };
@@ -42,11 +43,20 @@ export function mountTrimBar(
   head.append(el('h2', undefined, 'Trim'), kept);
   const strip = el('div', 'trim-strip');
   strip.setAttribute('aria-label', 'Trim range');
+  const ruler = el('div', 'trim-ruler');
+  ruler.setAttribute('aria-hidden', 'true');
+  const ticks = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  ruler.append(ticks);
   const thumbs = el('div', 'trim-thumbs');
   const before = el('span', 'trim-out');
   const after = el('span', 'trim-out');
   const selection = el('span', 'trim-selection');
-  const playhead = el('span', 'trim-playhead');
+  const playhead = el('button', 'trim-playhead');
+  playhead.type = 'button';
+  playhead.setAttribute('role', 'slider');
+  playhead.setAttribute('aria-label', 'Playback position');
+  playhead.setAttribute('aria-valuemin', '0');
+  playhead.setAttribute('aria-valuemax', String(duration));
   const handles = (['start', 'end'] as const).map((side) => {
     const handle = el('button', `trim-handle ${side}`);
     handle.type = 'button';
@@ -71,6 +81,7 @@ export function mountTrimBar(
     let activePointer: number | null = null;
     handle.addEventListener('pointerdown', (event) => {
       event.preventDefault();
+      event.stopPropagation();
       activePointer = event.pointerId;
       if (event.isTrusted) handle.setPointerCapture(event.pointerId);
       move(side, event);
@@ -90,22 +101,188 @@ export function mountTrimBar(
 
   const readouts = el('div', 'trim-readouts');
   const values: HTMLElement[] = [];
+  const inputs: HTMLInputElement[] = [];
   const playheadButtons: HTMLButtonElement[] = [];
   for (const side of ['start', 'end'] as const) {
     const group = el('div', 'trim-readout');
     const label = el('span', 'trim-label', side === 'start' ? 'Start' : 'End');
     const output = el('output', 'trim-value num');
+    const input = el('input', 'trim-input num') as HTMLInputElement;
+    input.type = 'text';
+    input.inputMode = 'text';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.disabled = duration < MIN_TRIM_SPAN;
+    input.setAttribute('aria-label', side === 'start' ? 'Trim start' : 'Trim end');
+    const error = el(
+      'p',
+      'setting-reason trim-error',
+      'Enter a time within the clip, keeping at least 0.1 seconds.',
+    );
+    error.id = `trim-${side}-error`;
+    error.hidden = true;
+    input.setAttribute('aria-describedby', error.id);
+    const clearError = () => {
+      input.setAttribute('aria-invalid', 'false');
+      error.hidden = true;
+    };
+    const revert = () => {
+      input.value = formatDuration(value[side], { tenths: true });
+      clearError();
+    };
+    const commit = () => {
+      const time = parseTimecode(input.value);
+      if (
+        time === null ||
+        time < 0 ||
+        time > duration ||
+        (side === 'start' ? time > value.end - MIN_TRIM_SPAN : time < value.start + MIN_TRIM_SPAN)
+      ) {
+        input.setAttribute('aria-invalid', 'true');
+        error.hidden = false;
+        return;
+      }
+      clearError();
+      input.value = formatDuration(time, { tenths: true });
+      change(side, time);
+    };
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commit();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        revert();
+        input.blur();
+      }
+    });
+    input.addEventListener('blur', () => {
+      if (input.getAttribute('aria-invalid') !== 'true') commit();
+    });
+    input.addEventListener('input', clearError);
     const button = el('button', 'btn btn-cue', side === 'start' ? 'Start here' : 'End here');
     button.type = 'button';
     button.prepend(icon(side === 'start' ? 'i-start' : 'i-end'));
     button.addEventListener('click', () => change(side, video.currentTime));
-    group.append(label, output, button);
+    group.append(label, output, input, error, button);
     readouts.append(group);
     values.push(output);
+    inputs.push(input);
     playheadButtons.push(button);
   }
-  section.append(head, strip, readouts);
+  section.append(head, ruler, strip, readouts);
   host.replaceChildren(section);
+
+  function renderRuler(): void {
+    const width = strip.clientWidth;
+    if (!width || !duration) return;
+    const { major, minor } = pickTickStep(duration, width);
+    ticks.setAttribute('viewBox', `0 0 ${width} 28`);
+    const lines: string[] = [];
+    if (minor) {
+      for (let n = 0; n * minor <= duration + 1e-8; n++) {
+        const x = (n * minor * width) / duration;
+        lines.push(`M${x} 20v8`);
+      }
+    }
+    const labels: SVGTextElement[] = [];
+    for (let n = 0; n * major <= duration + 1e-8; n++) {
+      const time = n * major;
+      const x = (time * width) / duration;
+      lines.push(`M${x} 16v12`);
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', String(x));
+      label.setAttribute('y', '12');
+      label.setAttribute('text-anchor', x < 30 ? 'start' : x > width - 30 ? 'end' : 'middle');
+      label.textContent = formatTimelineLabel(time, duration, major < 1);
+      labels.push(label);
+    }
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', lines.join(''));
+    ticks.replaceChildren(path, ...labels);
+  }
+  const rulerResize = new ResizeObserver(renderRuler);
+  rulerResize.observe(strip);
+
+  let activeScrub: number | null = null;
+  let resumeAfterScrub = false;
+  let seekFrame = 0;
+  let pendingSeek = 0;
+  function positionAt(event: PointerEvent): number {
+    const rect = strip.getBoundingClientRect();
+    return rect.width
+      ? Math.min(duration, Math.max(0, ((event.clientX - rect.left) / rect.width) * duration))
+      : 0;
+  }
+  function seek(position: number, exact: boolean): void {
+    if (exact || !video.fastSeek) video.currentTime = position;
+    else video.fastSeek(position);
+    setPercent(playhead, 'left', position);
+    playhead.setAttribute('aria-valuenow', String(position));
+    playhead.setAttribute('aria-valuetext', formatDuration(position));
+  }
+  function startScrub(event: PointerEvent): void {
+    if (
+      !previewPlayable ||
+      (event.target instanceof Element && event.target.closest('.trim-handle'))
+    )
+      return;
+    event.preventDefault();
+    activeScrub = event.pointerId;
+    resumeAfterScrub = !video.paused;
+    if (resumeAfterScrub) video.pause();
+    if (event.isTrusted) (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    pendingSeek = positionAt(event);
+    seek(pendingSeek, true);
+  }
+  function moveScrub(event: PointerEvent): void {
+    if (activeScrub !== event.pointerId) return;
+    pendingSeek = positionAt(event);
+    if (!seekFrame)
+      seekFrame = requestAnimationFrame(() => {
+        seekFrame = 0;
+        seek(pendingSeek, false);
+      });
+  }
+  function endScrub(event: PointerEvent, cancelled = false): void {
+    if (activeScrub !== event.pointerId) return;
+    if (seekFrame) cancelAnimationFrame(seekFrame);
+    seekFrame = 0;
+    seek(cancelled ? pendingSeek : positionAt(event), true);
+    activeScrub = null;
+    if (resumeAfterScrub)
+      void video.play().catch((error: unknown) => console.warn('Could not resume preview', error));
+    resumeAfterScrub = false;
+  }
+  for (const target of [ruler, strip]) {
+    target.addEventListener('pointerdown', startScrub);
+    target.addEventListener('pointermove', moveScrub);
+    target.addEventListener('pointerup', endScrub);
+    target.addEventListener('pointercancel', (event) => endScrub(event, true));
+    target.addEventListener('lostpointercapture', (event) => {
+      if (activeScrub === event.pointerId) endScrub(event, true);
+    });
+  }
+  playhead.addEventListener('keydown', (event) => {
+    const step = event.shiftKey ? 5 : 1;
+    const position =
+      event.key === 'Home'
+        ? value.start
+        : event.key === 'End'
+          ? value.end
+          : event.key === 'PageUp'
+            ? video.currentTime + 10
+            : event.key === 'PageDown'
+              ? video.currentTime - 10
+              : event.key === 'ArrowRight'
+                ? video.currentTime + step
+                : event.key === 'ArrowLeft'
+                  ? video.currentTime - step
+                  : null;
+    if (position === null || !previewPlayable) return;
+    event.preventDefault();
+    seek(Math.min(duration, Math.max(0, position)), true);
+  });
 
   function move(side: 'start' | 'end', event: PointerEvent): void {
     const rect = strip.getBoundingClientRect();
@@ -127,6 +304,11 @@ export function mountTrimBar(
     kept.textContent = `${formatDuration(next.end - next.start, { tenths: true })} of ${formatDuration(duration, { tenths: true })} kept`;
     values[0]!.textContent = formatDuration(next.start, { tenths: true });
     values[1]!.textContent = formatDuration(next.end, { tenths: true });
+    for (const [index, side] of (['start', 'end'] as const).entries()) {
+      const input = inputs[index]!;
+      if (document.activeElement !== input)
+        input.value = formatDuration(next[side], { tenths: true });
+    }
     setPercent(before, 'width', next.start);
     setPercent(after, 'left', next.end);
     setPercent(selection, 'left', next.start);
@@ -150,6 +332,7 @@ export function mountTrimBar(
   }
   function setPreviewPlayable(next: boolean): void {
     previewPlayable = next;
+    playhead.disabled = !next;
     for (const button of playheadButtons) {
       button.disabled = !previewPlayable;
       button.title = previewPlayable
@@ -158,9 +341,12 @@ export function mountTrimBar(
     }
   }
   function onTimeUpdate(): void {
+    if (activeScrub !== null) return;
     if (!video.paused && (video.currentTime >= value.end || video.currentTime < value.start))
       video.currentTime = value.start;
     setPercent(playhead, 'left', video.currentTime);
+    playhead.setAttribute('aria-valuenow', String(video.currentTime));
+    playhead.setAttribute('aria-valuetext', formatDuration(video.currentTime));
   }
   video.addEventListener('timeupdate', onTimeUpdate);
   video.addEventListener('seeked', onTimeUpdate);
@@ -184,6 +370,8 @@ export function mountTrimBar(
     destroy() {
       destroyed = true;
       thumbnailAbort.abort();
+      rulerResize.disconnect();
+      if (seekFrame) cancelAnimationFrame(seekFrame);
       video.removeEventListener('timeupdate', onTimeUpdate);
       video.removeEventListener('seeked', onTimeUpdate);
       video.removeEventListener('play', onTimeUpdate);

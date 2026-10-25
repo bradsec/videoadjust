@@ -124,6 +124,44 @@ test('crop editor moves and resizes the square guide', { tag: '@mobile' }, async
   await expect(page.getByLabel('Editor mirror')).toBeChecked();
 });
 
+for (const theater of [false, true]) {
+  test(
+    `Done shows the square crop in the live preview${theater ? ' in theater mode' : ''}`,
+    { tag: '@mobile' },
+    async ({ page }, testInfo) => {
+      test.skip(theater && ['iphone', 'ipad'].includes(testInfo.project.name));
+      if (theater) await page.getByRole('button', { name: 'Theater mode' }).click();
+      await page.getByRole('button', { name: 'Crop and rotate' }).click();
+      await page.getByLabel('Crop aspect ratio').selectOption('square');
+      await page
+        .getByRole('region', { name: 'Crop and rotate editor' })
+        .getByRole('button', { name: 'Done' })
+        .click();
+
+      const frame = page.locator('.live-preview-frame');
+      await expect(frame).toHaveClass(/is-edited/);
+      await expect
+        .poll(async () => {
+          const { width, height } = (await frame.boundingBox())!;
+          return Math.abs(width / height - 1);
+        })
+        .toBeLessThan(0.01);
+      await expect
+        .poll(() =>
+          page.locator('.preview-video').evaluate((video: HTMLVideoElement) => {
+            const frame = video.parentElement!;
+            return parseFloat(video.style.width) / parseFloat(frame.style.width);
+          }),
+        )
+        .toBeGreaterThan(1.7);
+      await expect(page.getByRole('button', { name: 'Show original' })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+    },
+  );
+}
+
 test('audio removal and WebM selection stay valid', async ({ page }) => {
   const card = page.getByRole('region', { name: 'Export summary' });
   await card.locator('summary').click();

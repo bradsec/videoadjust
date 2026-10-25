@@ -195,6 +195,28 @@ function renderPrepare(
   const stage = el('div', 'prepare-regions work');
   stage.dataset.region = 'prepare';
   const canvas = el('div', 'canvas');
+  const theater = el('button', 'btn btn-text theater-toggle');
+  theater.type = 'button';
+  theater.title = 'Use a wider preview with a fixed-width controls panel';
+  theater.append(icon('i-theater'), 'Theater mode');
+  let theaterOn = false;
+  try {
+    theaterOn = localStorage.getItem('videoadjust-theater') === 'true';
+  } catch {
+    // Browsers can block storage; the default layout still works.
+  }
+  document.body.classList.toggle('is-theater', theaterOn);
+  theater.setAttribute('aria-pressed', String(theaterOn));
+  theater.addEventListener('click', () => {
+    theaterOn = !theaterOn;
+    document.body.classList.toggle('is-theater', theaterOn);
+    theater.setAttribute('aria-pressed', String(theaterOn));
+    try {
+      localStorage.setItem('videoadjust-theater', String(theaterOn));
+    } catch {
+      // Theater mode remains usable when storage is unavailable.
+    }
+  });
   const toolsHost = el('div', 'tools-host');
   const video = el('video', 'preview-video');
   video.controls = true;
@@ -377,7 +399,37 @@ function renderPrepare(
   editSection.append(editHead, editTools);
   // Editors take the preview's place while open, so they sit directly after it.
   const editorsHost = el('div', 'editors');
-  canvas.append(toolsHost, head);
+  const onSpace = (event: KeyboardEvent) => {
+    if (
+      event.key !== ' ' ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.shiftKey ||
+      event.repeat ||
+      event.defaultPrevented ||
+      !livePreview ||
+      current.tool === 'audio' ||
+      editorsHost.querySelector(':scope > :not([hidden])') ||
+      document.querySelector('dialog[open], [aria-modal="true"]:not([hidden])')
+    )
+      return;
+    const controls =
+      'input, textarea, select, button, a[href], summary, [contenteditable], video, [role="button"], [role="slider"], [role="switch"], [role="checkbox"], [role="radio"], [role="tab"], [role="menuitem"], [role="option"], [role="combobox"], [role="textbox"], [role="separator"]';
+    if (
+      (event.target instanceof Element && event.target.closest(controls)) ||
+      (document.activeElement instanceof Element && document.activeElement.closest(controls))
+    )
+      return;
+    event.preventDefault();
+    if (!livePreview.togglePlayback()) {
+      if (video.paused)
+        void video.play().catch((error: unknown) => console.warn('Could not play preview', error));
+      else video.pause();
+    }
+  };
+  document.addEventListener('keydown', onSpace);
+  canvas.append(toolsHost, head, theater);
   if (previewPlayable) {
     canvas.append(previewHost, editorsHost, previewNote, editSection);
     if (state.source.video)
@@ -473,6 +525,8 @@ function renderPrepare(
   return {
     update,
     destroy() {
+      document.body.classList.remove('is-theater');
+      document.removeEventListener('keydown', onSpace);
       dockSpace.disconnect();
       root.style.removeProperty('--dock-space');
       trim.destroy();

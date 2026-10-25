@@ -61,6 +61,102 @@ test.describe('with a video loaded', () => {
     await expect(page.locator('.trim-readout').first().locator('output')).not.toHaveText('0:00');
   });
 
+  test('ruler stays aligned and seeks on click', { tag: '@mobile' }, async ({ page }) => {
+    const ruler = page.locator('.trim-ruler');
+    const strip = page.locator('.trim-strip');
+    await expect(ruler.locator('text').first()).toBeVisible();
+    const labels = ruler.locator('text');
+    expect(await labels.count()).toBeGreaterThan(1);
+    expect(await labels.count()).toBeLessThan(30);
+    const rulerBox = (await ruler.boundingBox())!;
+    const stripBox = (await strip.boundingBox())!;
+    expect(rulerBox.x).toBeCloseTo(stripBox.x, 0);
+    expect(rulerBox.width).toBeCloseTo(stripBox.width, 0);
+    await ruler.click({ position: { x: rulerBox.width / 2, y: rulerBox.height / 2 } });
+    await expect
+      .poll(() => page.locator('.preview-video').evaluate((v: HTMLVideoElement) => v.currentTime))
+      .toBeGreaterThan(1);
+  });
+
+  test('playhead drags and responds to keys', { tag: '@mobile' }, async ({ page, isMobile }) => {
+    const playhead = page.getByRole('slider', { name: 'Playback position' });
+    const strip = page.locator('.trim-strip');
+    const box = (await strip.boundingBox())!;
+    await expect(playhead).toBeVisible();
+    await playhead.dispatchEvent('pointerdown', {
+      pointerId: 7,
+      pointerType: isMobile ? 'touch' : 'mouse',
+      clientX: box.x + 2,
+    });
+    await strip.dispatchEvent('pointermove', {
+      pointerId: 7,
+      pointerType: isMobile ? 'touch' : 'mouse',
+      clientX: box.x + box.width * 0.6,
+    });
+    await strip.dispatchEvent('pointerup', {
+      pointerId: 7,
+      pointerType: isMobile ? 'touch' : 'mouse',
+      clientX: box.x + box.width * 0.6,
+    });
+    await expect
+      .poll(() => page.locator('.preview-video').evaluate((v: HTMLVideoElement) => v.currentTime))
+      .toBeGreaterThan(1.5);
+    await playhead.focus();
+    const before = Number(await playhead.getAttribute('aria-valuenow'));
+    await page.keyboard.press('ArrowLeft');
+    await expect
+      .poll(async () => Number(await playhead.getAttribute('aria-valuenow')))
+      .toBeLessThan(before - 0.9);
+  });
+
+  test('handles win when overlapping the playhead', async ({ page }) => {
+    const start = page.getByRole('slider', { name: 'Start' });
+    const strip = page.locator('.trim-strip');
+    await strip.scrollIntoViewIfNeeded();
+    const box = (await strip.boundingBox())!;
+    await page.mouse.move(box.x - 7, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 4, box.y + box.height / 2);
+    await page.mouse.up();
+    await expect
+      .poll(async () => Number(await start.getAttribute('aria-valuenow')))
+      .toBeGreaterThan(0.5);
+  });
+
+  test('typed time updates trim and invalid time keeps the previous value', async ({ page }) => {
+    const input = page.getByRole('textbox', { name: 'Trim start' });
+    const start = page.getByRole('slider', { name: 'Start' });
+    const kept = page.locator('.trim-head .num');
+    const original = await kept.textContent();
+    await input.fill('0:01.5');
+    await input.press('Enter');
+    await expect(start).toHaveAttribute('aria-valuenow', '1.5');
+    await expect(kept).not.toHaveText(original!);
+    const endInput = page.getByRole('textbox', { name: 'Trim end' });
+    await endInput.fill('0:02.5');
+    await endInput.press('Enter');
+    await expect(page.getByRole('slider', { name: 'End' })).toHaveAttribute('aria-valuenow', '2.5');
+    await input.fill('1:75');
+    await input.press('Enter');
+    await expect(input).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#trim-start-error')).toBeVisible();
+    await expect(start).toHaveAttribute('aria-valuenow', '1.5');
+    await input.press('Escape');
+    await expect(input).toHaveValue('0:01.5');
+  });
+
+  test('theater mode expands the ruler with the strip', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    const strip = page.locator('.trim-strip');
+    const ruler = page.locator('.trim-ruler');
+    const before = (await strip.boundingBox())!.width;
+    await page.getByRole('button', { name: 'Theater mode' }).click();
+    await expect.poll(async () => (await strip.boundingBox())!.width).toBeGreaterThan(before);
+    await expect
+      .poll(async () => (await ruler.boundingBox())!.width)
+      .toBeCloseTo((await strip.boundingBox())!.width, 0);
+  });
+
   test('preview error falls back after the source was accepted', async ({ page }) => {
     // A real error ends loading first. Tearing the <video> down mid-load instead can wedge
     // WebKit's Linux media backend, which hangs dispatchEvent until the test times out.

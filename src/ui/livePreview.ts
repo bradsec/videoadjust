@@ -67,7 +67,7 @@ export function mountLivePreview(
   source: Size,
   duration: number,
   onStyleUnavailable: () => void,
-): { update(settings: PreviewSettings): void; destroy(): void } {
+): { update(settings: PreviewSettings): void; togglePlayback(): boolean; destroy(): void } {
   const stage = el('div', 'live-preview-stage');
   const frame = el('div', 'live-preview-frame');
   const styleCanvas = el('canvas', 'live-preview-style');
@@ -300,6 +300,14 @@ export function mountLivePreview(
   }
 
   const observer = new ResizeObserver(() => {
+    // Measure from the document top so scrolling cannot skew the cap, and skip hidden stages
+    // (editors hide it) that report zero. Two pixels absorb fractional rounding at the edge.
+    const box = stage.getBoundingClientRect();
+    if (box.width > 0)
+      stage.style.setProperty(
+        '--theater-offset',
+        `${box.top + window.scrollY + bar.getBoundingClientRect().height + 2}px`,
+      );
     layout();
     void drawOverlay();
   });
@@ -321,6 +329,11 @@ export function mountLivePreview(
   });
   syncPlayback();
   return {
+    togglePlayback() {
+      if (!active) return false;
+      play.click();
+      return true;
+    },
     update(next) {
       // A change to what the preview shows ends Show original, so the change is visible at once.
       if (showingOriginal && settings && looksDifferent(settings, next)) showingOriginal = false;

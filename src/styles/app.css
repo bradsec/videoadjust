@@ -664,6 +664,9 @@ input[type='checkbox']:disabled {
   display: flex;
   flex-direction: column;
 }
+.theater-toggle {
+  display: none;
+}
 
 /* Phone: footage runs edge to edge; everything else keeps the gutter. */
 .preview-video,
@@ -1167,6 +1170,26 @@ input[type='checkbox']:disabled {
   color: var(--text-2);
 }
 /* Inset by the handle width: the start handle sits left of the range, the end handle right. */
+.trim-ruler {
+  height: 28px;
+  margin-inline: 14px;
+  cursor: crosshair;
+  touch-action: none;
+}
+.trim-ruler svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: var(--text-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.trim-ruler path {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 1;
+}
 .trim-strip {
   position: relative;
   height: 56px;
@@ -1215,6 +1238,7 @@ input[type='checkbox']:disabled {
 }
 .trim-handle {
   position: absolute;
+  z-index: 2;
   top: -3px;
   bottom: -3px;
   display: grid;
@@ -1263,13 +1287,26 @@ input[type='checkbox']:disabled {
 }
 .trim-playhead {
   position: absolute;
+  z-index: 1;
   top: -10px;
   bottom: -6px;
+  width: 24px;
+  margin-left: -12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.trim-playhead::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 0;
+  left: 11px;
   width: 2px;
-  margin-left: -1px;
   background: #fff;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 50%);
-  pointer-events: none;
 }
 .trim-playhead::before {
   content: '';
@@ -1278,8 +1315,12 @@ input[type='checkbox']:disabled {
   left: 50%;
   transform: translateX(-50%);
   border: 6px solid transparent;
-  border-top: 8px solid var(--text);
+  border-top: 8px solid #fff;
   border-bottom: 0;
+}
+.trim-playhead:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 .trim-readouts {
   display: grid;
@@ -1293,7 +1334,9 @@ input[type='checkbox']:disabled {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     'label cue'
-    'value cue';
+    'value cue'
+    'input cue'
+    'error error';
   align-items: center;
   column-gap: var(--s-4);
 }
@@ -1307,6 +1350,25 @@ input[type='checkbox']:disabled {
   font-size: var(--fs-24);
   font-weight: 650;
   line-height: 1.2;
+}
+.trim-input {
+  grid-area: input;
+  width: 11ch;
+  max-width: 100%;
+  min-height: 32px;
+  margin-top: var(--s-2);
+  padding-inline: var(--s-2);
+  border: 1px solid var(--ctl);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  font-size: var(--fs-16);
+}
+.trim-input[aria-invalid='true'] {
+  border-color: var(--error);
+}
+.trim-error {
+  grid-area: error;
+  color: var(--error);
 }
 .btn-cue {
   grid-area: cue;
@@ -2173,8 +2235,13 @@ table.stats {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
       'cue label'
-      'cue value';
+      'cue value'
+      'cue input'
+      'error error';
     text-align: right;
+  }
+  .trim-readout + .trim-readout .trim-input {
+    justify-self: end;
   }
   .hero h1 {
     font-size: var(--fs-40);
@@ -2235,6 +2302,46 @@ table.stats {
   .drop-grid {
     grid-template-columns: repeat(12, minmax(0, 1fr));
     column-gap: var(--s-6);
+  }
+  .theater-toggle {
+    display: flex;
+    align-items: center;
+    align-self: flex-end;
+    justify-content: flex-end;
+    gap: var(--s-1);
+    margin-bottom: var(--s-2);
+    min-height: 32px;
+    font-size: var(--fs-14);
+  }
+  .theater-toggle[aria-pressed='true'] {
+    background: var(--accent-soft);
+  }
+  body.is-theater .shell {
+    max-width: none;
+  }
+  body.is-theater .foot-in {
+    justify-content: flex-start;
+  }
+  .is-theater .prepare-regions {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    column-gap: var(--s-6);
+  }
+  .is-theater .prepare-regions > .canvas,
+  .is-theater .prepare-regions > .inspector {
+    grid-column: auto;
+  }
+  .is-theater .live-preview-stage {
+    /* JS measures the stage's top edge and playback bar, including wrapped controls. */
+    max-block-size: calc(100dvh - var(--theater-offset, 300px));
+  }
+  .is-theater .live-preview-frame,
+  .is-theater .live-preview .preview-video {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  .is-theater .live-preview .preview-video {
+    max-block-size: none;
   }
   .canvas {
     grid-column: 1 / span 8;
