@@ -15,8 +15,8 @@ test('unplayable preview keeps trim handles and disables playhead buttons', asyn
   await page.goto('/');
   await page.setInputFiles('#file', fixture);
   await expect(page.locator('.preview-note')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start here' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'End here' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Set start to playhead' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Set end to playhead' })).toBeDisabled();
   await expect(page.getByRole('slider', { name: 'Start' })).toBeEnabled();
   await expect(page.locator('.trim-thumbs canvas').first()).toBeVisible();
 });
@@ -35,7 +35,7 @@ test.describe('with a video loaded', () => {
     await start.focus();
     await page.keyboard.press('ArrowRight');
     await expect(start).toHaveAttribute('aria-valuenow', '0.1');
-    await expect(page.locator('.trim-readout').first().locator('output')).toHaveText('0:00.1');
+    await expect(page.getByRole('textbox', { name: 'Trim start' })).toHaveValue('0:00.1');
     await expect(page.locator('.trim-head')).toContainText('kept');
     await expect(page.locator('.export-estimate-big')).not.toHaveText(initialEstimate!);
   });
@@ -58,7 +58,7 @@ test.describe('with a video loaded', () => {
     await expect
       .poll(async () => Number(await start.getAttribute('aria-valuenow')))
       .toBeGreaterThan(0);
-    await expect(page.locator('.trim-readout').first().locator('output')).not.toHaveText('0:00');
+    await expect(page.getByRole('textbox', { name: 'Trim start' })).not.toHaveValue('0:00.0');
   });
 
   test('ruler stays aligned and seeks on click', { tag: '@mobile' }, async ({ page }) => {
@@ -145,6 +145,43 @@ test.describe('with a video loaded', () => {
     await expect(input).toHaveValue('0:01.5');
   });
 
+  test('Set copies the playhead into the matching time field', async ({ page }) => {
+    const startField = page.getByRole('textbox', { name: 'Trim start' });
+    const endField = page.getByRole('textbox', { name: 'Trim end' });
+    const video = page.locator('.preview-video');
+    await startField.fill('bad time');
+    await startField.press('Enter');
+    await expect(startField).toHaveAttribute('aria-invalid', 'true');
+    await video.evaluate((node: HTMLVideoElement) => (node.currentTime = 1));
+    await page.getByRole('button', { name: 'Set start to playhead' }).click();
+    await expect(startField).toHaveValue('0:01.0');
+    await expect(startField).toHaveAttribute('aria-invalid', 'false');
+    await expect(page.locator('#trim-start-error')).toBeHidden();
+    await expect(page.getByRole('slider', { name: 'Start' })).toHaveAttribute('aria-valuenow', '1');
+    await video.evaluate((node: HTMLVideoElement) => (node.currentTime = 2));
+    await page.getByRole('button', { name: 'Set end to playhead' }).click();
+    await expect(endField).toHaveValue('0:02.0');
+    await expect(page.getByRole('slider', { name: 'End' })).toHaveAttribute('aria-valuenow', '2');
+  });
+
+  test('trim fields wrap at 320px and share a row when space allows', async ({ page }) => {
+    const groups = page.locator('.trim-readout');
+    const readouts = page.locator('.trim-readouts');
+    await page.setViewportSize({ width: 320, height: 720 });
+    const narrowStart = (await groups.first().boundingBox())!;
+    const narrowEnd = (await groups.last().boundingBox())!;
+    const narrowRow = (await readouts.boundingBox())!;
+    expect(narrowEnd.y).toBeGreaterThan(narrowStart.y);
+    expect(narrowStart.x).toBeCloseTo(narrowRow.x, 0);
+    expect(narrowEnd.x + narrowEnd.width).toBeCloseTo(narrowRow.x + narrowRow.width, 0);
+
+    await page.setViewportSize({ width: 700, height: 720 });
+    const wideStart = (await groups.first().boundingBox())!;
+    const wideEnd = (await groups.last().boundingBox())!;
+    expect(wideEnd.y).toBeCloseTo(wideStart.y, 0);
+    expect(wideEnd.x).toBeGreaterThan(wideStart.x + wideStart.width);
+  });
+
   test('theater mode expands the ruler with the strip', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     const strip = page.locator('.trim-strip');
@@ -174,7 +211,7 @@ test.describe('with a video loaded', () => {
     await page.locator('.preview-video').dispatchEvent('error');
     await expect(page.locator('.preview-note')).toBeVisible();
     await expect(page.locator('.preview-video')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Start here' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'End here' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Set start to playhead' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Set end to playhead' })).toBeDisabled();
   });
 });

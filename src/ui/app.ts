@@ -227,7 +227,7 @@ function renderPrepare(
   const previewNote = el(
     'p',
     'note preview-note',
-    'This browser cannot play the preview. Trimming still works with the handles and thumbnails. Start here and End here require a playable preview.',
+    'This browser cannot play the preview. Trimming still works with the handles and thumbnails. The trim Set buttons require a playable preview.',
   );
   previewNote.hidden = true;
   const trimHost = el('div');

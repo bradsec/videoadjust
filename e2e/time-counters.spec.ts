@@ -8,7 +8,9 @@ const MAX_WIDTH_DRIFT_PX = 0.5;
 type Sample = { text: string; width: number };
 
 async function measure(locator: Locator) {
-  const text = (await locator.textContent()) ?? '';
+  const text = await locator.evaluate((node) =>
+    node instanceof HTMLInputElement ? node.value : (node.textContent ?? ''),
+  );
   const box = await locator.boundingBox();
   if (!box) throw new Error('readout has no box');
   return { text, width: box.width };
@@ -30,9 +32,14 @@ test('trim readouts keep one width as the tenths pass zero', async ({ page }) =>
   await page.setInputFiles('#file', fixture);
   const start = page.getByRole('slider', { name: 'Start' });
   await expect(start).toBeVisible();
-  const startValue = page.locator('.trim-readout').first().locator('output');
-  const endValue = page.locator('.trim-readout').last().locator('output');
+  const startValue = page.getByRole('textbox', { name: 'Trim start' });
+  const endValue = page.getByRole('textbox', { name: 'Trim end' });
   const kept = page.locator('.trim-head .num');
+  for (const field of [startValue, endValue]) {
+    expect(await field.evaluate((node) => getComputedStyle(node).fontVariantNumeric)).toContain(
+      'tabular-nums',
+    );
+  }
 
   await start.focus();
   const startSamples: Sample[] = [];
@@ -45,25 +52,25 @@ test('trim readouts keep one width as the tenths pass zero', async ({ page }) =>
   };
   await sample();
   await page.keyboard.press('Shift+ArrowRight');
-  await expect(startValue).toHaveText('0:01.0');
+  await expect(startValue).toHaveValue('0:01.0');
   await page.locator('.trim-readouts').screenshot({
     path: test.info().outputPath('trim-readouts-whole-second.png'),
   });
   await sample();
   await page.keyboard.press('ArrowRight');
-  await expect(startValue).toHaveText('0:01.1');
+  await expect(startValue).toHaveValue('0:01.1');
   await sample();
   await page.keyboard.press('ArrowRight');
-  await expect(startValue).toHaveText('0:01.2');
+  await expect(startValue).toHaveValue('0:01.2');
   await sample();
 
   const end = page.getByRole('slider', { name: 'End' });
   await end.focus();
   await page.keyboard.press('Shift+ArrowLeft');
-  await expect(endValue).toHaveText('0:02.0');
+  await expect(endValue).toHaveValue('0:02.0');
   await sample();
   await page.keyboard.press('ArrowLeft');
-  await expect(endValue).toHaveText('0:01.9');
+  await expect(endValue).toHaveValue('0:01.9');
   await sample();
 
   expectSteady(startSamples);

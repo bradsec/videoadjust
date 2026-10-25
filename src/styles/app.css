@@ -1323,7 +1323,9 @@ input[type='checkbox']:disabled {
   outline-offset: 2px;
 }
 .trim-readouts {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
   gap: var(--s-3);
   margin-top: var(--s-5);
   padding-top: var(--s-4);
@@ -1331,37 +1333,46 @@ input[type='checkbox']:disabled {
 }
 .trim-readout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, auto) auto;
   grid-template-areas:
-    'label cue'
-    'value cue'
+    'label label'
     'input cue'
     'error error';
   align-items: center;
-  column-gap: var(--s-4);
+  column-gap: var(--s-2);
+}
+.trim-readout + .trim-readout {
+  grid-template-columns: auto minmax(0, auto);
+  grid-template-areas:
+    'label label'
+    'cue input'
+    'error error';
+  margin-left: auto;
+  text-align: right;
 }
 .trim-label {
   grid-area: label;
   font-size: var(--fs-14);
   color: var(--text-2);
 }
-.trim-value {
-  grid-area: value;
-  font-size: var(--fs-24);
-  font-weight: 650;
-  line-height: 1.2;
-}
 .trim-input {
   grid-area: input;
   width: 11ch;
   max-width: 100%;
-  min-height: 32px;
-  margin-top: var(--s-2);
-  padding-inline: var(--s-2);
-  border: 1px solid var(--ctl);
-  border-radius: var(--r-sm);
-  background: var(--bg);
-  font-size: var(--fs-16);
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  font-size: var(--fs-24);
+  font-weight: 650;
+  line-height: 1.2;
+}
+.trim-input:hover {
+  border-bottom-color: var(--ctl);
+}
+.trim-input:focus-visible {
+  border-bottom-color: var(--accent);
 }
 .trim-input[aria-invalid='true'] {
   border-color: var(--error);
@@ -1372,7 +1383,7 @@ input[type='checkbox']:disabled {
 }
 .btn-cue {
   grid-area: cue;
-  min-width: 148px;
+  padding-inline: var(--s-2);
 }
 .btn-cue svg.i {
   color: var(--accent-text);
@@ -2225,22 +2236,6 @@ table.stats {
     grid-template-columns: minmax(0, 1fr) auto;
   }
   .another {
-    justify-self: end;
-  }
-  .trim-readouts {
-    grid-template-columns: 1fr 1fr;
-    column-gap: var(--s-6);
-  }
-  .trim-readout + .trim-readout {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas:
-      'cue label'
-      'cue value'
-      'cue input'
-      'error error';
-    text-align: right;
-  }
-  .trim-readout + .trim-readout .trim-input {
     justify-self: end;
   }
   .hero h1 {

@@ -100,13 +100,12 @@ export function mountTrimBar(
   strip.append(thumbs, before, after, selection, ...handles, playhead);
 
   const readouts = el('div', 'trim-readouts');
-  const values: HTMLElement[] = [];
   const inputs: HTMLInputElement[] = [];
+  const errors: HTMLParagraphElement[] = [];
   const playheadButtons: HTMLButtonElement[] = [];
   for (const side of ['start', 'end'] as const) {
     const group = el('div', 'trim-readout');
     const label = el('span', 'trim-label', side === 'start' ? 'Start' : 'End');
-    const output = el('output', 'trim-value num');
     const input = el('input', 'trim-input num') as HTMLInputElement;
     input.type = 'text';
     input.inputMode = 'text';
@@ -160,14 +159,16 @@ export function mountTrimBar(
       if (input.getAttribute('aria-invalid') !== 'true') commit();
     });
     input.addEventListener('input', clearError);
-    const button = el('button', 'btn btn-cue', side === 'start' ? 'Start here' : 'End here');
+    const button = el('button', 'btn btn-cue', 'Set');
     button.type = 'button';
+    button.title = `Set ${side} to playhead`;
+    button.setAttribute('aria-label', button.title);
     button.prepend(icon(side === 'start' ? 'i-start' : 'i-end'));
     button.addEventListener('click', () => change(side, video.currentTime));
-    group.append(label, output, input, error, button);
+    group.append(label, input, error, button);
     readouts.append(group);
-    values.push(output);
     inputs.push(input);
+    errors.push(error);
     playheadButtons.push(button);
   }
   section.append(head, ruler, strip, readouts);
@@ -302,12 +303,13 @@ export function mountTrimBar(
   function update(next: Trim): void {
     value = next;
     kept.textContent = `${formatDuration(next.end - next.start, { tenths: true })} of ${formatDuration(duration, { tenths: true })} kept`;
-    values[0]!.textContent = formatDuration(next.start, { tenths: true });
-    values[1]!.textContent = formatDuration(next.end, { tenths: true });
     for (const [index, side] of (['start', 'end'] as const).entries()) {
       const input = inputs[index]!;
-      if (document.activeElement !== input)
+      if (document.activeElement !== input) {
         input.value = formatDuration(next[side], { tenths: true });
+        input.setAttribute('aria-invalid', 'false');
+        errors[index]!.hidden = true;
+      }
     }
     setPercent(before, 'width', next.start);
     setPercent(after, 'left', next.end);
@@ -335,9 +337,6 @@ export function mountTrimBar(
     playhead.disabled = !next;
     for (const button of playheadButtons) {
       button.disabled = !previewPlayable;
-      button.title = previewPlayable
-        ? `Set the ${button === playheadButtons[0] ? 'start' : 'end'} of the kept clip to the preview playhead`
-        : 'Requires a playable preview';
     }
   }
   function onTimeUpdate(): void {

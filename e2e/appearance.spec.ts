@@ -17,13 +17,14 @@ test('the app is dark whatever the system colour scheme', async ({ browser }) =>
   await page.close();
 });
 
-test('Start here and End here are filled buttons', async ({ page }) => {
+test('trim Set buttons stay compact with touch targets', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('#file', fixture('land-1080p30-aac.mp4'));
   const pageBg = await bodyBackground(page);
-  for (const name of ['Start here', 'End here']) {
+  for (const name of ['Set start to playhead', 'Set end to playhead']) {
     const cue = page.getByRole('button', { name });
     await expect(cue).toBeVisible();
+    await expect(cue).toHaveAttribute('title', name);
     const look = await cue.evaluate((node) => {
       const style = getComputedStyle(node);
       return {
@@ -31,6 +32,8 @@ test('Start here and End here are filled buttons', async ({ page }) => {
         background: style.backgroundColor,
         border: parseFloat(style.borderTopWidth),
         height: node.getBoundingClientRect().height,
+        width: node.getBoundingClientRect().width,
+        text: node.textContent?.trim(),
       };
     });
     expect(look.tag).toBe('BUTTON');
@@ -38,6 +41,9 @@ test('Start here and End here are filled buttons', async ({ page }) => {
     expect(look.background).not.toBe(pageBg);
     expect(look.border).toBeGreaterThanOrEqual(1);
     expect(look.height).toBeGreaterThanOrEqual(44);
+    expect(look.width).toBeGreaterThanOrEqual(24);
+    expect(look.width).toBeLessThan(120);
+    expect(look.text).toBe('Set');
   }
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations).toEqual([]);

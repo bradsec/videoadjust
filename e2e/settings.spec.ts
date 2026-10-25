@@ -331,8 +331,8 @@ test('settings and edit controls explain themselves with native hover tips', asy
     'Show original',
     'Crop and rotate',
     'Position overlay',
-    'Start here',
-    'End here',
+    'Set start to playhead',
+    'Set end to playhead',
   ]) {
     await expect(page.getByRole('button', { name, exact: true })).toHaveAttribute('title', /\S/);
   }
