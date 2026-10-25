@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { ALL_FORMATS, BufferSource, Input } from 'mediabunny';
 import type { Capabilities } from '../src/core/types';
 
 const fixture = (name: string) => new URL(`../tests/fixtures/${name}`, import.meta.url).pathname;
@@ -322,20 +323,11 @@ test('an MP3 extract shows the audio result with a working player', async ({ pag
 
   const audio = page.locator('audio');
   await expect(audio).toHaveCount(1);
-  const bytes = [...readFileSync(fixture('land-1080p30-aac.mp4'))];
-  const sourceSpan = await page.evaluate(async (data) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.src = URL.createObjectURL(new Blob([new Uint8Array(data)], { type: 'video/mp4' }));
-    // Reject on error so a failed load fails the test now instead of hanging until the timeout.
-    await new Promise((resolve, reject) => {
-      video.addEventListener('loadedmetadata', resolve, { once: true });
-      video.addEventListener('error', () => reject(new Error('source video failed to load')), {
-        once: true,
-      });
-    });
-    return video.duration;
-  }, bytes);
+  // Measured in Node: a second media element in the page fails to load on a busy WebKit.
+  const sourceSpan = await new Input({
+    source: new BufferSource(readFileSync(fixture('land-1080p30-aac.mp4'))),
+    formats: ALL_FORMATS,
+  }).computeDuration();
   await expect
     .poll(() => audio.evaluate((a) => (a as HTMLAudioElement).duration))
     .toBeCloseTo(sourceSpan, 0);
