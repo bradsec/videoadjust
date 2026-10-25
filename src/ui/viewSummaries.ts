@@ -48,30 +48,47 @@ export function previewAudioTarget(state: Of<'prepare'>): PreviewAudioTarget {
 }
 
 /** Desktop wide layout shared by Prepare and the result comparison; remembered per browser. */
-export function theaterToggle(title: string): HTMLButtonElement {
+export function theaterToggle(title: string): {
+  button: HTMLButtonElement;
+  destroy(): void;
+} {
   const theater = el('button', 'btn btn-text theater-toggle');
   theater.type = 'button';
   theater.title = title;
   theater.append(icon('i-theater'), 'Theater mode');
+  const touch = window.matchMedia('(hover: none) and (pointer: coarse)');
   let theaterOn = false;
   try {
     theaterOn = localStorage.getItem('videoadjust-theater') === 'true';
   } catch {
     // Browsers can block storage; the default layout still works.
   }
-  document.body.classList.toggle('is-theater', theaterOn);
-  theater.setAttribute('aria-pressed', String(theaterOn));
-  theater.addEventListener('click', () => {
-    theaterOn = !theaterOn;
+  const sync = (save: boolean) => {
     document.body.classList.toggle('is-theater', theaterOn);
     theater.setAttribute('aria-pressed', String(theaterOn));
-    try {
-      localStorage.setItem('videoadjust-theater', String(theaterOn));
-    } catch {
-      // Theater mode remains usable when storage is unavailable.
+    if (save) {
+      try {
+        localStorage.setItem('videoadjust-theater', String(theaterOn));
+      } catch {
+        // Theater mode remains usable when storage is unavailable.
+      }
     }
+  };
+  const onTouchChange = () => {
+    if (!touch.matches || !theaterOn) return;
+    theaterOn = false;
+    sync(true);
+  };
+  const blockedSavedState = touch.matches && theaterOn;
+  if (blockedSavedState) theaterOn = false;
+  sync(blockedSavedState);
+  touch.addEventListener('change', onTouchChange);
+  theater.addEventListener('click', () => {
+    if (touch.matches) return;
+    theaterOn = !theaterOn;
+    sync(true);
   });
-  return theater;
+  return { button: theater, destroy: () => touch.removeEventListener('change', onTouchChange) };
 }
 
 export function audioReason(state: Of<'prepare'>): string | null {

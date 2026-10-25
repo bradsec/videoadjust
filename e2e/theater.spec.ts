@@ -145,6 +145,38 @@ test('desktop theater mode widens the preview and persists', async ({ page }, te
   expect((await header.boundingBox())!.x).toBeCloseTo(initialHeader.x, 0);
 });
 
+test('theater mode remains available at tablet landscape widths on desktop', async ({
+  page,
+}, testInfo) => {
+  test.skip(['iphone', 'ipad'].includes(testInfo.project.name), 'Desktop projects only');
+  await page.setViewportSize({ width: 1194, height: 834 });
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  await expect(page.getByRole('button', { name: 'Theater mode' })).toBeVisible();
+  await page.setViewportSize({ width: 1366, height: 1024 });
+  await expect(page.getByRole('button', { name: 'Theater mode' })).toBeVisible();
+});
+
+test(
+  'iPad landscape hides theater and ignores saved theater mode',
+  { tag: '@mobile' },
+  async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'ipad', 'iPad project only');
+    await page.setViewportSize({ width: 1194, height: 834 });
+    await page.addInitScript(() => localStorage.setItem('videoadjust-theater', 'true'));
+    await page.goto('/');
+    await page.setInputFiles('#file', fixture);
+    const toggle = page.getByRole('button', { name: 'Theater mode', includeHidden: true });
+    await expect(toggle).toBeHidden();
+    await expect(page.locator('body')).not.toHaveClass(/is-theater/);
+    expect(await page.evaluate(() => localStorage.getItem('videoadjust-theater'))).toBe('false');
+    await toggle.evaluate((button: HTMLButtonElement) => button.click());
+    await expect(page.locator('body')).not.toHaveClass(/is-theater/);
+    await page.setViewportSize({ width: 1366, height: 1024 });
+    await expect(toggle).toBeHidden();
+  },
+);
+
 test(
   'phone and tablet keep the one-column layout',
   { tag: '@mobile' },

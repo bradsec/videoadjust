@@ -321,6 +321,12 @@
   }
 }
 
+@media (hover: none) and (pointer: coarse) {
+  .theater-toggle {
+    display: none;
+  }
+}
+
 @media (forced-colors: active) {
   .meter-track .fill,
   .meter-track .range,

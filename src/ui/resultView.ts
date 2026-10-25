@@ -363,8 +363,10 @@ export function renderResult(
   side.append(actions);
 
   // Only a video comparison benefits from the wide layout.
-  if (compare)
-    canvas.prepend(theaterToggle('Use a wider comparison with a fixed-width details panel'));
+  const theater = compare
+    ? theaterToggle('Use a wider comparison with a fixed-width details panel')
+    : null;
+  if (theater) canvas.prepend(theater.button);
   work.append(canvas, side);
   container.replaceChildren(work);
   figure.focus();
@@ -372,6 +374,7 @@ export function renderResult(
   return {
     update() {},
     destroy() {
+      theater?.destroy();
       document.body.classList.remove('is-theater');
       peaksAbort.abort();
       compare?.destroy();

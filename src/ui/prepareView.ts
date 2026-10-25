@@ -334,7 +334,7 @@ export function renderPrepare(
   const editorsHost = el('div', 'editors');
   const onSpaceKeydown = (event: KeyboardEvent) => onSpace(event, video, editorsHost, livePreview);
   document.addEventListener('keydown', onSpaceKeydown);
-  canvas.append(toolsHost, head, theater);
+  canvas.append(toolsHost, head, theater.button);
   if (previewPlayable) {
     canvas.append(previewHost, editorsHost, previewNote, editSection);
     if (state.source.video)
@@ -489,6 +489,7 @@ export function renderPrepare(
     update,
     destroy() {
       destroyed = true;
+      theater.destroy();
       panel?.resetAll.destroy();
       void frameSink?.abort();
       if (frameUrl) URL.revokeObjectURL(frameUrl);

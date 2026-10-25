@@ -14,7 +14,7 @@ export const TOOL_PANEL_ID = 'tool-panel';
 const TOOLS: { tool: Tool; label: string; icon: string }[] = [
   { tool: 'shrink', label: 'Shrink video', icon: 'i-smaller' },
   { tool: 'audio', label: 'Extract audio', icon: 'i-audio' },
-  { tool: 'gif', label: 'GIF', icon: 'i-smaller' },
+  { tool: 'gif', label: 'GIF', icon: 'i-gif' },
 ];
 
 export const toolTabId = (tool: Tool) => `tool-tab-${tool}`;
