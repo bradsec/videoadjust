@@ -25,18 +25,29 @@ beforeEach(() => {
   vi.stubGlobal('indexedDB', {
     open: () =>
       request({
-        transaction: () => ({
-          objectStore: () => ({
-            getAll: () => request([{ id: 'saved', name: 'Saved', data: new ArrayBuffer(1) }]),
-            delete: () => request(undefined),
-          }),
-        }),
+        transaction: () => {
+          const transaction = {
+            oncomplete: null as (() => void) | null,
+            objectStore: () => ({
+              getAll: () => request([{ id: 'saved', name: 'Saved', data: new ArrayBuffer(1) }]),
+              delete: () => {
+                const pending = request(undefined);
+                queueMicrotask(() => transaction.oncomplete?.());
+                return pending;
+              },
+            }),
+          };
+          return transaction;
+        },
         close: () => {},
       }),
   });
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 test('removing a custom font unregisters its loaded FontFace', async () => {
   const { loadCustomFont, removeCustomFont } = await import('../../src/core/customFonts');
@@ -62,4 +73,31 @@ test('removing a custom font while it loads prevents later registration', async 
   finish();
   await loading;
   expect(fonts.size).toBe(0);
+});
+
+test('a font is not reported saved when its write transaction aborts', async () => {
+  const transaction = {
+    error: new Error('commit failed'),
+    onabort: null as (() => void) | null,
+    objectStore: () => ({
+      put: () => {
+        const pending = request(undefined);
+        queueMicrotask(() => transaction.onabort?.());
+        return pending;
+      },
+    }),
+  };
+  vi.stubGlobal('indexedDB', {
+    open: () =>
+      request({
+        transaction: () => transaction,
+        close: () => {},
+      }),
+  });
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const { addCustomFont } = await import('../../src/core/customFonts');
+
+  const result = await addCustomFont(new File(['font'], 'test.ttf'));
+
+  expect(result.saved).toBe(false);
 });

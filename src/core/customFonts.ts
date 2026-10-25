@@ -40,8 +40,11 @@ async function transact<T>(
   const db = await open();
   try {
     return await new Promise<T>((resolve, reject) => {
-      const request = run(db.transaction(STORE, mode).objectStore(STORE));
-      request.onsuccess = () => resolve(request.result);
+      const transaction = db.transaction(STORE, mode);
+      const request = run(transaction.objectStore(STORE));
+      if (mode === 'readonly') request.onsuccess = () => resolve(request.result);
+      else transaction.oncomplete = () => resolve(request.result);
+      transaction.onabort = () => reject(transaction.error ?? new Error('Font storage failed.'));
       request.onerror = () => reject(request.error ?? new Error('Font storage failed.'));
     });
   } finally {
