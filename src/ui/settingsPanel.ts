@@ -1,6 +1,7 @@
 import { targetVideoBitrate } from '../core/autoSettings';
 import { estimateBytes } from '../core/estimate';
 import { targetSizeStatus } from '../core/targetSize';
+import { mountAudioProcessing } from './audioProcessingControls';
 import {
   normalizeCrop,
   outputSize,
@@ -221,9 +222,34 @@ export function mountSettings(
       );
   }
   let structure = '';
+  let processing: ReturnType<typeof mountAudioProcessing> | undefined;
   // The resolution the user asked for, so a crop that shrinks the frame does not lose it when undone.
   let preferredEdge: number | null = null;
   function renderControls(): void {
+    const precision = group(
+      'Trim precision',
+      'Fast copies compatible video from a keyframe. Exact re-encodes video to remove footage outside the trim.',
+      'Fast (keyframe)',
+      () => change({ ...value, trimPrecision: 'fast' }),
+    );
+    precision.classList.add('seek-setting');
+    select(
+      precision,
+      'Trim precision',
+      [
+        { value: 'fast', label: 'Fast (keyframe)' },
+        { value: 'exact', label: 'Exact (re-encode)' },
+      ],
+      value.trimPrecision ?? 'fast',
+      (trimPrecision) => change({ ...value, trimPrecision: trimPrecision as 'fast' | 'exact' }),
+    );
+    precision.append(
+      el(
+        'p',
+        'setting-help',
+        'Fast can retain footage before the chosen start in the file, hidden by MP4 playback metadata. Exact is slower and re-encodes video; audio copy remains available.',
+      ),
+    );
     const groups: HTMLElement[] = [];
     const format = group(
       'Format',
@@ -607,14 +633,24 @@ export function mountSettings(
         groups.push(bitrate);
       }
     }
-    controls.replaceChildren(...groups);
+    controls.replaceChildren(precision, ...groups);
+    processing = value.audio
+      ? mountAudioProcessing(
+          controls,
+          value.audioProcessing,
+          value.trim.end - value.trim.start,
+          (audioProcessing) => change({ ...value, audioProcessing }),
+        )
+      : undefined;
   }
   function patchControls(next: Settings): void {
+    processing?.update(next.audioProcessing, next.trim.end - next.trim.start);
     const selected = (name: string, selectedValue: string) => {
       const input = controls.querySelector<HTMLSelectElement>(`select[aria-label="${name}"]`);
       if (input && input.value !== selectedValue) input.value = selectedValue;
     };
     selected('Format', next.container);
+    selected('Trim precision', next.trimPrecision ?? 'fast');
     selected('Target size', customTarget ? 'custom' : String(next.targetSizeMB ?? 'off'));
     if (next.video && opts.source.video) {
       const video = next.video;
@@ -692,7 +728,9 @@ export function mountSettings(
       .forEach((input) => {
         input.disabled =
           (next.passthrough &&
-            !input.closest('.metadata-setting, .seek-setting, .target-setting')) ||
+            !input.closest(
+              '.metadata-setting, .seek-setting, .target-setting, .audio-processing-setting',
+            )) ||
           (!!next.targetSizeMB && !!input.closest('.quality-setting'));
       });
   }

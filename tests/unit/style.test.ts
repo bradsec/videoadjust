@@ -15,6 +15,7 @@ import * as styleRenderer from '../../src/core/style';
 import {
   grainCellSize,
   hasStyle,
+  hasStyleEffects,
   normalizeStyle,
   STYLE_PRESETS,
   styleUniforms,
@@ -27,6 +28,63 @@ afterEach(() => {
 });
 
 describe('video styles', () => {
+  it('applies colour correction with None and preserves copy eligibility at neutral', () => {
+    const neutral = normalizeStyle();
+    const corrected = normalizeStyle({
+      correction: { exposure: 1, contrast: 1.2, saturation: 0.8, temperature: -0.3 },
+    });
+    expect(hasStyle(neutral)).toBe(false);
+    expect(hasStyleEffects(neutral)).toBe(false);
+    expect(hasStyleEffects(corrected)).toBe(true);
+    expect(styleUniforms(corrected).correction).toEqual([2, 1.2, 0.8, -0.3]);
+    expect(styleUniforms({ ...corrected, id: 'vhs', intensity: 0 }).kind).toBe(0);
+    const base: Settings = {
+      container: 'mp4',
+      passthrough: true,
+      trim: { start: 0, end: 1 },
+      video: { codec: 'avc', width: 320, height: 180, fps: 10, bitrate: 800000 },
+      audio: null,
+    };
+    expect(shrinkJob({ ...base, style: neutral }).copiesVideo).toBe(true);
+    expect(shrinkJob({ ...base, style: corrected }).options.video).toMatchObject({
+      forceTranscode: true,
+      process: expect.any(Function),
+    });
+    expect(
+      normalizeStyle({
+        correction: { exposure: Infinity, contrast: -5, saturation: 9, temperature: -3 },
+      }).correction,
+    ).toEqual({ exposure: 0, contrast: 0, saturation: 2, temperature: -1 });
+  });
+  it('reports a dropped style once and keeps exporting frames', async () => {
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class {
+        getContext() {
+          return { clearRect: vi.fn(), drawImage: vi.fn() };
+        }
+      },
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const renderer = vi.spyOn(styleRenderer, 'createStyleRenderer').mockImplementation(() => {
+      throw new Error('context lost');
+    });
+    const job = shrinkJob({
+      container: 'mp4',
+      passthrough: true,
+      trim: { start: 0, end: 1 },
+      video: { codec: 'avc', width: 320, height: 180, fps: 10, bitrate: 800_000 },
+      audio: null,
+      style: normalizeStyle({ id: 'mono' }),
+    });
+    const process = (job.options.video as ConversionVideoOptions).process!;
+    const sample = { timestamp: 0, draw: vi.fn() } as unknown as VideoSample;
+    await process(sample);
+    await process(sample);
+    expect(job.styleDropped).toBe(true);
+    expect(renderer).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
   it('makes large grain clearly coarser at preview and export resolutions', () => {
     for (const height of [360, 1080]) {
       const fine = grainCellSize(0, height);
@@ -144,6 +202,7 @@ describe('video styles', () => {
       detail: 0,
       colorA: '#abcdef',
       colorB: defaults.colorB,
+      correction: defaults.correction,
     });
     expect(normalizeStyle({ id: 'grain', intensity: NaN, detail: Infinity })).toMatchObject({
       intensity: defaults.intensity,
@@ -171,6 +230,7 @@ describe('video styles', () => {
       detail: 0.3,
       colorA: [0, 0, 128 / 255],
       colorB: [1, 128 / 255, 64 / 255],
+      correction: [1, 1, 1, 0],
     });
   });
 

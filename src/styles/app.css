@@ -775,6 +775,9 @@ input[type='checkbox']:disabled {
   flex-wrap: wrap;
   gap: var(--s-3);
 }
+.edit-tools .frame-format {
+  width: auto;
+}
 .edit-tool {
   flex: 1 1 0;
   padding-inline: var(--s-3);

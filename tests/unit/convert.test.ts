@@ -4,8 +4,12 @@ import {
   Quality,
   WavOutputFormat,
   WebMOutputFormat,
+  BufferTarget,
+  Conversion,
+  ConversionCanceledError,
+  type Input,
 } from 'mediabunny';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   audioExtractJob,
   createAudioOutputFormat,
@@ -14,6 +18,7 @@ import {
   shrinkJob,
   toConversionOptions,
   writesWhileEncoding,
+  startConversion,
 } from '../../src/core/convert';
 import type { AudioExtractSettings } from '../../src/core/audioExtract';
 import type { Settings } from '../../src/core/types';
@@ -36,11 +41,58 @@ const audio: AudioExtractSettings = {
 };
 
 describe('conversion jobs', () => {
+  it('cancels during analysis before starting the encoder', async () => {
+    const init = vi.spyOn(Conversion, 'init');
+    const cleanup = vi.fn();
+    const progress = vi.fn();
+    const task = startConversion({
+      input: {} as Input,
+      target: new BufferTarget(),
+      format: new Mp4OutputFormat(),
+      onProgress: progress,
+      job: {
+        options: {},
+        keeps: { video: false, audio: true },
+        cleanup,
+        prepare: async (_input, signal, report) => {
+          report(0.25);
+          await new Promise<void>((_resolve, reject) =>
+            signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+          );
+        },
+      },
+    });
+    try {
+      await task.cancel();
+      await expect(task.done).rejects.toBeInstanceOf(ConversionCanceledError);
+      expect(progress).toHaveBeenCalledWith(0.25, 0, 'analysis');
+      expect(init).not.toHaveBeenCalled();
+      expect(cleanup).toHaveBeenCalledTimes(1);
+    } finally {
+      init.mockRestore();
+    }
+  });
+  it('re-encodes processed audio while leaving video copy eligible and remove-audio authoritative', () => {
+    const settings = { ...base, passthrough: true, audioProcessing: { gainDb: 3 } };
+    const job = shrinkJob(settings);
+    expect(job.copiesVideo).toBe(true);
+    expect(job.options.video).toEqual({});
+    expect(job.options.audio).toMatchObject({
+      forceTranscode: true,
+      process: expect.any(Function),
+    });
+    expect(shrinkJob({ ...settings, audio: null }).options.audio).toEqual({ discard: true });
+    expect(
+      audioExtractJob({ ...audio, format: 'm4a', copy: true, audioProcessing: { fadeIn: 1 } })
+        .options.audio,
+    ).toMatchObject({ codec: 'aac', forceTranscode: true, process: expect.any(Function) });
+  });
   it('keeps shrink options and requested tracks', () => {
     expect(shrinkJob(base)).toEqual({
       options: toConversionOptions(base),
       keeps: { video: true, audio: true },
       copiesVideo: false,
+      styleDropped: false,
     });
     expect(shrinkJob({ ...base, audio: null }).keeps).toEqual({ video: true, audio: false });
   });

@@ -8,6 +8,7 @@ import {
   WavOutputFormat,
   WebMOutputFormat,
   type ConversionOptions,
+  type ConversionAudioOptions,
   type DiscardedTrack,
   type Input,
   type OutputFormat,
@@ -16,9 +17,10 @@ import {
   type VideoSample,
 } from 'mediabunny';
 import type { AudioExtractSettings, AudioFormat } from './audioExtract';
+import { processedAudioOptions, hasAudioProcessing } from './audioProcess';
 import { registerFrameCrop } from './frameCrop';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from './overlays';
-import { createStyleRenderer, hasStyle } from './style';
+import { createStyleRenderer, hasStyleEffects } from './style';
 import type { SinkPlan } from './sink';
 import type { Container, Settings, SourceInfo } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
@@ -35,6 +37,8 @@ export type ConversionJob = {
   options: Pick<ConversionOptions, 'video' | 'audio' | 'trim' | 'tags'>;
   keeps: { video: boolean; audio: boolean };
   cleanup?: () => void;
+  readonly styleDropped?: boolean;
+  prepare?: (input: Input, signal: AbortSignal, progress: (p: number) => void) => Promise<void>;
 };
 
 // Quality rejects non-integer bitrates; source bitrates come from packet statistics and can be fractional.
@@ -47,6 +51,14 @@ export function shrinkJob(
 ): ConversionJob & { copiesVideo: boolean } {
   const v = s.video;
   const a = s.audio;
+  const audioProcessor =
+    a && hasAudioProcessing(s.audioProcessing)
+      ? processedAudioOptions(s.audioProcessing!, s.trim, a.channels, {
+          codec: a.codec,
+          quality: quality(a.bitrate),
+          numberOfChannels: a.channels,
+        })
+      : undefined;
   const transform = s.transform;
   const rotated =
     source?.video && transform
@@ -62,8 +74,9 @@ export function shrinkJob(
     !!transform &&
     (transform.rotate !== 0 || transform.flip || transform.crop !== 'original' || !!crop);
   const overlay = s.overlays && hasOverlays(s.overlays) ? s.overlays : undefined;
-  const styled = hasStyle(s.style);
-  const reencode = transformed || !!s.keyFrameInterval || !!overlay || styled;
+  const styled = hasStyleEffects(s.style);
+  const reencode =
+    transformed || s.trimPrecision === 'exact' || !!s.keyFrameInterval || !!overlay || styled;
   const copiesVideo = !!v && s.passthrough && !reencode;
   let canvas: OffscreenCanvas | undefined;
   let styleCanvas: OffscreenCanvas | undefined;
@@ -138,17 +151,23 @@ export function shrinkJob(
       : { discard: true },
     audio: !a
       ? { discard: true }
-      : s.passthrough
-        ? {}
-        : a.copy
-          ? // Any bitrate or channel option would force a transcode, so copy names only the codec.
-            { codec: a.codec, forceTranscode: false }
-          : { codec: a.codec, quality: quality(a.bitrate), numberOfChannels: a.channels },
+      : audioProcessor
+        ? audioProcessor.audio
+        : s.passthrough
+          ? {}
+          : a.copy
+            ? // Any bitrate or channel option would force a transcode, so copy names only the codec.
+              { codec: a.codec, forceTranscode: false }
+            : { codec: a.codec, quality: quality(a.bitrate), numberOfChannels: a.channels },
   };
   return {
     options,
     keeps: { video: !!v, audio: !!a },
     copiesVideo,
+    ...(audioProcessor ? { prepare: audioProcessor.prepare } : {}),
+    get styleDropped() {
+      return styleUnavailable;
+    },
     ...(styled ? { cleanup: () => styleRenderer?.destroy() } : {}),
   };
 }
@@ -162,22 +181,28 @@ export function toConversionOptions(
 }
 
 export function audioExtractJob(s: AudioExtractSettings): ConversionJob {
+  const active = hasAudioProcessing(s.audioProcessing);
+  const audio: ConversionAudioOptions =
+    s.format === 'wav'
+      ? { codec: 'pcm-s16', numberOfChannels: s.channels }
+      : s.format === 'm4a' && s.copy && !active
+        ? { codec: 'aac', forceTranscode: false }
+        : {
+            codec: s.format === 'mp3' ? 'mp3' : 'aac',
+            quality: quality(s.bitrate),
+            numberOfChannels: s.channels,
+          };
+  const processor = active
+    ? processedAudioOptions(s.audioProcessing!, s.trim, s.channels, audio)
+    : undefined;
   return {
     options: {
       trim: { start: s.trim.start, end: s.trim.end },
       video: { discard: true },
-      audio:
-        s.format === 'wav'
-          ? { codec: 'pcm-s16', numberOfChannels: s.channels }
-          : s.format === 'm4a' && s.copy
-            ? { codec: 'aac', forceTranscode: false }
-            : {
-                codec: s.format === 'mp3' ? 'mp3' : 'aac',
-                quality: quality(s.bitrate),
-                numberOfChannels: s.channels,
-              },
+      audio: processor?.audio ?? audio,
     },
     keeps: { video: false, audio: true },
+    ...(processor ? { prepare: processor.prepare } : {}),
   };
 }
 
@@ -227,11 +252,12 @@ export function startConversion(args: {
   job: ConversionJob;
   format: OutputFormat;
   target: Target;
-  onProgress(p: number, bytesWritten: number): void;
+  onProgress(p: number, bytesWritten: number, phase?: 'analysis' | 'encoding'): void;
 }): { done: Promise<void>; cancel(): Promise<void> } {
   let conversion: Conversion | undefined;
   let canceled = false;
   let bytesWritten = 0;
+  const controller = new AbortController();
 
   registerFrameCrop();
   const done = (async () => {
@@ -240,6 +266,11 @@ export function startConversion(args: {
       bytesWritten = Math.max(bytesWritten, end);
     });
     try {
+      await args.job.prepare?.(args.input, controller.signal, (p) =>
+        args.onProgress(p, 0, 'analysis'),
+      );
+      if (canceled) throw new ConversionCanceledError();
+      args.onProgress(0, 0, 'encoding');
       conversion = await Conversion.init({
         input: args.input,
         output,
@@ -267,7 +298,7 @@ export function startConversion(args: {
             : conversion.discardedTracks.map((d) => ({ track: d.track.type, reason: d.reason })),
         );
       }
-      conversion.onProgress = (p) => args.onProgress(p, bytesWritten);
+      conversion.onProgress = (p) => args.onProgress(p, bytesWritten, 'encoding');
       await conversion.execute();
       args.onProgress(1, bytesWritten);
     } catch (err) {
@@ -286,6 +317,7 @@ export function startConversion(args: {
     done,
     async cancel() {
       canceled = true;
+      controller.abort();
       await conversion?.cancel();
     },
   };

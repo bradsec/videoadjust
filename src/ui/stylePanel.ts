@@ -1,4 +1,10 @@
-import { normalizeStyle, STYLE_PRESETS, type StyleSettings } from '../core/style';
+import {
+  hasColorCorrection,
+  normalizeStyle,
+  STYLE_PRESETS,
+  type ColorCorrection,
+  type StyleSettings,
+} from '../core/style';
 import { el, icon } from './dom';
 
 export function mountStylePanel(
@@ -11,6 +17,45 @@ export function mountStylePanel(
   const state = el('span', 'adjust-state');
   heading.append('Style Filter', state, icon('i-chev'));
   const controls = el('div', 'settings-controls style-controls');
+  const correction = el('div', 'setting');
+  const correctionHead = el('div', 'setting-head');
+  const reset = el('button', 'setting-reset', 'Reset colour correction');
+  reset.type = 'button';
+  reset.prepend(icon('i-reset'));
+  reset.addEventListener('click', () => {
+    onChange({ ...value, correction: normalizeStyle().correction });
+    corrections.get('exposure')?.input.focus();
+  });
+  correctionHead.append(el('strong', undefined, 'Colour correction'), reset);
+  correction.append(correctionHead);
+  const corrections = new Map<
+    keyof ColorCorrection,
+    { input: HTMLInputElement; output: HTMLElement }
+  >();
+  for (const [key, name, min, max, step] of [
+    ['exposure', 'Exposure (stops)', -3, 3, 0.1],
+    ['contrast', 'Contrast', 0, 2, 0.01],
+    ['saturation', 'Saturation', 0, 2, 0.01],
+    ['temperature', 'Temperature', -1, 1, 0.01],
+  ] as const) {
+    const label = el('label', 'setting-label', name);
+    const output = el('output', 'num');
+    const input = el('input', 'setting-range');
+    input.type = 'range';
+    input.min = String(min);
+    input.max = String(max);
+    input.step = String(step);
+    input.setAttribute('aria-label', name);
+    input.addEventListener('input', () =>
+      onChange({ ...value, correction: { ...value.correction, [key]: input.valueAsNumber } }),
+    );
+    label.append(output, input);
+    correction.append(label);
+    corrections.set(key, { input, output });
+  }
+  correction.append(
+    el('p', 'setting-help', 'Applied before the creative style. Works with Style set to None.'),
+  );
   const unavailableNote = el('p', 'setting-reason');
   unavailableNote.setAttribute('role', 'status');
   const preset = el('select', 'setting-select');
@@ -56,15 +101,22 @@ export function mountStylePanel(
     onChange({ ...value, intensity: intensity.valueAsNumber / 100 }),
   );
   detail.addEventListener('input', () => onChange({ ...value, detail: detail.valueAsNumber }));
-  controls.append(presetLabel, intensityLabel, detailLabel, colors, unavailableNote);
+  controls.append(correction, presetLabel, intensityLabel, detailLabel, colors, unavailableNote);
   host.append(heading, controls);
 
   return {
     update(next, unavailable) {
       value = normalizeStyle(next);
       const selected = STYLE_PRESETS.find((style) => style.id === value.id)!;
-      state.textContent = selected.label;
-      state.classList.toggle('is-changed', value.id !== 'none');
+      state.textContent = `${selected.label}${hasColorCorrection(value) ? ' · Corrected' : ''}`;
+      state.classList.toggle('is-changed', value.id !== 'none' || hasColorCorrection(value));
+      reset.hidden = !hasColorCorrection(value);
+      reset.disabled = !!unavailable;
+      for (const [key, { input, output }] of corrections) {
+        input.value = String(value.correction[key]);
+        input.disabled = !!unavailable;
+        output.textContent = value.correction[key].toFixed(key === 'exposure' ? 1 : 2);
+      }
       preset.value = value.id;
       preset.disabled = !!unavailable;
       intensityLabel.hidden = value.id === 'none';

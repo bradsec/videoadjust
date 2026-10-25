@@ -1,5 +1,6 @@
 import type { Overlays } from './overlays';
 import type { StyleSettings } from './style';
+import type { AudioProcessing } from './audioProcess';
 
 export type Container = 'mp4' | 'webm';
 export type VideoCodecId = 'avc' | 'hevc' | 'av1' | 'vp9';
@@ -42,6 +43,7 @@ export interface Capabilities {
 }
 
 export interface Settings {
+  audioProcessing?: Partial<AudioProcessing>;
   overlays?: Overlays;
   style?: StyleSettings;
   container: Container;
@@ -51,6 +53,7 @@ export interface Settings {
   /** Additional video budget reduction after an oversized export. */
   targetRetryScale?: number;
   trim: { start: number; end: number };
+  trimPrecision?: 'fast' | 'exact';
   keyFrameInterval?: 1 | 2 | null;
   transform?: { rotate: Rotation; flip: boolean; crop: CropPreset; rect?: CropRect | null };
   metadata?: { title: string; strip: boolean };

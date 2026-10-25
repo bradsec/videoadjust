@@ -1,7 +1,7 @@
 import { CanvasSink, type Input } from 'mediabunny';
 import { scaleToLongEdge } from './autoSettings';
 import { renderOverlayLayer, type OverlayAssets } from './overlays';
-import { createStyleRenderer, hasStyle } from './style';
+import { createStyleRenderer, hasStyleEffects } from './style';
 import type { Settings, SourceInfo, Rotation, CropRect } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
 
@@ -185,7 +185,7 @@ export async function exportGif(
   overlays?: Settings['overlays'],
   assets: OverlayAssets = {},
   style?: Settings['style'],
-): Promise<Uint8Array> {
+): Promise<{ bytes: Uint8Array; styleDropped: boolean }> {
   const video = source.video;
   const track = await input.getPrimaryVideoTrack();
   if (!video || !track) throw new Error('GIF export needs a video track.');
@@ -286,7 +286,7 @@ export async function exportGif(
       const context = (target ?? frame.canvas.getContext('2d')) as
         CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
       if (!context) throw new Error('Canvas is unavailable for GIF export.');
-      if (hasStyle(style) && style && !styleUnavailable) {
+      if (hasStyleEffects(style) && style && !styleUnavailable) {
         try {
           styleCanvas ??= new OffscreenCanvas(width, height);
           styleRenderer ??= createStyleRenderer(styleCanvas);
@@ -318,7 +318,7 @@ export async function exportGif(
     }
     const bytes = await send({ type: 'finish' });
     if (!bytes) throw new Error('GIF encoder returned no bytes.');
-    return bytes;
+    return { bytes, styleDropped: styleUnavailable };
   } finally {
     styleRenderer?.destroy();
     await frames.return();

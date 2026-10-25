@@ -391,6 +391,20 @@ describe('export flow', () => {
     expect(t.input.dispose).not.toHaveBeenCalled();
   });
 
+  it('carries a dropped-style warning and analysis phase to the result', async () => {
+    const t = exportSetup();
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    const args = t.startConversion.mock.calls[0]![0] as Parameters<AppDeps['startConversion']>[0];
+    args.onProgress(0.5, 0, 'analysis');
+    expect(t.ctl.getState()).toMatchObject({ kind: 'working', phase: 'analysis', progress: 0.5 });
+    Object.defineProperty(args.job, 'styleDropped', { get: () => true });
+    t.resolve();
+    await flush();
+    await flush();
+    expect(t.ctl.getState()).toMatchObject({ kind: 'result', styleDropped: true });
+  });
+
   it('stops before opening a sink when the chosen encoder settings are unavailable', async () => {
     const t = exportSetup({
       src: source({ video: { ...info('clip.mov').video!, bitrate: 8_000_000 } }),

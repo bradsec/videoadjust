@@ -1,9 +1,11 @@
 import { AUDIO_MONO_BPS, AUDIO_STEREO_BPS } from './autoSettings';
+import { hasAudioProcessing, normalizeAudioProcessing, type AudioProcessing } from './audioProcess';
 import type { Capabilities, SourceInfo } from './types';
 
 export type AudioFormat = 'mp3' | 'm4a' | 'wav';
 
 export interface AudioExtractSettings {
+  audioProcessing?: Partial<AudioProcessing>;
   format: AudioFormat;
   trim: { start: number; end: number };
   bitrate: number;
@@ -56,6 +58,7 @@ export function validateAudioExtract(
   const target = channels === 1 ? AUDIO_MONO_BPS : AUDIO_STEREO_BPS;
   const copy =
     value.copy &&
+    !hasAudioProcessing(value.audioProcessing) &&
     format === 'm4a' &&
     src.audio?.codec === 'aac' &&
     src.audio.bitrate !== null &&
@@ -64,6 +67,14 @@ export function validateAudioExtract(
 
   return {
     format,
+    ...(value.audioProcessing
+      ? {
+          audioProcessing: normalizeAudioProcessing(
+            value.audioProcessing,
+            value.trim.end - value.trim.start,
+          ),
+        }
+      : {}),
     trim: value.trim,
     bitrate: copy
       ? src.audio!.bitrate!
@@ -85,7 +96,8 @@ export function audioExtractChangeCount(
   return (
     Number(settings.format !== auto.format) +
     Number(settings.format !== 'wav' && settings.bitrate !== auto.bitrate) +
-    Number(settings.channels !== auto.channels)
+    Number(settings.channels !== auto.channels) +
+    Number(hasAudioProcessing(settings.audioProcessing))
   );
 }
 

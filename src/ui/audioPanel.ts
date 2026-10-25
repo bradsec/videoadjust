@@ -11,6 +11,7 @@ import type { Capabilities, SourceInfo } from '../core/types';
 import { el, icon } from './dom';
 import { formatBytes, formatDuration } from './format';
 import { formatByteRange, sizeMeter } from './progress';
+import { mountAudioProcessing } from './audioProcessingControls';
 
 export interface AudioPanelOptions {
   auto: AudioExtractSettings;
@@ -176,6 +177,12 @@ export function mountAudioPanel(
   if (monoSource) channels.section.append(el('p', 'setting-reason', 'The original audio is mono.'));
 
   controls.append(format.section, bitrate.section, channels.section);
+  const processing = mountAudioProcessing(
+    controls,
+    value.audioProcessing,
+    value.trim.end - value.trim.start,
+    (audioProcessing) => change({ audioProcessing }),
+  );
   // The estimate and the one primary action are docked together, above Adjust.
   const dock = el('div', 'dock');
   dock.append(estimate, exportButton);
@@ -194,6 +201,7 @@ export function mountAudioPanel(
   }
   function update(next: AudioExtractSettings): void {
     value = next;
+    processing.update(next.audioProcessing, next.trim.end - next.trim.start);
     const wav = next.format === 'wav';
     heading.textContent = wav
       ? `WAV · uncompressed ${channelName(next.channels)}`

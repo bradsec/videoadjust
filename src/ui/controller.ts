@@ -43,7 +43,7 @@ import {
   type GifSettings,
 } from '../core/gifExport';
 import { normalizeCrop, outputSize, rotatedSize, videoFrameSize } from '../core/videoGeometry';
-import { hasStyle, normalizeStyle } from '../core/style';
+import { hasStyleEffects, normalizeStyle } from '../core/style';
 import { UnsupportedSourceError, type readSource as readSourceFn } from '../core/source';
 import {
   chooseSink,
@@ -63,6 +63,7 @@ import type {
 } from '../core/types';
 import { formatBitrate, formatBytes } from './format';
 import { clampTrim } from './trimBar';
+import { hasAudioProcessing, normalizeAudioProcessing } from '../core/audioProcess';
 
 /** Above this the app warns before reading the file (decimal, matching formatBytes). */
 export const LARGE_FILE_BYTES = 2e9;
@@ -111,6 +112,7 @@ export type AppState =
       sinkKind: SinkPlan['kind'];
       estimate: { low: number; high: number };
       progress: number;
+      phase?: 'analysis' | 'encoding';
       bytes: number;
       startedAt: number;
     })
@@ -119,6 +121,7 @@ export type AppState =
       outputName: string;
       sinkKind: SinkPlan['kind'];
       elapsedMs: number;
+      styleDropped?: boolean;
       /** Review Focus 4: the new file is the same size as the original or bigger. */
       notSmaller: boolean;
       output: { blob: Blob | null; sizeBytes: number; url: string | null; info: SourceInfo };
@@ -276,7 +279,7 @@ function describeWritten(
         : null,
     audio:
       a && source.audio
-        ? settings.passthrough || a.copy
+        ? (settings.passthrough || a.copy) && !hasAudioProcessing(settings.audioProcessing)
           ? source.audio
           : {
               codec: a.codec,
@@ -361,6 +364,7 @@ export function validateSettings(
   source: SourceInfo,
 ): Settings {
   const fallback = auto.settings;
+  const trim = clampTrim(value.trim, source.durationSec, 'end');
   const overlays = normalizeOverlays(value.overlays);
   const style = normalizeStyle(value.style);
   const container =
@@ -423,6 +427,7 @@ export function validateSettings(
     const requested = value.audio.bitrate;
     const bitrate = allowed.includes(requested) ? requested : Math.min(requested, max);
     const copy =
+      !hasAudioProcessing(value.audioProcessing) &&
       container === fallback.container &&
       codec === fallback.audio?.codec &&
       bitrate === fallback.audio.bitrate &&
@@ -443,11 +448,18 @@ export function validateSettings(
     video.height === source.video.displayHeight &&
     video.fps === source.video.fps &&
     source.containerMime.split(';', 1)[0]?.trim().toLowerCase() === `video/${container}` &&
-    (!audio || (audio.codec === source.audio?.codec && audio.copy));
+    (!audio ||
+      hasAudioProcessing(value.audioProcessing) ||
+      (audio.codec === source.audio?.codec && audio.copy));
   return applyTargetSize(
     {
       overlays,
       style,
+      ...(value.audioProcessing
+        ? {
+            audioProcessing: normalizeAudioProcessing(value.audioProcessing, trim.end - trim.start),
+          }
+        : {}),
       targetSizeMB,
       targetRetryScale: value.targetRetryScale,
       container,
@@ -460,10 +472,12 @@ export function validateSettings(
           (value.transform?.crop ?? 'original') !== 'original' ||
           effectiveRect ||
           value.keyFrameInterval ||
+          value.trimPrecision === 'exact' ||
           hasOverlays(overlays) ||
-          hasStyle(style)
+          hasStyleEffects(style)
         ),
-      trim: clampTrim(value.trim, source.durationSec, 'end'),
+      trim,
+      trimPrecision: value.trimPrecision === 'exact' ? 'exact' : 'fast',
       keyFrameInterval:
         value.keyFrameInterval === 1 || value.keyFrameInterval === 2
           ? value.keyFrameInterval
@@ -524,7 +538,9 @@ export function settingsChangeCount(
   return (
     Number(!!current.overlays?.text.enabled) +
     Number(!!current.overlays?.image.enabled) +
-    Number(hasStyle(current.style)) +
+    Number(hasStyleEffects(current.style)) +
+    Number(!!current.audio && hasAudioProcessing(current.audioProcessing)) +
+    Number(current.trimPrecision === 'exact') +
     Number(!!current.targetSizeMB) +
     Number(current.container !== automatic.container) +
     Number(current.video?.codec !== automatic.video?.codec) +
@@ -744,8 +760,30 @@ export function createController(
                   state.caps,
                   state.source,
                 )
-              : { ...state.settings, trim },
-            audioSettings: state.audioSettings && { ...state.audioSettings, trim },
+              : {
+                  ...state.settings,
+                  trim,
+                  ...(state.settings.audioProcessing
+                    ? {
+                        audioProcessing: normalizeAudioProcessing(
+                          state.settings.audioProcessing,
+                          trim.end - trim.start,
+                        ),
+                      }
+                    : {}),
+                },
+            audioSettings: state.audioSettings && {
+              ...state.audioSettings,
+              trim,
+              ...(state.audioSettings.audioProcessing
+                ? {
+                    audioProcessing: normalizeAudioProcessing(
+                      state.audioSettings.audioProcessing,
+                      trim.end - trim.start,
+                    ),
+                  }
+                : {}),
+            },
             gifSettings: state.gifSettings && { ...state.gifSettings, trim },
           });
         }
@@ -1071,10 +1109,10 @@ export function createController(
         job: spec.job,
         format: spec.format(plan.kind),
         target: sink.target,
-        onProgress(p, written) {
+        onProgress(p, written, phase) {
           bytes = written;
           if (token === exportToken && state.kind === 'working')
-            setState({ ...state, progress: p, bytes: written });
+            setState({ ...state, progress: p, bytes: written, phase });
         },
       });
       cancelExport = () => {
@@ -1097,6 +1135,7 @@ export function createController(
         outputName,
         sinkKind: plan.kind,
         elapsedMs: Date.now() - startedAt,
+        styleDropped: spec.job.styleDropped,
         notSmaller: sizeBytes >= source.sizeBytes,
         output: { blob, sizeBytes, url: blob ? URL.createObjectURL(blob) : null, info },
       });
@@ -1182,7 +1221,7 @@ export function createController(
       startedAt,
     });
     try {
-      const bytes = await exportGif(
+      const { bytes, styleDropped } = await exportGif(
         base.input,
         base.source,
         settings,
@@ -1222,6 +1261,7 @@ export function createController(
         outputName,
         sinkKind: plan.kind,
         elapsedMs: Date.now() - startedAt,
+        styleDropped,
         notSmaller: sizeBytes >= base.source.sizeBytes,
         output: { blob, sizeBytes, url: blob ? URL.createObjectURL(blob) : null, info },
       });

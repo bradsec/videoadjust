@@ -46,6 +46,20 @@ function auto(src = source()): AudioExtractSettings {
 }
 
 describe('audio extract rules', () => {
+  it('disables AAC copy for processing and restores eligibility at neutral settings', () => {
+    const src = source({ bitrate: 96000 });
+    const automatic = auto(src);
+    const selected = {
+      ...automatic,
+      format: 'm4a' as const,
+      copy: true,
+      audioProcessing: { fadeIn: 1 },
+    };
+    expect(validateAudioExtract(selected, automatic, src, caps()).copy).toBe(false);
+    expect(
+      validateAudioExtract({ ...selected, audioProcessing: {} }, automatic, src, caps()).copy,
+    ).toBe(true);
+  });
   it('publishes exact formats and bitrate steps', () => {
     expect(AUDIO_FORMATS).toEqual({
       mp3: { ext: '.mp3', mime: 'audio/mpeg', label: 'MP3' },

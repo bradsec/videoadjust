@@ -101,7 +101,14 @@ export const STYLE_PRESETS = [
 ] as const;
 
 export type StyleId = (typeof STYLE_PRESETS)[number]['id'];
+export interface ColorCorrection {
+  exposure: number;
+  contrast: number;
+  saturation: number;
+  temperature: number;
+}
 export interface StyleSettings {
+  correction?: Partial<ColorCorrection>;
   id: StyleId;
   intensity: number;
   detail: number;
@@ -123,7 +130,9 @@ const clamp = (value: unknown, fallback: number, min = 0, max = 1): number =>
 const validColor = (value: unknown, fallback: string): string =>
   typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value.toLowerCase() : fallback;
 
-export function normalizeStyle(value?: Partial<StyleSettings>): StyleSettings {
+export function normalizeStyle(
+  value?: Partial<StyleSettings>,
+): StyleSettings & { correction: ColorCorrection } {
   const preset = STYLE_PRESETS.find((item) => item.id === value?.id) ?? STYLE_PRESETS[0];
   return {
     id: preset.id,
@@ -131,11 +140,26 @@ export function normalizeStyle(value?: Partial<StyleSettings>): StyleSettings {
     detail: clamp(value?.detail, preset.defaultDetail, preset.detailMin, preset.detailMax),
     colorA: validColor(value?.colorA, DEFAULT_STYLE.colorA),
     colorB: validColor(value?.colorB, DEFAULT_STYLE.colorB),
+    correction: {
+      exposure: clamp(value?.correction?.exposure, 0, -3, 3),
+      contrast: clamp(value?.correction?.contrast, 1, 0, 2),
+      saturation: clamp(value?.correction?.saturation, 1, 0, 2),
+      temperature: clamp(value?.correction?.temperature, 0, -1, 1),
+    },
   };
 }
 
 export function hasStyle(value?: StyleSettings): boolean {
   return !!value && value.id !== 'none' && value.intensity > 0;
+}
+
+export function hasColorCorrection(value?: StyleSettings): boolean {
+  const c = normalizeStyle(value).correction;
+  return c.exposure !== 0 || c.contrast !== 1 || c.saturation !== 1 || c.temperature !== 0;
+}
+
+export function hasStyleEffects(value?: StyleSettings): boolean {
+  return hasStyle(value) || hasColorCorrection(value);
 }
 
 function rgb(hex: string): [number, number, number] {
@@ -149,11 +173,17 @@ function rgb(hex: string): [number, number, number] {
 export function styleUniforms(value: StyleSettings) {
   const style = normalizeStyle(value);
   return {
-    kind: STYLE_PRESETS.findIndex((item) => item.id === style.id),
+    kind: hasStyle(style) ? STYLE_PRESETS.findIndex((item) => item.id === style.id) : 0,
     intensity: style.intensity,
     detail: style.detail,
     colorA: rgb(style.colorA),
     colorB: rgb(style.colorB),
+    correction: [
+      2 ** style.correction.exposure,
+      style.correction.contrast,
+      style.correction.saturation,
+      style.correction.temperature,
+    ],
   };
 }
 
@@ -170,6 +200,18 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
+const CORRECTION = `
+uniform vec4 correction;
+vec3 correctColor(vec3 c) {
+  if (all(equal(correction, vec4(1.0, 1.0, 1.0, 0.0)))) return c;
+  vec3 linear = mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+  linear *= correction.x * vec3(1.0 + correction.w * 0.15, 1.0, 1.0 - correction.w * 0.15);
+  c = mix(linear * 12.92, 1.055 * pow(max(linear, 0.0), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), linear));
+  c = (c - 0.5) * correction.y + 0.5;
+  c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, correction.z);
+  return clamp(c, 0.0, 1.0);
+}`;
+
 // Threshold each bilinear tap before averaging so small highlights survive the half-size copy.
 const PREFILTER = `#version 300 es
 precision highp float;
@@ -178,7 +220,9 @@ uniform sampler2D sourceTex;
 uniform vec2 srcTexel;
 uniform int kind;
 out vec4 outColor;
+${CORRECTION}
 vec3 bright(vec3 c) {
+  c = correctColor(c);
   float peak = max(c.r, max(c.g, c.b));
   float threshold = kind == 4 ? 0.5 : 0.48;
   float knee = 0.2;
@@ -247,6 +291,7 @@ uniform vec3 colorA;
 uniform vec3 colorB;
 uniform int kind;
 out vec4 outColor;
+${CORRECTION}
 // Arithmetic hash: sin()-based hashes band on GPUs with low-precision sin. Callers keep
 // inputs small (frame counters wrap) so fract() keeps enough precision.
 float hash(vec2 p) {
@@ -255,7 +300,7 @@ float hash(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-vec3 readAt(vec2 p) { return texture(sourceTex, clamp(p, 0.0, 1.0)).rgb; }
+vec3 readAt(vec2 p) { return correctColor(texture(sourceTex, clamp(p, 0.0, 1.0)).rgb); }
 float sCurve(float x, float k) {
   x = clamp(x, 0.0, 1.0);
   return x < 0.5 ? 0.5 * pow(2.0 * x, k) : 1.0 - 0.5 * pow(2.0 - 2.0 * x, k);
@@ -543,6 +588,7 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
         gl.uniform1i(uniform('sourceTex'), 0);
         gl.uniform2f(uniform('srcTexel'), 1 / width, 1 / height);
         gl.uniform1i(uniform('kind'), mapped.kind);
+        gl.uniform4fv(uniform('correction'), mapped.correction);
         pass(downLevels[0]!, downLevels[0]!.width, downLevels[0]!.height);
         gl.useProgram(down);
         gl.uniform1i(uniform('sourceTex'), 0);
@@ -581,6 +627,7 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
       gl.uniform3fv(uniform('colorA'), mapped.colorA);
       gl.uniform3fv(uniform('colorB'), mapped.colorB);
       gl.uniform1i(uniform('kind'), mapped.kind);
+      gl.uniform4fv(uniform('correction'), mapped.correction);
       pass(null, width, height);
     },
     destroy(): void {

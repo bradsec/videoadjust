@@ -1,5 +1,11 @@
+import { drawPreparedFrame } from '../core/frameExport';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from '../core/overlays';
-import { createStyleRenderer, hasStyle, STYLE_PRESETS, type StyleSettings } from '../core/style';
+import {
+  createStyleRenderer,
+  hasStyleEffects,
+  STYLE_PRESETS,
+  type StyleSettings,
+} from '../core/style';
 import type { Settings } from '../core/types';
 import { normalizeCrop, rotatedSize } from '../core/videoGeometry';
 import { el, icon } from './dom';
@@ -118,42 +124,14 @@ export function mountLivePreview(
   let frameCallback = 0;
 
   function drawStyle(time = video.currentTime): void {
-    if (!active || !settings || !hasStyle(settings.style) || styleFailed) return;
+    if (!active || !settings || !hasStyleEffects(settings.style) || styleFailed) return;
     if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
     try {
       if (!styleContext) throw new Error('Canvas is unavailable for Video Style preview.');
       const output = settings.output;
-      const transform = settings.transform;
-      const rotate = transform?.rotate ?? 0;
-      const rotated = rotatedSize(source.width, source.height, rotate);
-      const crop = normalizeCrop(
-        rotated.width,
-        rotated.height,
-        transform?.crop ?? 'original',
-        transform?.rect,
-      );
-      const frame = crop ?? { left: 0, top: 0, ...rotated };
       if (styleSource.width !== output.width) styleSource.width = output.width;
       if (styleSource.height !== output.height) styleSource.height = output.height;
-      styleContext.setTransform(
-        output.width / frame.width,
-        0,
-        0,
-        output.height / frame.height,
-        (-frame.left * output.width) / frame.width,
-        (-frame.top * output.height) / frame.height,
-      );
-      styleContext.clearRect(frame.left, frame.top, frame.width, frame.height);
-      styleContext.translate(rotated.width / 2, rotated.height / 2);
-      styleContext.scale(transform?.flip ? -1 : 1, 1);
-      styleContext.rotate((rotate * Math.PI) / 180);
-      styleContext.drawImage(
-        video,
-        -source.width / 2,
-        -source.height / 2,
-        source.width,
-        source.height,
-      );
+      drawPreparedFrame(styleContext, video, source, output, settings.transform);
       styleRenderer ??= createStyleRenderer(styleCanvas);
       styleRenderer.draw(styleSource, output.width, output.height, time, settings.style!);
       styleCanvas.hidden = false;
@@ -170,7 +148,7 @@ export function mountLivePreview(
     if (
       !active ||
       !settings ||
-      !hasStyle(settings.style) ||
+      !hasStyleEffects(settings.style) ||
       styleFailed ||
       !('requestVideoFrameCallback' in video) ||
       frameCallback
@@ -266,23 +244,25 @@ export function mountLivePreview(
       (!!settings.transform?.rotate ||
         !!settings.transform?.flip ||
         !!geometry?.crop ||
-        hasStyle(settings.style) ||
+        hasStyleEffects(settings.style) ||
         (!!settings.overlays && hasOverlays(settings.overlays)));
     if (!edited) showingOriginal = false;
     active = edited && !showingOriginal;
     original.hidden = !edited;
     original.setAttribute('aria-pressed', String(showingOriginal));
     const style = settings.style;
-    styleLabel.hidden = !settings.enabled || !hasStyle(style);
+    styleLabel.hidden = !settings.enabled || !hasStyleEffects(style);
     if (!styleLabel.hidden)
       styleLabel.textContent = showingOriginal
         ? 'Original'
-        : STYLE_PRESETS.find((preset) => preset.id === style?.id)!.label;
+        : style?.id === 'none'
+          ? 'Colour correction'
+          : STYLE_PRESETS.find((preset) => preset.id === style?.id)!.label;
     // The same controls serve both views, so Show original never moves or swaps them.
     controls.hidden = !edited;
     video.controls = !edited;
     frame.classList.toggle('is-edited', active);
-    if ((!active || !hasStyle(settings.style)) && frameCallback) {
+    if ((!active || !hasStyleEffects(settings.style)) && frameCallback) {
       video.cancelVideoFrameCallback(frameCallback);
       frameCallback = 0;
     }
@@ -304,7 +284,7 @@ export function mountLivePreview(
     status.hidden = true;
     void drawOverlay();
     drawStyle();
-    if (active && hasStyle(settings.style)) scheduleStyle();
+    if (active && hasStyleEffects(settings.style)) scheduleStyle();
     syncPlayback();
   }
 

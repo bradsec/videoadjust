@@ -31,6 +31,23 @@ const source: SourceInfo = {
 
 describe('settings validation', () => {
   const auto = autoSettings(source, caps);
+  it('keeps video copy eligible with processed audio and clamps fades to the trim', () => {
+    const settings = validateSettings(
+      {
+        ...auto.settings,
+        passthrough: true,
+        trim: { start: 1, end: 3 },
+        audioProcessing: { gainDb: 3, fadeIn: 2, fadeOut: 2 },
+      },
+      auto,
+      caps,
+      source,
+    );
+    expect(settings.passthrough).toBe(true);
+    expect(settings.audio?.copy).toBe(false);
+    expect(settings.audioProcessing).toMatchObject({ gainDb: 3, fadeIn: 1, fadeOut: 1 });
+    expect(settingsChangeCount(settings, auto, caps, source)).toBe(1);
+  });
   it('validates overlays and counts independently enabled layers', () => {
     const overlays = defaultOverlays();
     overlays.text.enabled = true;

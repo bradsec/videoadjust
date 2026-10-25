@@ -1,8 +1,10 @@
 import { CanvasSink } from 'mediabunny';
 import { AUDIO_FORMATS, audioUnavailable, type AudioExtractSettings } from '../core/audioExtract';
 import { writesWhileEncoding } from '../core/convert';
+import { exportCurrentFrame } from '../core/frameExport';
+import { openImageSink, type GifSink } from '../core/sink';
 import { gifDimensions, gifUnavailable } from '../core/gifExport';
-import { hasStyle, normalizeStyle } from '../core/style';
+import { hasStyleEffects, normalizeStyle } from '../core/style';
 import type { Settings, SourceInfo } from '../core/types';
 import { mountAudioPanel } from './audioPanel';
 import { mountAudioPlayer } from './audioPlayer';
@@ -24,6 +26,7 @@ import { mountDropZone } from './dropZone';
 import { formatBitrate, formatBytes, formatDuration } from './format';
 import { mountGifPanel } from './gifPanel';
 import { mountLivePreview } from './livePreview';
+import { mountPreviewAudio, type PreviewAudioTarget } from './previewAudio';
 import { mountProgress, sizeMeter } from './progress';
 import { mountSettings } from './settingsPanel';
 import { mountStylePanel } from './stylePanel';
@@ -364,6 +367,7 @@ function renderPrepare(
   let cropEditor: ReturnType<typeof mountCropEditor> | undefined;
   let overlayEditor: ReturnType<typeof mountOverlayEditor> | undefined;
   let livePreview: ReturnType<typeof mountLivePreview> | undefined;
+  let previewAudio: ReturnType<typeof mountPreviewAudio> | undefined;
   const previewHost = el('div');
   const trim = mountTrimBar(trimHost, {
     duration: state.source.durationSec,
@@ -404,6 +408,104 @@ function renderPrepare(
   editHead.append(el('h2', undefined, 'Edit'));
   const editTools = el('div', 'edit-tools');
   editSection.append(editHead, editTools);
+  const frameFormat = el('select', 'setting-select frame-format');
+  frameFormat.setAttribute('aria-label', 'Frame format');
+  for (const format of ['PNG', 'JPEG']) {
+    const option = el('option', undefined, format);
+    option.value = format;
+    frameFormat.append(option);
+  }
+  const saveFrame = el('button', 'btn btn-text', 'Save current frame');
+  saveFrame.type = 'button';
+  saveFrame.title = 'Save the current frame at output resolution, including all edits';
+  const frameStatus = el('p', 'note');
+  frameStatus.setAttribute('role', 'status');
+  let savingFrame = false;
+  let frameSink: GifSink | undefined;
+  let frameUrl: string | undefined;
+  let destroyed = false;
+  function updateFrameButton(): void {
+    saveFrame.disabled =
+      savingFrame || !!current.exporting || video.readyState < 2 || video.seeking;
+    frameFormat.disabled = savingFrame;
+  }
+  for (const event of ['loadeddata', 'seeking', 'seeked'])
+    video.addEventListener(event, updateFrameButton);
+  saveFrame.addEventListener('click', () => {
+    void saveCurrentFrame();
+  });
+  async function saveCurrentFrame(): Promise<void> {
+    const source = current.source.video;
+    const output =
+      current.tool === 'gif' && current.gifSettings
+        ? gifDimensions(current.gifSettings, current.source, current.settings.transform)
+        : current.settings.video;
+    if (!source || !output || saveFrame.disabled) return;
+    savingFrame = true;
+    updateFrameButton();
+    frameStatus.textContent = 'Saving frame…';
+    const jpeg = frameFormat.value === 'JPEG';
+    const mime = jpeg ? 'image/jpeg' : 'image/png';
+    const base = current.file.name.replace(/\.[^.]+$/, '');
+    const name = `${base}-frame-${video.currentTime.toFixed(3)}.${jpeg ? 'jpg' : 'png'}`;
+    // Open the picker inside the click gesture, and capture pixels before its promise settles.
+    const pendingSink = openImageSink(
+      current.caps.fileStreamSave ? { kind: 'file-stream' } : { kind: 'memory', warn: false },
+      name,
+      mime,
+    );
+    try {
+      const [sink, blob] = await Promise.all([
+        pendingSink,
+        exportCurrentFrame(
+          video,
+          { width: source.displayWidth, height: source.displayHeight },
+          {
+            output,
+            timestamp: video.currentTime,
+            transform: current.settings.transform,
+            style: current.settings.style,
+            overlays: current.settings.overlays,
+          },
+          current.overlayAssets,
+          mime,
+        ),
+      ]);
+      frameSink = sink;
+      if (destroyed) {
+        await sink.abort();
+        return;
+      }
+      const saved = await sink.finish(new Uint8Array(await blob.arrayBuffer()));
+      frameSink = undefined;
+      if (destroyed) return;
+      if (!current.caps.fileStreamSave && saved) {
+        if (frameUrl) URL.revokeObjectURL(frameUrl);
+        frameUrl = URL.createObjectURL(saved);
+        const download = el('a', 'btn btn-text', 'Download frame');
+        download.href = frameUrl;
+        download.download = name;
+        frameStatus.replaceChildren(download);
+        download.click();
+      } else frameStatus.textContent = `${name} saved.`;
+    } catch (error) {
+      const sink = await pendingSink.catch(() => undefined);
+      await sink?.abort();
+      if (destroyed) return;
+      if (error instanceof DOMException && error.name === 'AbortError')
+        frameStatus.textContent = '';
+      else {
+        console.error('saving the current frame failed', error);
+        frameStatus.textContent =
+          'The frame could not be saved. Check that the preview and selected style are available, then try again.';
+      }
+    } finally {
+      savingFrame = false;
+      frameSink = undefined;
+      updateFrameButton();
+    }
+  }
+  editSection.append(frameStatus);
   // Editors take the preview's place while open, so they sit directly after it.
   const editorsHost = el('div', 'editors');
   const onSpace = (event: KeyboardEvent) => {
@@ -447,7 +549,7 @@ function renderPrepare(
         state.source.durationSec,
         () => {
           styleUnavailable = 'Video styles stopped because the graphics context was lost.';
-          if (hasStyle(current.settings.style))
+          if (hasStyleEffects(current.settings.style))
             dispatch({
               type: 'setSettings',
               value: { ...current.settings, style: normalizeStyle() },
@@ -457,6 +559,10 @@ function renderPrepare(
       );
     else previewHost.append(video);
     video.src = url;
+    if (state.source.audio) {
+      previewAudio = mountPreviewAudio(video, state.input);
+      previewAudio.update(previewAudioTarget(state));
+    }
     if (state.source.video)
       cropEditor = mountCropEditor(
         editorsHost,
@@ -479,6 +585,7 @@ function renderPrepare(
     previewNote.hidden = false;
     canvas.append(previewNote);
   }
+  editTools.append(saveFrame, frameFormat);
   canvas.append(noticeSlot, trimHost);
   stage.append(canvas, settingsHost);
   container.replaceChildren(stage);
@@ -487,6 +594,7 @@ function renderPrepare(
     if (value.kind !== 'prepare') return;
     trim.update(value.settings.trim);
     current = value;
+    updateFrameButton();
     cropEditor?.update(value.settings);
     cropEditor?.setTool(value.tool !== 'audio');
     overlayEditor?.update(value.settings, value.overlayAssets);
@@ -495,6 +603,7 @@ function renderPrepare(
     styleDetails.hidden = value.tool === 'audio' || !value.source.video;
     stylePanel.update(value.settings.style, styleUnavailable);
     editSection.hidden = value.tool === 'audio' || !previewPlayable || !value.source.video;
+    previewAudio?.update(previewAudioTarget(value));
     const previewOutput =
       value.tool === 'gif' && value.gifSettings
         ? gifDimensions(value.gifSettings, value.source, value.settings.transform)
@@ -532,6 +641,9 @@ function renderPrepare(
   return {
     update,
     destroy() {
+      destroyed = true;
+      void frameSink?.abort();
+      if (frameUrl) URL.revokeObjectURL(frameUrl);
       document.body.classList.remove('is-theater');
       document.removeEventListener('keydown', onSpace);
       dockSpace.disconnect();
@@ -540,6 +652,7 @@ function renderPrepare(
       cropEditor?.destroy();
       overlayEditor?.destroy();
       livePreview?.destroy();
+      previewAudio?.destroy();
       video.removeEventListener('error', showPreviewUnplayable);
       video.pause();
       video.removeAttribute('src');
@@ -550,6 +663,23 @@ function renderPrepare(
 }
 
 /** Why Extract audio is unavailable for this source, or null when it can be chosen. */
+function previewAudioTarget(state: Of<'prepare'>): PreviewAudioTarget {
+  if (state.tool === 'audio')
+    return state.audioSettings
+      ? {
+          processing: state.audioSettings.audioProcessing,
+          trim: state.audioSettings.trim,
+          channels: state.audioSettings.channels,
+        }
+      : null;
+  if (state.tool === 'gif' || !state.settings.audio) return null;
+  return {
+    processing: state.settings.audioProcessing,
+    trim: state.settings.trim,
+    channels: state.settings.audio.channels,
+  };
+}
+
 function audioReason(state: Of<'prepare'>): string | null {
   if (state.audioAuto) return null;
   return audioUnavailable(state.source) === 'undecodable'
@@ -708,10 +838,12 @@ function renderWorking(
   const SEEK_EVERY_MS = 2000;
   function update(value: AppState): void {
     if (value.kind !== 'working') return;
+    const analysing = value.phase === 'analysis';
+    title.textContent = `${analysing ? 'Analysing loudness for' : state.tool === 'audio' ? 'Extracting audio' : 'Exporting'} ${state.outputName}`;
     const elapsed = Date.now() - value.startedAt;
     progress.update(value.progress, value.bytes, elapsed);
     const at = span * value.progress;
-    overlay.textContent = `Encoding ${formatDuration(at, { tenths: true })} of ${formatDuration(span, { tenths: true })}`;
+    overlay.textContent = `${analysing ? 'Analysing loudness' : 'Encoding'} ${formatDuration(at, { tenths: true })} of ${formatDuration(span, { tenths: true })}`;
     if (elapsed - lastSeek >= SEEK_EVERY_MS && video.readyState > 0) {
       lastSeek = elapsed;
       video.currentTime = start + at;
@@ -890,6 +1022,20 @@ function renderResult(
     ),
   );
   side.append(verdict);
+
+  if (state.styleDropped) {
+    const warning = el('div', 'notice warn');
+    warning.setAttribute('role', 'status');
+    warning.append(
+      icon('i-warn'),
+      el(
+        'p',
+        undefined,
+        'The export was saved without the selected style or colour correction because the graphics renderer became unavailable.',
+      ),
+    );
+    side.append(warning);
+  }
 
   const meter = sizeMeter(
     audioOnly ? 'Audio file' : 'New',

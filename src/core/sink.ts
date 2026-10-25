@@ -53,10 +53,18 @@ async function savedFile(handle: FileSystemFileHandle): Promise<File | null> {
 }
 
 export async function openGifSink(plan: SinkPlan, suggestedName: string): Promise<GifSink> {
+  return openImageSink(plan, suggestedName, 'image/gif');
+}
+
+export async function openImageSink(
+  plan: SinkPlan,
+  suggestedName: string,
+  mime: 'image/gif' | 'image/png' | 'image/jpeg',
+): Promise<GifSink> {
   if (plan.kind === 'memory') {
     return {
       async finish(bytes) {
-        return new Blob([new Uint8Array(bytes)], { type: 'image/gif' });
+        return new Blob([new Uint8Array(bytes)], { type: mime });
       },
       async abort() {},
     };
@@ -64,7 +72,13 @@ export async function openGifSink(plan: SinkPlan, suggestedName: string): Promis
   if (!window.showSaveFilePicker) throw new Error('This browser cannot save files directly.');
   const handle = await window.showSaveFilePicker({
     suggestedName,
-    types: [{ accept: { 'image/gif': ['.gif'] } }],
+    types: [
+      {
+        accept: {
+          [mime]: [mime === 'image/png' ? '.png' : mime === 'image/jpeg' ? '.jpg' : '.gif'],
+        },
+      },
+    ],
   });
   const writable = await handle.createWritable();
   let closed = false;

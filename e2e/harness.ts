@@ -183,7 +183,7 @@ const harness = {
       const read = await readSource(selected);
       input = read.input;
       let lastProgress = 0;
-      const bytes = await exportGif(
+      const { bytes } = await exportGif(
         input,
         read.info,
         settings,

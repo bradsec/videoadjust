@@ -1,4 +1,5 @@
 import type { Settings, SourceInfo } from './types';
+import { hasAudioProcessing } from './audioProcess';
 
 export const CONTAINER_OVERHEAD = 1.01;
 const LOW_FACTOR = 0.85;
@@ -18,7 +19,7 @@ export function estimateBytes(
       : s.video.bitrate
     : 0;
   const audioBitrate = s.audio
-    ? s.passthrough
+    ? s.passthrough && !hasAudioProcessing(s.audioProcessing)
       ? (source?.audio?.bitrate ?? s.audio.bitrate)
       : s.audio.bitrate
     : 0;
