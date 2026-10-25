@@ -13,7 +13,7 @@ test(
     });
 
     await page.goto('/');
-    await expect(page).toHaveTitle('Free Video Compressor, Converter & GIF Maker | videoadjust');
+    await expect(page).toHaveTitle('videoadjust - Edit, Compress and Convert Videos in Browser');
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);

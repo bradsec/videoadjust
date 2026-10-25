@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
+      name="description"
+      content="Edit, compress and convert videos locally in your browser. Trim, crop, add styles and overlays, adjust or extract audio, make GIFs and save frames. No upload."
+    />
+    <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; worker-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'"
     />
@@ -16,21 +20,16 @@
     <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./site.webmanifest" />
-    <title>Free Video Compressor, Converter &amp; GIF Maker | videoadjust</title>
-    <meta
-      name="description"
-      content="Compress, convert, trim, crop and resize videos, apply a video style, add text or a watermark, extract audio and make GIFs. Free and private: runs in your browser, no upload."
-    />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="videoadjust" />
     <meta
       property="og:title"
-      content="Free Video Compressor, Converter &amp; GIF Maker | videoadjust"
+      content="videoadjust - Edit, Compress and Convert Videos in Browser"
     />
     <meta
       property="og:description"
-      content="Compress, convert, trim, crop and resize videos, apply a video style, add text or a watermark, extract audio and make GIFs. Free and private: runs in your browser, no upload."
+      content="Edit, compress and convert videos locally in your browser. Trim, crop, add styles and overlays, adjust or extract audio, make GIFs and save frames. No upload."
     />
     <meta property="og:url" content="https://videoadjust.com/" />
     <meta property="og:image" content="https://videoadjust.com/og-image.png" />
@@ -38,23 +37,25 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="videoadjust: compress, convert, crop, add text or a watermark and make GIFs from videos, privately in your browser."
+      content="videoadjust: edit, compress and convert videos locally in your browser, with no upload."
     />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta
       name="twitter:title"
-      content="Free Video Compressor, Converter &amp; GIF Maker | videoadjust"
+      content="videoadjust - Edit, Compress and Convert Videos in Browser"
     />
     <meta
       name="twitter:description"
-      content="Compress, convert, trim, crop and resize videos, apply a video style, add text or a watermark, extract audio and make GIFs. Free and private: runs in your browser, no upload."
+      content="Edit, compress and convert videos locally in your browser. Trim, crop, add styles and overlays, adjust or extract audio, make GIFs and save frames. No upload."
     />
     <meta name="twitter:image" content="https://videoadjust.com/og-image.png" />
     <meta
       name="twitter:image:alt"
-      content="videoadjust: compress, convert, crop, add text or a watermark and make GIFs from videos, privately in your browser."
+      content="videoadjust: edit, compress and convert videos locally in your browser, with no upload."
     />
+
+    <title>videoadjust - Edit, Compress and Convert Videos in Browser</title>
 
     <script type="application/ld+json">
       {
@@ -62,18 +63,22 @@
         "@type": "WebApplication",
         "name": "videoadjust",
         "url": "https://videoadjust.com/",
-        "description": "Compress, convert, trim, crop and resize videos, apply a video style, add text or a watermark, extract audio and make GIFs. Free and private: runs in your browser, no upload.",
+        "description": "Edit, compress and convert videos locally in your browser. Trim, crop, add styles and overlays, adjust or extract audio, make GIFs and save frames. No upload.",
         "featureList": [
-          "Compress video to a target file size",
-          "Convert to MP4 or WebM",
-          "Trim, crop, rotate and resize video",
+          "Trim, crop, resize and rotate video",
+          "Adjust exposure, contrast, saturation and colour temperature",
           "Apply video styles such as cinematic grade, film grain, VHS and glitch",
           "Add text and image watermarks",
+          "Compress video to a target file size",
+          "Convert to MP4 or WebM",
+          "Adjust audio gain, apply fades and normalize loudness",
           "Extract audio as MP3, M4A or WAV",
-          "Make animated GIFs from video"
+          "Make animated GIFs from video",
+          "Save a video frame as a PNG or JPEG image",
+          "Process locally in the browser with no upload"
         ],
         "applicationCategory": "MultimediaApplication",
-        "operatingSystem": "Any",
+        "operatingSystem": "Any (modern web browser)",
         "browserRequirements": "Requires JavaScript and WebCodecs.",
         "isAccessibleForFree": true,
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
