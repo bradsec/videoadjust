@@ -53,7 +53,12 @@ export interface TrimBarOptions {
 export function mountTrimBar(
   host: HTMLElement,
   opts: TrimBarOptions,
-): { update(value: Trim): void; setPreviewPlayable(value: boolean): void; destroy(): void } {
+): {
+  waveformSlot: HTMLElement;
+  update(value: Trim): void;
+  setPreviewPlayable(value: boolean): void;
+  destroy(): void;
+} {
   const { duration, video } = opts;
   let value = opts.value;
   let destroyed = false;
@@ -197,7 +202,9 @@ export function mountTrimBar(
     errors.push(error);
     playheadButtons.push(button);
   }
-  section.append(head, ruler, strip, readouts);
+  // Audio lanes sit directly under the filmstrip so they share its timeline.
+  const waveformSlot = el('div', 'trim-lanes');
+  section.append(head, ruler, strip, waveformSlot, readouts);
   host.replaceChildren(section);
 
   function renderRuler(): void {
@@ -414,6 +421,7 @@ export function mountTrimBar(
   onTimeUpdate();
   requestThumbnails();
   return {
+    waveformSlot,
     update,
     setPreviewPlayable,
     destroy() {

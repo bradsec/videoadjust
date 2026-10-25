@@ -92,13 +92,12 @@ export function mountMixWaveform(
     section.append(node);
     return { node, label, canvas };
   });
-  section.append(
-    el(
-      'p',
-      'setting-help',
-      'Orange marks possible peaks above the -1 dBFS ceiling before limiting.',
-    ),
+  const clipHelp = el(
+    'p',
+    'setting-help',
+    'Orange marks possible peaks above the -1 dBFS ceiling before limiting.',
   );
+  section.append(clipHelp);
   host.replaceChildren(section);
 
   async function peaksFor(source: Input, duration: number, signal: AbortSignal) {
@@ -125,6 +124,7 @@ export function mountMixWaveform(
     const surface = theme.getPropertyValue('--raised').trim();
     const line = theme.getPropertyValue('--line').trim();
     const text = theme.getPropertyValue('--text').trim();
+    let clipping = false;
     for (const [index, lane] of lanes.entries()) {
       const isAdded = index === 1;
       const peaks = isAdded ? addedPeaks : originalPeaks;
@@ -219,14 +219,17 @@ export function mountMixWaveform(
           }
           if (included && inTrim) max = Math.max(max, scaled);
           context.globalAlpha = included && inTrim ? 1 : 0.25;
-          context.fillStyle =
-            included && inTrim && combined > SAMPLE_CEILING ? warning : included ? accent : muted;
+          const over = included && inTrim && combined > SAMPLE_CEILING;
+          clipping ||= over;
+          context.fillStyle = over ? warning : included ? accent : muted;
           const amplitude = Math.min(1, scaled) * (height / 2 - 2);
           context.fillRect(x, height / 2 - amplitude, 1, Math.max(1, amplitude * 2));
         }
       }
       context.globalAlpha = 1;
       lane.canvas.dataset.peak = String(max);
+      // Explain orange only when some is drawn.
+      clipHelp.hidden = !clipping;
       if (video && sourceDuration > 0) {
         context.fillStyle = text;
         context.fillRect((video.currentTime / sourceDuration) * width, 0, 1, height);

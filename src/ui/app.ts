@@ -230,7 +230,6 @@ function renderPrepare(
   );
   previewNote.hidden = true;
   const trimHost = el('div');
-  const waveformHost = el('div');
   const settingsHost = el('aside', 'settings-host inspector');
   const tracksHost = el('div');
   const audioDetails = el('details', 'adjust audio-adjust');
@@ -444,7 +443,12 @@ function renderPrepare(
     onChange: (value) => dispatch({ type: 'setTrim', value }),
   });
   let normalizationDb = 0;
-  const waveform = mountMixWaveform(waveformHost, state.input, state.source.durationSec, video);
+  const waveform = mountMixWaveform(
+    trim.waveformSlot,
+    state.input,
+    state.source.durationSec,
+    video,
+  );
   function updateWaveform(): void {
     waveform.update({
       trim: current.settings.trim,
@@ -672,7 +676,7 @@ function renderPrepare(
     canvas.append(previewNote);
   }
   editTools.append(...frameButtons);
-  canvas.append(noticeSlot, trimHost, waveformHost);
+  canvas.append(noticeSlot, trimHost);
   stage.append(canvas, settingsHost);
   container.replaceChildren(stage);
   title.focus();
@@ -686,7 +690,7 @@ function renderPrepare(
       ? `${audioChanges} ${audioChanges === 1 ? 'change' : 'changes'}`
       : 'Unchanged';
     audioState.classList.toggle('is-changed', audioChanges > 0);
-    waveformHost.hidden = value.tool === 'gif';
+    trim.waveformSlot.hidden = value.tool === 'gif';
     tracks.update({
       busy: value.addingAudio,
       sourceHasAudio: !!value.source.audio?.decodable,

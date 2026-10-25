@@ -21,17 +21,22 @@
 }
 .mix-waveforms {
   display: grid;
-  gap: var(--s-2);
-  margin: var(--s-3) 14px 0;
+  gap: var(--s-1);
+  /* 14px matches the trim handles, so lanes line up with the filmstrip. */
+  margin: var(--s-1) 14px 0;
 }
 .mix-waveform-lane {
-  display: grid;
-  gap: var(--s-1);
+  position: relative;
   min-width: 0;
 }
+/* Inside the lane so phones do not spend a line on each label. */
 .mix-waveform-label {
+  position: absolute;
+  top: 2px;
+  left: 6px;
   color: var(--text-2);
   font-size: var(--fs-12);
+  pointer-events: none;
 }
 .mix-waveform-lane canvas {
   display: block;
