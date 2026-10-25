@@ -1,0 +1,510 @@
+.editor-reset {
+  margin-left: auto;
+}
+.editor-reset + .editor-done {
+  margin-left: 0;
+}
+.crop-editor-bar .setting-label {
+  min-width: 110px;
+}
+.crop-editor-mirror {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+}
+.crop-editor-bar .btn {
+  align-self: end;
+}
+.overlay-editor {
+  width: 100%;
+}
+.overlay-editor[hidden],
+.overlay-fields[hidden],
+.overlay-adjust[hidden] {
+  display: none;
+}
+.overlay-stage {
+  position: relative;
+  margin-inline: auto;
+  background: var(--stage-bg);
+}
+.overlay-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.overlay-selection {
+  position: absolute;
+  box-sizing: border-box;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 2px dashed var(--accent);
+  background: transparent;
+  cursor: move;
+  touch-action: none;
+}
+.overlay-selection[hidden] {
+  display: none;
+}
+.overlay-selection[aria-pressed='true'] {
+  border-style: solid;
+}
+.overlay-selection:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.overlay-fields {
+  display: grid;
+  gap: var(--s-3);
+}
+.overlay-setting textarea {
+  min-height: calc(3 * var(--tap));
+  resize: vertical;
+}
+.overlay-setting {
+  display: grid;
+  gap: var(--s-3);
+  padding-bottom: var(--s-4);
+}
+.style-controls {
+  display: grid;
+  gap: var(--s-3);
+  padding-bottom: var(--s-4);
+}
+.style-controls .setting-label {
+  display: grid;
+  gap: var(--s-1);
+}
+.style-colors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+.style-controls input[type='color'] {
+  width: 100%;
+  height: var(--tap);
+}
+.overlay-group {
+  display: grid;
+  gap: var(--s-3);
+  min-width: 0;
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--raised);
+}
+.overlay-group-title {
+  font-size: var(--fs-12);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+/* The Text overlay and Image overlay switches head their groups. */
+.overlay-setting > .switch-row {
+  font-weight: 650;
+}
+.overlay-setting > .overlay-fields + .switch-row {
+  margin-top: var(--s-2);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+.overlay-fields .switch-row {
+  color: var(--text-2);
+}
+.overlay-setting .setting-label {
+  display: grid;
+  gap: var(--s-1);
+  min-width: 0;
+}
+.overlay-percentage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-3);
+  align-items: center;
+}
+.overlay-value {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--tap);
+  padding-inline: var(--s-2) var(--s-3);
+  border: 1px solid var(--ctl);
+  border-radius: var(--r-md);
+  background: var(--bg);
+}
+.overlay-value:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.overlay-unit {
+  color: var(--text-2);
+}
+.overlay-percentage .setting-range {
+  min-width: 0;
+}
+.overlay-setting .overlay-percentage input[type='number'] {
+  width: 3.5ch;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: 0;
+  outline: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.overlay-setting .overlay-percentage input[type='number']::-webkit-inner-spin-button,
+.overlay-setting .overlay-percentage input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.overlay-setting input[type='number'],
+.overlay-setting textarea {
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--ctl);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  /* iOS zooms the page into any text field under 16px when it takes focus. */
+  font-size: var(--fs-16);
+  font-variant-numeric: tabular-nums;
+}
+.overlay-setting input[type='color'] {
+  width: 100%;
+  height: var(--tap);
+  padding: 4px;
+  border: 1px solid var(--ctl);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  cursor: pointer;
+}
+.overlay-setting input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.overlay-setting input[type='color']::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--r-md) - 4px);
+}
+.overlay-setting input[type='color']::-moz-color-swatch {
+  border: 0;
+  border-radius: calc(var(--r-md) - 4px);
+}
+.overlay-setting input[type='file'] {
+  width: 100%;
+  color: var(--text-2);
+  font-size: var(--fs-14);
+}
+.overlay-setting input[type='file']::file-selector-button {
+  min-height: var(--tap);
+  margin-right: var(--s-3);
+  padding: 0 var(--s-4);
+  border: 1px solid var(--ctl);
+  border-radius: var(--r-md);
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-16);
+  cursor: pointer;
+}
+.preview-note {
+  margin-block: var(--s-3);
+}
+.file-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-1) var(--s-4);
+  padding-block: var(--s-4);
+  border-bottom: 1px solid var(--line);
+}
+.file-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-1) var(--s-4);
+  min-width: 0;
+}
+.file-name {
+  font-size: var(--fs-16);
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.file-name:focus {
+  outline: none;
+}
+.file-summary {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+/* The text button's padding hangs outside the column so its label lines up with the edge. */
+.another {
+  justify-self: start;
+  margin-inline: calc(-1 * var(--s-3));
+}
+/* The working screen's file line ends the canvas; a rule there would divide it from nothing. */
+.canvas > .file-line:last-child {
+  border-bottom: 0;
+}
+
+/* Trim */
+.trim {
+  padding-top: var(--s-4);
+}
+.trim-head,
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-1) var(--s-3);
+  margin-bottom: var(--s-3);
+}
+.trim-head h2,
+.section-head h2 {
+  font-size: var(--fs-18);
+  font-weight: 650;
+}
+.trim-head .num {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+.trim-head h2 {
+  margin-right: auto;
+}
+/* Inset by the handle width: the start handle sits left of the range, the end handle right. */
+.trim-ruler {
+  height: 28px;
+  margin-inline: 14px;
+  cursor: crosshair;
+  touch-action: none;
+}
+.trim-ruler svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: var(--text-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.trim-ruler path {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 1;
+}
+.trim-strip {
+  position: relative;
+  height: 56px;
+  margin: 0 14px;
+  border-radius: var(--r-sm);
+  background: var(--stage-bg);
+  touch-action: none;
+}
+.trim-thumbs {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+}
+.trim-thumbs canvas {
+  flex: 1 1 0;
+  width: 0;
+  height: 100%;
+  min-width: 0;
+  object-fit: cover;
+  border-right: 1px solid var(--stage-bg);
+}
+/* The parts outside the range stay visible, dimmed. */
+.trim-out {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--scrim);
+  pointer-events: none;
+}
+.trim-out:first-of-type {
+  left: 0;
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
+}
+.trim-out:nth-of-type(2) {
+  right: 0;
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.trim-selection {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  border-block: 3px solid var(--accent);
+  pointer-events: none;
+}
+.trim-handle {
+  position: absolute;
+  z-index: 2;
+  top: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  padding: 0;
+  border: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: ew-resize;
+  touch-action: none;
+}
+/* Grip: two short ridges. */
+.trim-handle::before {
+  content: '';
+  width: 6px;
+  height: 18px;
+  background: linear-gradient(
+    to right,
+    currentColor 0 2px,
+    transparent 2px 4px,
+    currentColor 4px 6px
+  );
+  opacity: 0.7;
+}
+/* 44px hit area around the 14px handle. */
+.trim-handle::after {
+  content: '';
+  position: absolute;
+  inset: -6px -15px;
+}
+.trim-handle.start {
+  transform: translateX(-100%);
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
+}
+.trim-handle.end {
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.trim-handle:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  z-index: 2;
+}
+.trim-handle:disabled {
+  cursor: not-allowed;
+}
+.trim-playhead {
+  position: absolute;
+  z-index: 1;
+  top: -10px;
+  bottom: -6px;
+  width: 24px;
+  margin-left: -12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.trim-playhead::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 0;
+  left: 11px;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 50%);
+}
+.trim-playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top: 8px solid #fff;
+  border-bottom: 0;
+}
+.trim-playhead:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.trim-readouts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  column-gap: var(--s-4);
+  margin-top: var(--s-5);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line);
+}
+.trim-readout {
+  display: grid;
+  grid-template-areas: 'label' 'input' 'cue' 'error';
+  justify-items: start;
+  align-content: start;
+  row-gap: var(--s-2);
+  min-width: 0;
+}
+.trim-readout + .trim-readout {
+  justify-items: end;
+  text-align: end;
+}
+.trim-label {
+  grid-area: label;
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+.trim-input {
+  grid-area: input;
+  width: 7ch;
+  max-width: 100%;
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  font-size: clamp(var(--fs-24), 6vw, var(--fs-32));
+  font-weight: 650;
+  line-height: 1.2;
+}
+.trim-hours .trim-input {
+  width: 9ch;
+}
+@supports (field-sizing: content) {
+  .trim-input,
+  .trim-hours .trim-input {
+    width: auto;
+    field-sizing: content;
+  }
+}
+.trim-readout + .trim-readout .trim-input {
+  text-align: end;
+}
+.trim-input:hover {
+  border-bottom-color: var(--ctl);
+}
+.trim-input:focus-visible {
+  border-bottom-color: var(--accent);
+}
+.trim-input[aria-invalid='true'] {
+  border-color: var(--error);
+}
+.trim-error {
+  grid-area: error;
+  justify-self: stretch;
+  overflow-wrap: anywhere;
+  color: var(--error);
+}
+.btn-cue {
+  grid-area: cue;
+  padding-inline: var(--s-2);
+}
+.btn-cue svg.i {
+  color: var(--accent-text);
+}
+
+/* Inspector: one card, one 24px inset for every block. */

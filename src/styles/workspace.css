@@ -1,0 +1,359 @@
+.drop-grid {
+  display: grid;
+  gap: var(--s-5);
+  padding-block: var(--s-4) var(--s-6);
+}
+.hero h1 {
+  max-width: 18ch;
+  font-size: var(--fs-32);
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.hero h1 .hl {
+  color: var(--accent-text);
+}
+.hero p {
+  max-width: 46ch;
+  margin-top: var(--s-4);
+  color: var(--text-2);
+}
+.dropzone {
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-5);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition:
+    background-color var(--dur),
+    border-color var(--dur);
+}
+.dropzone.is-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.dropzone .btn-primary {
+  width: 100%;
+}
+.dropzone .hint {
+  color: var(--text);
+}
+.dropzone .formats {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+/* Desktop-only decoration; narrower screens keep the compact picker. */
+.tool-tags,
+.drop-art {
+  display: none;
+}
+
+/* Workspace */
+.work {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  row-gap: var(--s-5);
+}
+.canvas,
+.inspector {
+  min-width: 0;
+}
+.canvas {
+  display: flex;
+  flex-direction: column;
+}
+.theater-toggle {
+  display: none;
+}
+
+/* Phone: footage runs edge to edge; everything else keeps the gutter. */
+.preview-video,
+.live-preview-stage,
+.stage {
+  display: block;
+  width: calc(100% + 2 * var(--gutter));
+  margin-inline: calc(-1 * var(--gutter));
+  aspect-ratio: 16 / 9;
+  max-height: 70vh;
+  background: var(--stage-bg);
+}
+.preview-video {
+  object-fit: contain;
+}
+.live-preview-stage {
+  position: relative;
+  overflow: hidden;
+}
+.live-preview-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.live-preview .preview-video {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+.live-preview-frame.is-edited,
+.live-preview-frame.is-edited .preview-video,
+.live-preview-frame.is-edited .live-preview-style {
+  position: absolute;
+}
+.live-preview-frame.is-edited .preview-video,
+.live-preview-frame.is-edited .live-preview-style {
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+.live-preview-style {
+  pointer-events: none;
+}
+.live-preview-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.live-preview-label {
+  position: absolute;
+  z-index: 1;
+  top: var(--s-2);
+  left: var(--s-2);
+  max-width: calc(100% - 2 * var(--s-2));
+  overflow: hidden;
+  padding: var(--s-1) var(--s-2);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 60%);
+  color: #fff;
+  font-size: var(--fs-12);
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.live-preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+.live-preview-bar > :not([hidden]) {
+  margin-top: var(--s-3);
+}
+.live-preview-bar > .edit-tool {
+  flex: 0 0 auto;
+}
+.live-preview-bar .scrub {
+  flex-wrap: wrap;
+}
+/* Editors replace the entire live stage, including its overlay and playback controls. */
+.canvas:has(.editors > :not([hidden])) .live-preview {
+  display: none;
+}
+/* The file now leads the canvas, so it sits on the preview rather than under a rule. */
+.canvas > .file-line {
+  border-bottom: 0;
+  padding-top: 0;
+  padding-bottom: var(--s-3);
+}
+.edit-section {
+  padding-block: var(--s-4);
+  border-bottom: 1px solid var(--line);
+}
+.edit-section[hidden] {
+  display: none;
+}
+.edit-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+.edit-frame {
+  flex: none;
+  width: var(--tap);
+  padding: 0;
+}
+.edit-frame svg.i {
+  width: 28px;
+  height: 28px;
+}
+.edit-tool {
+  /* Size to the label and wrap rather than squeeze, so labels never overlap. */
+  flex: 1 1 max-content;
+  padding-inline: var(--s-3);
+  white-space: nowrap;
+}
+.edit-section .section-head {
+  align-items: center;
+}
+.edit-frame-actions {
+  display: flex;
+  gap: var(--s-2);
+  align-self: center;
+}
+.edit-tool svg.i {
+  color: var(--accent-text);
+}
+.edit-tool[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.crop-editor {
+  width: 100%;
+}
+.crop-editor[hidden] {
+  display: none;
+}
+.crop-editor-stage {
+  position: relative;
+  width: calc(100% + 2 * var(--gutter));
+  margin-inline: calc(-1 * var(--gutter));
+  max-height: 70vh;
+  background: var(--stage-bg);
+  overflow: hidden;
+}
+.crop-editor-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.crop-picture {
+  position: absolute;
+  overflow: hidden;
+  touch-action: none;
+}
+.crop-guide {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 62%);
+  cursor: move;
+  touch-action: none;
+}
+.crop-guide:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+.crop-thirds {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 33.2%,
+      rgb(255 255 255 / 55%) 33.3%,
+      transparent 33.5%,
+      transparent 66.5%,
+      rgb(255 255 255 / 55%) 66.7%,
+      transparent 66.8%
+    ),
+    linear-gradient(
+      0deg,
+      transparent 33.2%,
+      rgb(255 255 255 / 55%) 33.3%,
+      transparent 33.5%,
+      transparent 66.5%,
+      rgb(255 255 255 / 55%) 66.7%,
+      transparent 66.8%
+    );
+  pointer-events: none;
+}
+.crop-handle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--accent);
+  background: var(--stage-bg);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.crop-handle-nw {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+.crop-handle-n {
+  left: 50%;
+  top: 0;
+  cursor: ns-resize;
+}
+.crop-handle-ne {
+  left: 100%;
+  top: 0;
+  cursor: nesw-resize;
+}
+.crop-handle-e {
+  left: 100%;
+  top: 50%;
+  cursor: ew-resize;
+}
+.crop-handle-se {
+  left: 100%;
+  top: 100%;
+  cursor: nwse-resize;
+}
+.crop-handle-s {
+  left: 50%;
+  top: 100%;
+  cursor: ns-resize;
+}
+.crop-handle-sw {
+  left: 0;
+  top: 100%;
+  cursor: nesw-resize;
+}
+.crop-handle-w {
+  left: 0;
+  top: 50%;
+  cursor: ew-resize;
+}
+.crop-editor-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--s-3);
+  padding-block: var(--s-3);
+}
+.crop-click-controls {
+  display: grid;
+  gap: var(--s-2);
+  padding-bottom: var(--s-3);
+}
+.crop-click-row {
+  display: grid;
+  grid-template-columns: 3em repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--s-1);
+  max-width: 480px;
+}
+.crop-click-name {
+  font-size: var(--fs-14);
+  color: var(--text-3);
+}
+.crop-click-row .btn {
+  min-height: 36px;
+  min-width: 0;
+  padding: 0 var(--s-1);
+  font-size: var(--fs-14);
+}
+.overlay-editor-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding-block: var(--s-3);
+}
+.editor-done {
+  margin-left: auto;
+  min-width: 120px;
+}
+/* Reset sits beside Done at the far end of the bar. */

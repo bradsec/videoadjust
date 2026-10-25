@@ -1,0 +1,372 @@
+.inspector {
+  padding: var(--inset);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.settings-host,
+.tool-panel {
+  display: flex;
+  flex-direction: column;
+}
+.export-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.spec {
+  display: grid;
+  gap: var(--s-4);
+}
+.export-title h2 {
+  font-size: var(--fs-18);
+  font-weight: 650;
+  line-height: 1.3;
+}
+.export-sub {
+  margin-top: var(--s-1);
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+.export-optimal,
+.export-warning {
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--warn);
+  border-radius: var(--r-md);
+  background: var(--warn-soft);
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+.export-optimal strong {
+  display: block;
+  margin-bottom: var(--s-1);
+  font-weight: 650;
+  color: var(--text);
+}
+.export-optimal:focus {
+  outline: none;
+}
+.export-optimal:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.reencode-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  margin-top: var(--s-1);
+  color: var(--text);
+  font-size: var(--fs-16);
+  cursor: pointer;
+}
+.setting-reason {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+/* Size meter: the hatched track is the original, the filled part the new size. */
+.meter-labels {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px var(--s-3);
+  margin-bottom: var(--s-2);
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+.meter b {
+  margin-left: var(--s-1);
+  font-weight: 650;
+  color: var(--text);
+}
+.meter .m-new b {
+  color: var(--accent-text);
+}
+.meter-track {
+  position: relative;
+  height: 12px;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--ctl);
+  background: repeating-linear-gradient(135deg, var(--raised) 0 4px, transparent 4px 8px);
+}
+.meter-track .fill,
+.meter-track .range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+}
+.meter-track .fill {
+  left: 0;
+  min-width: 4px;
+}
+.meter-track .range {
+  min-width: 4px;
+  opacity: 0.45;
+}
+
+/* Dock: the estimate and the one primary action. */
+.dock {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  background: var(--surface);
+}
+.dock-note {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-14);
+  color: var(--text);
+}
+.dock-note svg.i {
+  color: var(--warn);
+}
+.dock-note .btn-link {
+  margin-left: auto;
+  margin-right: calc(-1 * var(--s-2));
+}
+.export-estimate {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.export-estimate-big {
+  white-space: nowrap;
+  font-size: var(--fs-24);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.export-estimate-big small {
+  font-size: var(--fs-16);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-2);
+}
+.export-from {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+.btn-go {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: 160px;
+}
+
+/* Adjust disclosure */
+.adjust {
+  border-top: 1px solid var(--line);
+}
+.adjust summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 56px;
+  font-weight: 650;
+  list-style: none;
+  cursor: pointer;
+}
+.adjust summary::-webkit-details-marker {
+  display: none;
+}
+.adjust summary:hover .adjust-state {
+  color: var(--text);
+}
+.adjust-state {
+  margin-left: auto;
+  font-size: var(--fs-14);
+  font-weight: 400;
+  color: var(--text-2);
+}
+.adjust-state.is-changed {
+  color: var(--accent-text);
+  font-weight: 500;
+}
+.adjust summary svg.i {
+  color: var(--text-2);
+  transition: transform var(--dur) ease-out;
+}
+.adjust[open] summary svg.i {
+  transform: rotate(180deg);
+}
+.settings-controls {
+  display: grid;
+  gap: var(--s-5);
+  padding-top: var(--s-2);
+}
+.setting {
+  display: grid;
+  gap: var(--s-2);
+}
+.setting-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0 var(--s-3);
+  min-height: var(--tap);
+}
+/* The name takes the free space, so a reset that wraps keeps the right edge, as it does inline. */
+.setting-head strong {
+  margin-right: auto;
+  font-weight: 650;
+}
+.reset-all .adjust-state {
+  margin-left: 0;
+}
+.setting-auto {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+.setting-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  padding: 0 var(--s-2);
+  margin-right: calc(-1 * var(--s-2));
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--accent-text);
+  font-size: var(--fs-14);
+  font-weight: 500;
+  cursor: pointer;
+}
+.setting-reset:hover {
+  background: var(--accent-soft);
+}
+.setting-reset:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* The audio rows show either the auto value or the reset, which then takes the right edge. */
+/* A changed setting carries a dot next to its name, as well as the change count. */
+.setting.is-changed .setting-name::after {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: var(--s-2);
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+}
+.setting-label {
+  display: grid;
+  gap: var(--s-1);
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+.field {
+  position: relative;
+  display: block;
+}
+.field svg.i {
+  position: absolute;
+  top: 50%;
+  right: var(--s-3);
+  transform: translateY(-50%);
+  color: var(--text-2);
+  pointer-events: none;
+}
+.setting-select {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 calc(var(--s-3) + 28px) 0 var(--s-3);
+  border: 1px solid var(--ctl);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-16);
+  font-variant-numeric: tabular-nums;
+  appearance: none;
+  cursor: pointer;
+}
+.setting-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.setting-range {
+  width: 100%;
+  min-height: var(--tap);
+  margin: 0;
+  accent-color: var(--accent);
+}
+.quality-value {
+  color: var(--text);
+}
+.setting-help {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+.seg.num button {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Radio cards for the audio format */
+.choices {
+  display: grid;
+  gap: var(--s-2);
+}
+.choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px var(--s-3);
+  min-height: var(--tap);
+  padding: var(--s-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--dur),
+    border-color var(--dur);
+}
+.choice:hover {
+  border-color: var(--ctl);
+}
+.choice input {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border: 2px solid var(--ctl);
+  border-radius: 50%;
+  cursor: inherit;
+}
+.choice input:checked {
+  border-color: var(--accent);
+  box-shadow:
+    inset 0 0 0 3px var(--surface),
+    inset 0 0 0 10px var(--accent);
+}
+.choice.is-checked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.choice.is-checked input:checked {
+  box-shadow:
+    inset 0 0 0 3px var(--accent-soft),
+    inset 0 0 0 10px var(--accent);
+}
+.choice .hint {
+  grid-column: 2;
+  font-size: var(--fs-14);
+  font-weight: 400;
+  color: var(--text-2);
+}
+.choice:has(input:disabled) {
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+/* Working */

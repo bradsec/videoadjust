@@ -1,5 +1,11 @@
 import './styles/tokens.css';
-import './styles/app.css';
+import './styles/shell.css';
+import './styles/controls.css';
+import './styles/workspace.css';
+import './styles/editor.css';
+import './styles/inspector.css';
+import './styles/result.css';
+import './styles/responsive.css';
 import { canEncodeVideo } from 'mediabunny';
 import { ensureMp3Encoder, probeCapabilities } from './core/capabilities';
 import { startConversion } from './core/convert';
