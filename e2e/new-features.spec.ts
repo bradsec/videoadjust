@@ -235,3 +235,30 @@ test('result warns when the style renderer becomes unavailable during export', a
     ),
   ).toHaveCount(1);
 });
+
+test(
+  'Edit tools and frame buttons fit without overlapping',
+  { tag: '@mobile' },
+  async ({ page }) => {
+    await load(page);
+    await openSection(page, 'overlay');
+    await page.getByLabel('Text overlay', { exact: true }).check();
+    await page.getByLabel('Overlay text', { exact: true }).fill('Hello');
+    await page.getByLabel('Overlay text', { exact: true }).blur();
+    const edit = page.getByRole('region', { name: 'Edit', exact: true });
+    await expect(edit.getByRole('button', { name: 'Position overlay' })).toBeVisible();
+    const buttons = await edit
+      .getByRole('button')
+      .evaluateAll((nodes) =>
+        nodes.map((node) => node.getBoundingClientRect().toJSON() as DOMRect),
+      );
+    const editBox = (await edit.boundingBox())!;
+    for (const [i, a] of buttons.entries()) {
+      expect(a.right).toBeLessThanOrEqual(editBox.x + editBox.width + 1);
+      for (const b of buttons.slice(i + 1))
+        expect(
+          a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top,
+        ).toBe(true);
+    }
+  },
+);

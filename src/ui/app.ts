@@ -680,7 +680,10 @@ function renderPrepare(
     previewNote.hidden = false;
     canvas.append(previewNote);
   }
-  editTools.append(...frameButtons);
+  // Frame saves sit on the heading row so the tool buttons keep the full width on phones.
+  const frameActions = el('div', 'edit-frame-actions');
+  frameActions.append(...frameButtons);
+  editHead.append(frameActions);
   canvas.append(noticeSlot, trimHost);
   stage.append(canvas, settingsHost);
   container.replaceChildren(stage);
