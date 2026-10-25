@@ -10,7 +10,7 @@ export interface GifSettings {
   /** Long edge in pixels, so a portrait frame is not larger than a landscape one. */
   size: number;
   fps: number;
-  loop: 'forever' | 'once';
+  loop: 'forever' | 'once' | 'boomerang';
   colors: 256 | 128 | 64;
   compression: GifCompression;
 }
@@ -89,7 +89,7 @@ export function validateGifSettings(
     trim: value.trim,
     size: longEdge(Math.min(size, Math.max(frame.width, frame.height))),
     fps: Math.min(fps, sourceFps),
-    loop: value.loop === 'once' ? 'once' : 'forever',
+    loop: value.loop === 'once' || value.loop === 'boomerang' ? value.loop : 'forever',
     colors: value.colors === 64 || value.colors === 128 ? value.colors : 256,
     compression:
       value.compression === 'quality' || value.compression === 'small'
@@ -132,6 +132,7 @@ export function gifCropGeometry(
 export function gifFramePlan(
   trim: GifSettings['trim'],
   fps: number,
+  loop: GifSettings['loop'] = 'forever',
 ): { timestamps: number[]; delaysMs: number[] } {
   const duration = trim.end - trim.start;
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(fps) || fps <= 0)
@@ -147,14 +148,40 @@ export function gifFramePlan(
     delaysMs.push((centiseconds - previousCentiseconds) * 10);
     previousCentiseconds = centiseconds;
   }
+  if (loop === 'boomerang')
+    for (let i = count - 2; i > 0; i--) {
+      timestamps.push(timestamps[i]!);
+      delaysMs.push(delaysMs[i]!);
+    }
   return { timestamps, delaysMs };
 }
 
-export function gifFrameCount(trim: GifSettings['trim'], fps: number): number {
+export function gifFrameCount(
+  trim: GifSettings['trim'],
+  fps: number,
+  loop: GifSettings['loop'] = 'forever',
+): number {
   const duration = trim.end - trim.start;
-  return Number.isFinite(duration) && duration > 0 && Number.isFinite(fps) && fps > 0
-    ? Math.ceil(duration * fps - 1e-9)
-    : 0;
+  const count =
+    Number.isFinite(duration) && duration > 0 && Number.isFinite(fps) && fps > 0
+      ? Math.ceil(duration * fps - 1e-9)
+      : 0;
+  return loop === 'boomerang' && count > 1 ? count * 2 - 2 : count;
+}
+
+export function gifPlaybackSeconds(
+  trim: GifSettings['trim'],
+  fps: number,
+  loop: GifSettings['loop'] = 'forever',
+): number {
+  const duration = trim.end - trim.start;
+  const count = gifFrameCount(trim, fps);
+  if (!count) return 0;
+  const total = Math.round(duration * 100);
+  if (loop !== 'boomerang' || count === 1) return total / 100;
+  const first = Math.round(Math.min(duration, 1 / fps) * 100);
+  const last = total - Math.round(Math.min(duration, (count - 1) / fps) * 100);
+  return (2 * total - first - last) / 100;
 }
 
 export function gifBudgetError(
@@ -164,7 +191,7 @@ export function gifBudgetError(
   seconds = 0,
 ): string | null {
   if (seconds > GIF_MAX_SECONDS + 1e-6)
-    return `GIFs can be at most ${GIF_MAX_SECONDS} seconds. Trim the video to ${GIF_MAX_SECONDS} seconds or less.`;
+    return `GIFs can be at most ${GIF_MAX_SECONDS} seconds. Shorten the trim so the finished GIF is ${GIF_MAX_SECONDS} seconds or less.`;
   if (frames > 0 && frames <= GIF_MAX_FRAMES && width * height * frames <= GIF_PIXEL_BUDGET)
     return null;
   return `GIF export allows at most ${GIF_MAX_FRAMES} frames and ${GIF_PIXEL_BUDGET.toLocaleString()} total pixels. Trim shorter, lower the frame rate, or choose a smaller size.`;
@@ -190,11 +217,16 @@ export async function exportGif(
   const track = await input.getPrimaryVideoTrack();
   if (!video || !track) throw new Error('GIF export needs a video track.');
   const { width, height } = gifDimensions(settings, source, transform);
-  const count = gifFrameCount(settings.trim, settings.fps);
-  const budget = gifBudgetError(width, height, count);
+  const count = gifFrameCount(settings.trim, settings.fps, settings.loop);
+  const budget = gifBudgetError(
+    width,
+    height,
+    count,
+    gifPlaybackSeconds(settings.trim, settings.fps, settings.loop),
+  );
   if (budget) throw new Error(budget);
   const overlayLayer = await renderOverlayLayer(width, height, overlays, assets);
-  const { timestamps, delaysMs } = gifFramePlan(settings.trim, settings.fps);
+  const { timestamps, delaysMs } = gifFramePlan(settings.trim, settings.fps, settings.loop);
   const rotated = rotatedSize(video.displayWidth, video.displayHeight, transform?.rotate ?? 0);
   const crop = normalizeCrop(
     rotated.width,

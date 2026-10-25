@@ -5,6 +5,7 @@ import {
   gifFrameCount,
   gifFrameRates,
   gifFrameSize,
+  gifPlaybackSeconds,
   type GifSettings,
 } from '../core/gifExport';
 import type { Settings, SourceInfo } from '../core/types';
@@ -104,10 +105,11 @@ export function mountGifPanel(
   );
   const loop = select(
     'Loop',
-    'Choose whether the GIF repeats forever or plays once',
+    'Choose whether the GIF repeats forward, plays once, or repeats forward and backward',
     [
       { value: 'forever', label: 'Loop forever' },
       { value: 'once', label: 'Play once' },
+      { value: 'boomerang', label: 'Boomerang' },
     ],
     (next) => opts.onChange({ ...value, loop: next }),
   );
@@ -182,17 +184,13 @@ export function mountGifPanel(
     colors.value = String(next.colors);
     compression.value = next.compression;
     const dimensions = gifDimensions(next, opts.source, transform);
-    const frames = gifFrameCount(next.trim, next.fps);
+    const frames = gifFrameCount(next.trim, next.fps, next.loop);
+    const seconds = gifPlaybackSeconds(next.trim, next.fps, next.loop);
     heading.textContent = `${dimensions.width}x${dimensions.height} GIF`;
-    sub.textContent = `${frames} frames · ${Number(next.fps.toFixed(2))} fps · ${formatDuration(next.trim.end - next.trim.start)}`;
+    sub.textContent = `${frames} frames · ${Number(next.fps.toFixed(2))} fps · ${formatDuration(seconds)}`;
     big.textContent = `${frames} frames · ${dimensions.width}x${dimensions.height}`;
     warning.textContent =
-      gifBudgetError(
-        dimensions.width,
-        dimensions.height,
-        frames,
-        next.trim.end - next.trim.start,
-      ) ?? '';
+      gifBudgetError(dimensions.width, dimensions.height, frames, seconds) ?? '';
     warning.hidden = !warning.textContent;
     dockNote.hidden = !warning.textContent;
     button.disabled = !!warning.textContent;

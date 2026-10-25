@@ -19,6 +19,7 @@ import {
   gifBudgetError,
   gifDimensions,
   gifFrameCount,
+  gifPlaybackSeconds,
   gifOutputName,
 } from '../core/gifExport';
 import { chooseSink, openGifSink, type OpenSink, type SinkPlan } from '../core/sink';
@@ -217,8 +218,9 @@ export function createExportFlow(
     const settings = prep.gifSettings;
     if (!settings) return;
     const { width, height } = gifDimensions(settings, prep.source, prep.settings.transform);
-    const frames = gifFrameCount(settings.trim, settings.fps);
-    const budget = gifBudgetError(width, height, frames, settings.trim.end - settings.trim.start);
+    const frames = gifFrameCount(settings.trim, settings.fps, settings.loop);
+    const seconds = gifPlaybackSeconds(settings.trim, settings.fps, settings.loop);
+    const budget = gifBudgetError(width, height, frames, seconds);
     if (budget) {
       toPrepare(prep, { tone: 'warn', title: 'GIF is too large', message: budget });
       return;
@@ -292,7 +294,7 @@ export function createExportFlow(
       const info: SourceInfo = {
         name: outputName,
         sizeBytes,
-        durationSec: settings.trim.end - settings.trim.start,
+        durationSec: seconds,
         containerMime: 'image/gif',
         video: {
           codec: 'gif',

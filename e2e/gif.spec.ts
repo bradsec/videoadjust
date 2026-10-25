@@ -37,6 +37,21 @@ test('encodes a cropped GIF with the requested size, frames, and centre colour',
   }
 });
 
+test('encodes a boomerang GIF with forward and reverse frames', async ({ page }) => {
+  await page.goto('/e2e/harness.html');
+  await page.setInputFiles('#file', fixture);
+  const settings: GifSettings = {
+    trim: { start: 0, end: 1 },
+    size: 320,
+    fps: 5,
+    loop: 'boomerang',
+    colors: 256,
+    compression: 'balanced',
+  };
+  const result = ok(await page.evaluate((value) => window.vrHarness.exportGif(value), settings));
+  expect(result).toMatchObject({ frames: 8, lastProgress: 1 });
+});
+
 test('GIF tab shows settings and exports an image result', { tag: '@mobile' }, async ({ page }) => {
   test.setTimeout(90_000);
   await page.addInitScript(() => {
@@ -55,13 +70,18 @@ test('GIF tab shows settings and exports an image result', { tag: '@mobile' }, a
   await panel.locator('summary').click();
   const size = panel.getByLabel('Size', { exact: true });
   const fps = panel.getByLabel('Frame rate', { exact: true });
+  const loop = panel.getByLabel('Loop', { exact: true });
   await expect(size).toBeVisible();
   await expect(fps).toBeVisible();
   await size.selectOption('320');
   await fps.selectOption('5');
+  await loop.selectOption('boomerang');
+  await expect(loop).toHaveValue('boomerang');
+  await expect(panel.locator('.export-sub')).toContainText('8 frames · 5 fps · 0:01.6');
   await panel.getByRole('button', { name: 'Export GIF' }).click();
   const result = page.getByRole('img', { name: /GIF preview/i });
   await expect(result).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('row', { name: /Duration/ })).toContainText('0:01.6');
   await expect(page.getByRole('link', { name: /Download .*\.gif/i })).toBeVisible();
 });
 

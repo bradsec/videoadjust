@@ -6,6 +6,7 @@ import {
   gifDimensions,
   gifFramePlan,
   gifFrameRates,
+  gifPlaybackSeconds,
   gifOutputName,
   GIF_MAX_FRAMES,
   GIF_PIXEL_BUDGET,
@@ -89,6 +90,12 @@ describe('GIF settings', () => {
     });
   });
 
+  it('accepts the boomerang loop choice', () => {
+    const src = source();
+    const auto = autoGifSettings(src)!;
+    expect(validateGifSettings({ ...auto, loop: 'boomerang' }, auto, src).loop).toBe('boomerang');
+  });
+
   it('preserves the offered source rate for a 12 fps video', () => {
     const src = source({ fps: 12 });
     const auto = autoGifSettings(src)!;
@@ -134,6 +141,33 @@ describe('GIF frames', () => {
     expect(plan.timestamps.every((time) => time < 1.25)).toBe(true);
     expect(plan.delaysMs).toHaveLength(plan.timestamps.length);
     expect(plan.delaysMs.reduce((sum, delay) => sum + delay, 0)).toBe(1000);
+  });
+
+  it('plays boomerang frames forward and backward without repeating endpoints', () => {
+    const trim = { start: 0.25, end: 1.25 };
+    const plan = gifFramePlan(trim, 5, 'boomerang');
+    expect(plan.timestamps).toEqual([0.25, 0.45, 0.65, 0.85, 1.05, 0.85, 0.65, 0.45]);
+    expect(plan.delaysMs).toEqual(Array(8).fill(200));
+    expect(gifPlaybackSeconds(trim, 5, 'boomerang')).toBe(1.6);
+  });
+
+  it('counts the return trip against the GIF duration limit', () => {
+    const trim = { start: 0, end: 16 };
+    const seconds = gifPlaybackSeconds(trim, 10, 'boomerang');
+    expect(seconds).toBe(31.8);
+    expect(
+      gifBudgetError(320, 180, gifFramePlan(trim, 10, 'boomerang').timestamps.length, seconds),
+    ).toMatch(/at most 30 seconds/);
+    expect(gifPlaybackSeconds({ start: 0, end: 15.1 }, 10, 'boomerang')).toBe(30);
+    expect(gifPlaybackSeconds({ start: 0, end: 1.05 }, 10, 'boomerang')).toBe(1.95);
+  });
+
+  it('keeps a single-frame boomerang as one frame', () => {
+    expect(gifFramePlan({ start: 0, end: 0.05 }, 10, 'boomerang')).toEqual({
+      timestamps: [0],
+      delaysMs: [50],
+    });
+    expect(gifPlaybackSeconds({ start: 0, end: 0.05 }, 10, 'boomerang')).toBe(0.05);
   });
 
   it('accumulates centisecond rounding so total playback stays on the trim', () => {
