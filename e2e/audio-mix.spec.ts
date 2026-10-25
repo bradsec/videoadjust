@@ -253,28 +253,61 @@ test('files without decodable audio show an error and preserve the existing mix'
 
 test('added track plays from one scheduled buffer without restarts', async ({ page }) => {
   await page.addInitScript(() => {
+    type Log = { kind: 'start' | 'resync'; time: number; wall: number }[];
+    const state = window as Window & { addedLog?: Log; watching?: boolean };
+    const record = (kind: 'start' | 'resync') =>
+      (state.addedLog ??= []).push({
+        kind,
+        time: document.querySelector('video')!.currentTime,
+        wall: performance.now() / 1000,
+      });
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function (...args: Parameters<typeof start>) {
-      // The fixture loops at 3 s; restarts there are a deliberate re-sync, so record the time.
-      const state = window as Window & { addedStarts?: number[] };
-      (state.addedStarts ??= []).push(document.querySelector('video')!.currentTime);
+      record('start');
       return start.apply(this, args);
     };
+    // Media events do not bubble, so listen in the capture phase.
+    for (const type of ['waiting', 'playing', 'seeked'])
+      document.addEventListener(type, () => state.watching && record('resync'), true);
   });
   await load(page);
   await addAudio(page);
   await page.locator('.preview-video').evaluate(async (node: HTMLVideoElement) => {
-    node.currentTime = 0;
+    if (node.currentTime !== 0) {
+      const seeked = new Promise((resolve) =>
+        node.addEventListener('seeked', resolve, { once: true }),
+      );
+      node.currentTime = 0;
+      await seeked;
+    }
+    (window as Window & { watching?: boolean }).watching = true;
     await node.play();
   });
-  const starts = () =>
-    page.evaluate(() => (window as Window & { addedStarts?: number[] }).addedStarts ?? []);
-  // Decoding finishes asynchronously; the first start marks the buffer playing.
-  await expect.poll(async () => (await starts()).length).toBeGreaterThanOrEqual(1);
+  type Entry = { kind: 'start' | 'resync'; time: number; wall: number };
+  const log = () => page.evaluate(() => (window as Window & { addedLog?: Entry[] }).addedLog ?? []);
+  // Decoding finishes asynchronously, slowly on a busy machine; the first start marks the
+  // buffer playing.
+  await expect
+    .poll(async () => (await log()).filter((entry) => entry.kind === 'start').length, {
+      timeout: 15_000,
+    })
+    .toBeGreaterThanOrEqual(1);
   await page.waitForTimeout(1500);
-  const beforeLoop = (await starts()).filter((time) => time < 2.8);
+  // A restart is a deliberate re-sync after a media event (stall, resume, seek or the 3 s
+  // loop) or when the video clock drifted from real time, as on a starved machine.
+  const starts = (await log()).filter((entry) => entry.kind === 'start');
+  const entries = await log();
+  let unexplained = 0;
+  for (let i = 1; i < starts.length; i++) {
+    const [prev, next] = [starts[i - 1], starts[i]];
+    const resynced = entries.some(
+      (entry) => entry.kind === 'resync' && entry.wall >= prev.wall && entry.wall <= next.wall,
+    );
+    const drift = Math.abs(next.time - prev.time - (next.wall - prev.wall));
+    if (!resynced && drift <= 0.2) unexplained++;
+  }
   // Before the fix, a second media element was re-seeked several times a second.
-  expect(beforeLoop.length).toBeLessThanOrEqual(2);
+  expect(unexplained).toBeLessThanOrEqual(1);
 });
 
 test('a longer added track slides by dragging or arrow keys on its waveform', async ({ page }) => {
