@@ -97,6 +97,11 @@ export const containerLabel = (mime: string) => {
   const base = mime.split(';', 1)[0]?.trim().toLowerCase() ?? '';
   return CONTAINER_LABELS[base] ?? (base.split('/')[1]?.toUpperCase() || 'unknown');
 };
+export const videoStatsLabel = (source: SourceInfo) => {
+  const video = source.video ? codecLabel(source.video.codec) : 'No video';
+  const container = containerLabel(source.containerMime);
+  return video === container ? video : `${video}, ${container}`;
+};
 const audioLabels: Record<string, string> = {
   aac: 'AAC',
   opus: 'Opus',

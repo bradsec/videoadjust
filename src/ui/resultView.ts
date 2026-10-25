@@ -7,7 +7,14 @@ import { el, icon } from './dom';
 import { formatBitrate, formatBytes, formatDuration } from './format';
 import { sizeMeter } from './progress';
 import { computePeaks } from './waveform';
-import { audioLabel, clock, containerLabel, screenHeading, theaterToggle } from './viewSummaries';
+import {
+  audioLabel,
+  clock,
+  containerLabel,
+  screenHeading,
+  theaterToggle,
+  videoStatsLabel,
+} from './viewSummaries';
 
 type Of<K extends AppState['kind']> = Extract<AppState, { kind: K }>;
 interface Mounted {
@@ -49,8 +56,6 @@ function statsTable(
   const resolution = (i: SourceInfo) =>
     i.video ? `${i.video.displayWidth}x${i.video.displayHeight}` : 'No video';
   const fps = (i: SourceInfo) => (i.video ? `${Number(i.video.fps.toFixed(2))} fps` : '-');
-  const video = (i: SourceInfo) =>
-    `${i.video ? codecLabel(i.video.codec) : 'No video'}, ${containerLabel(i.containerMime)}`;
   const audio = (i: SourceInfo) =>
     i.audio
       ? [audioLabel(i.audio.codec), i.audio.bitrate ? formatBitrate(i.audio.bitrate) : null]
@@ -96,7 +101,7 @@ function statsTable(
     if (source.video || output.video) {
       row('Resolution', resolution(source), resolution(output));
       row('Frame rate', fps(source), fps(output));
-      row('Video', video(source), video(output));
+      row('Video', videoStatsLabel(source), videoStatsLabel(output));
     }
     if (!gifOnly) {
       row('Audio', audio(source), audio(output));
