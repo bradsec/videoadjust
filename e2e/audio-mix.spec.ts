@@ -76,6 +76,34 @@ async function resultInfo(page: Page, extension: string): Promise<ResultInfo> {
   }
 }
 
+test('Reset original audio restores inclusion and volume without changing the added track', async ({
+  page,
+}) => {
+  await load(page);
+  await addAudio(page);
+  const originalVolume = page.getByLabel('Original volume (dB)', { exact: true });
+  const original = page.getByRole('checkbox', { name: 'Original audio', exact: true });
+  const addedVolume = page.getByLabel('Added volume (dB)', { exact: true });
+  const reset = page.getByRole('button', { name: 'Reset original audio', exact: true });
+  await expect(reset).toBeHidden();
+  await addedVolume.fill('-3');
+  await originalVolume.fill('-6');
+  await expect(reset).toBeVisible();
+  await original.uncheck();
+  await expect(originalVolume).toBeDisabled();
+  await reset.click();
+  await expect(original).toBeChecked();
+  await expect(originalVolume).toHaveValue('0');
+  await expect(originalVolume).toBeFocused();
+  await expect(reset).toBeHidden();
+  await expect(addedVolume).toHaveValue('-3');
+  await original.uncheck();
+  await expect(reset).toBeVisible();
+  await reset.click();
+  await expect(original).toBeChecked();
+  await expect(reset).toBeHidden();
+});
+
 test('two tracks with independent volumes export MP4', async ({ page }) => {
   await load(page);
   await addAudio(page);
@@ -184,9 +212,14 @@ test('preview graph sets separate original, added and master gains', async ({ pa
   await page.getByLabel('Original volume (dB)', { exact: true }).fill('-6');
   await page.getByLabel('Added volume (dB)', { exact: true }).fill('-3');
   await page.getByLabel('Gain (dB)', { exact: true }).fill('-2');
+  // CI WebKit can start the player muted, and the added track follows player mute and volume.
   await page.locator('.preview-video').evaluate(async (video: HTMLVideoElement) => {
+    video.muted = false;
+    video.volume = 1;
     await video.play();
   });
+  await expect(page.locator('.preview-video')).toHaveJSProperty('muted', false);
+  await expect(page.locator('.preview-video')).toHaveJSProperty('volume', 1);
   const recent = () =>
     page.evaluate(() =>
       ((window as Window & { mixGains?: number[] }).mixGains ?? []).map((v) => v.toFixed(4)),

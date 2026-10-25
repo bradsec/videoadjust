@@ -88,8 +88,8 @@ describe('settings validation', () => {
       silent,
     );
     expect(mixed.mix).toEqual({
-      original: { include: false, volumeDb: -30 },
-      added: { volumeDb: 12, offset: 2, loop: true },
+      original: { include: false, volumeDb: -20 },
+      added: { volumeDb: 20, offset: 2, loop: true },
     });
     expect(mixed.audio).toMatchObject({ channels: 2, copy: false });
     expect(estimateBytes(mixed, silent).mid).toBeGreaterThan(

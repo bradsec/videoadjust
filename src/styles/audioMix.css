@@ -19,6 +19,9 @@
   align-items: center;
   min-height: var(--tap);
 }
+.setting-head .audio-track-toggle {
+  margin-right: auto;
+}
 .mix-waveforms {
   display: grid;
   gap: var(--s-2);

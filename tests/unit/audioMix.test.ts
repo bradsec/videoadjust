@@ -83,8 +83,8 @@ describe('audio mix settings', () => {
         3,
       ),
     ).toEqual({
-      original: { include: false, volumeDb: 12 },
-      added: { volumeDb: -30, offset: 3, loop: true },
+      original: { include: false, volumeDb: 20 },
+      added: { volumeDb: -20, offset: 3, loop: true },
     });
     expect(
       normalizeAudioMix(

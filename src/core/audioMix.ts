@@ -24,7 +24,8 @@ export interface AddedAudio {
 const finite = (value: number | undefined) => (Number.isFinite(value) ? value! : 0);
 // A negative offset starts the added file partway in; callers clamp to the file's length.
 const MAX_LEAD_IN_SEC = 86400;
-const volume = (value: number | undefined) => Math.min(12, Math.max(-30, finite(value)));
+// Symmetric like Master gain, so 0 dB sits in the middle of the track sliders.
+const volume = (value: number | undefined) => Math.min(20, Math.max(-20, finite(value)));
 
 export function normalizeAudioMix(value: AudioMix | undefined, duration: number): AudioMix {
   return {

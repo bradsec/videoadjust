@@ -71,8 +71,8 @@ describe('audio extract rules', () => {
     );
     expect(mixed.copy).toBe(false);
     expect(mixed.mix).toEqual({
-      original: { include: false, volumeDb: -30 },
-      added: { volumeDb: 12, offset: 3, loop: true },
+      original: { include: false, volumeDb: -20 },
+      added: { volumeDb: 20, offset: 3, loop: true },
     });
   });
 

@@ -1236,6 +1236,9 @@ input[type='checkbox']:disabled {
   font-size: var(--fs-14);
   color: var(--text-2);
 }
+.trim-head h2 {
+  margin-right: auto;
+}
 /* Inset by the handle width: the start handle sits left of the range, the end handle right. */
 .trim-ruler {
   height: 28px;

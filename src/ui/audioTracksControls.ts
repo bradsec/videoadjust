@@ -5,7 +5,7 @@ import {
   type AddedAudio,
   type AudioMix,
 } from '../core/audioMix';
-import { el } from './dom';
+import { el, icon } from './dom';
 import { formatDuration } from './format';
 import '../styles/audioMix.css';
 
@@ -32,6 +32,7 @@ export function mountAudioTracks(
   section.setAttribute('aria-label', 'Audio tracks');
 
   const original = el('div', 'audio-track-row');
+  const originalHead = el('div', 'setting-head');
   const includeLabel = el('label', 'audio-track-toggle');
   const include = el('input');
   include.type = 'checkbox';
@@ -40,8 +41,16 @@ export function mountAudioTracks(
     opts.onChange({ ...mix, original: { ...mix.original, include: include.checked } }),
   );
   includeLabel.append(include, document.createTextNode('Original audio'));
+  const reset = el('button', 'setting-reset', 'Reset original audio');
+  reset.type = 'button';
+  reset.prepend(icon('i-reset'));
+  reset.addEventListener('click', () => {
+    opts.onChange({ ...mix, original: { include: true, volumeDb: 0 } });
+    originalVolume.input.focus();
+  });
+  originalHead.append(includeLabel, reset);
   const unavailable = el('p', 'setting-help', 'The source has no usable audio.');
-  original.append(includeLabel, unavailable);
+  original.append(originalHead, unavailable);
 
   function slider(
     host: HTMLElement,
@@ -73,7 +82,7 @@ export function mountAudioTracks(
       },
     };
   }
-  const originalVolume = slider(original, 'Original volume (dB)', -30, 12, 0.5, 'dB', (n) =>
+  const originalVolume = slider(original, 'Original volume (dB)', -20, 20, 0.5, 'dB', (n) =>
     opts.onChange({ ...mix, original: { ...mix.original, volumeDb: n } }),
   );
 
@@ -86,7 +95,7 @@ export function mountAudioTracks(
   addedHead.append(name, remove);
   const duration = el('p', 'setting-help num');
   added.append(addedHead, duration);
-  const addedVolume = slider(added, 'Added volume (dB)', -30, 12, 0.5, 'dB', (volumeDb) => {
+  const addedVolume = slider(added, 'Added volume (dB)', -20, 20, 0.5, 'dB', (volumeDb) => {
     if (mix.added) opts.onChange({ ...mix, added: { ...mix.added, volumeDb } });
   });
   const offset = slider(
@@ -131,6 +140,8 @@ export function mountAudioTracks(
     mix = normalizeAudioMix(value.mix, value.duration);
     include.checked = value.sourceHasAudio && mix.original.include;
     include.disabled = !value.sourceHasAudio;
+    reset.hidden = mix.original.volumeDb === 0 && mix.original.include;
+    reset.disabled = value.busy === true;
     unavailable.hidden = value.sourceHasAudio;
     originalVolume.input.disabled = !value.sourceHasAudio || !mix.original.include;
     originalVolume.update(mix.original.volumeDb);

@@ -215,6 +215,13 @@ describe('audio mix state', () => {
     expect(state.settings.audioProcessing).toEqual(state.audioSettings!.audioProcessing);
     ctl.dispatch({ type: 'setTool', tool: 'audio' });
     expect(ctl.getState()).toMatchObject({ tool: 'audio' });
+    const neutralOriginal = { ...state.settings.mix!, original: { include: true, volumeDb: 0 } };
+    ctl.dispatch({ type: 'setMix', value: neutralOriginal });
+    expect(ctl.getState()).toMatchObject({
+      addedAudio: added,
+      settings: { mix: neutralOriginal },
+      audioSettings: { mix: neutralOriginal },
+    });
     ctl.dispatch({ type: 'removeAddedAudio' });
     expect(added.input.dispose).toHaveBeenCalledOnce();
     expect(ctl.getState()).toMatchObject({
@@ -922,6 +929,23 @@ describe('export flow', () => {
         audioSettings: { trim: { start: 1, end: 2 } },
       });
     });
+
+    it.each(['shrink', 'audio', 'gif'] as const)(
+      'restores full trim from %s across all tools',
+      (tool) => {
+        const t = audioSetup();
+        t.ctl.dispatch({ type: 'setTool', tool });
+        t.ctl.dispatch({ type: 'setTrim', value: { start: 1, end: 2 } });
+        const fullTrim = { start: 0, end: prepare(t).source.durationSec };
+        t.ctl.dispatch({ type: 'setTrim', value: fullTrim });
+        expect(prepare(t)).toMatchObject({
+          tool,
+          settings: { trim: fullTrim },
+          audioSettings: { trim: fullTrim },
+          gifSettings: { trim: fullTrim },
+        });
+      },
+    );
 
     it('ignores trim in audio settings changes', () => {
       const t = audioSetup();

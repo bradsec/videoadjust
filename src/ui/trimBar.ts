@@ -70,7 +70,14 @@ export function mountTrimBar(
   section.setAttribute('aria-label', 'Trim');
   const head = el('div', 'trim-head');
   const kept = el('span', 'num');
-  head.append(el('h2', undefined, 'Trim'), kept);
+  const reset = el('button', 'setting-reset', 'Reset trim');
+  reset.type = 'button';
+  reset.prepend(icon('i-reset'));
+  reset.addEventListener('click', () => {
+    opts.onChange({ start: 0, end: duration });
+    handles[0]!.focus();
+  });
+  head.append(el('h2', undefined, 'Trim'), reset, kept);
   const strip = el('div', 'trim-strip');
   strip.setAttribute('aria-label', 'Trim range');
   const ruler = el('div', 'trim-ruler');
@@ -368,6 +375,7 @@ export function mountTrimBar(
   }
   function update(next: Trim): void {
     value = next;
+    reset.hidden = next.start <= 0 && next.end >= duration;
     kept.textContent = `${formatDuration(next.end - next.start, { tenths: true })} of ${formatDuration(duration, { tenths: true })} kept`;
     for (const [index, side] of (['start', 'end'] as const).entries()) {
       const input = inputs[index]!;

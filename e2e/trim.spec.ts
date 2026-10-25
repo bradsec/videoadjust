@@ -92,6 +92,40 @@ test.describe('with a video loaded', () => {
     await expect(page.locator('.export-estimate-big')).not.toHaveText(initialEstimate!);
   });
 
+  for (const tool of ['Shrink video', 'Extract audio', 'GIF']) {
+    test(`Reset trim restores the full source in ${tool} at 320px`, async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 640 });
+      await page.getByRole('tab', { name: tool, exact: true }).click();
+      const start = page.getByRole('slider', { name: 'Start', exact: true });
+      const end = page.getByRole('slider', { name: 'End', exact: true });
+      const endReadout = page.getByRole('textbox', { name: 'Trim end' });
+      const fullEnd = await endReadout.inputValue();
+      const duration = await end.getAttribute('aria-valuenow');
+      const kept = page.locator('.trim-head .num');
+      const fullKept = await kept.textContent();
+      const reset = page.getByRole('button', { name: 'Reset trim', exact: true });
+      await expect(reset).toBeHidden();
+      await start.focus();
+      await start.press('ArrowRight');
+      await expect(start).toHaveAttribute('aria-valuenow', '0.1');
+      await expect(reset).toBeVisible();
+      await end.press('ArrowLeft');
+      const overflow = await page.evaluate(() => ({
+        scrollWidth: document.scrollingElement!.scrollWidth,
+        innerWidth,
+      }));
+      expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.innerWidth);
+      await reset.click();
+      await expect(start).toBeFocused();
+      await expect(start).toHaveAttribute('aria-valuenow', '0');
+      await expect(end).toHaveAttribute('aria-valuenow', duration!);
+      await expect(page.getByRole('textbox', { name: 'Trim start' })).toHaveValue('0:00.0');
+      await expect(endReadout).toHaveValue(fullEnd);
+      await expect(kept).toHaveText(fullKept!);
+      await expect(reset).toBeHidden();
+    });
+  }
+
   test('pointer drag changes the start readout', { tag: '@mobile' }, async ({ page, isMobile }) => {
     const start = page.getByRole('slider', { name: 'Start' });
     const strip = page.locator('.trim-strip');
