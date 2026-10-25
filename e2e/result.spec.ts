@@ -438,6 +438,39 @@ test('a saved export is read back from disk so the result previews it', async ({
   await expect(page.getByRole('link', { name: /Download/ })).toHaveCount(0);
 });
 
+test('a failed share of a saved export does not point to a missing Download', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    (
+      window as unknown as { showSaveFilePicker: () => Promise<FileSystemFileHandle> }
+    ).showSaveFilePicker = async () => {
+      const dir = await navigator.storage.getDirectory();
+      return dir.getFileHandle(`shared-${Date.now()}.mp4`, { create: true });
+    };
+    navigator.canShare = () => true;
+    navigator.share = () => Promise.reject(new Error('share failed'));
+  });
+  await open(page, 'land-1080p30-aac.mp4');
+  const canWrite = await page.evaluate(async () => {
+    try {
+      const dir = await navigator.storage.getDirectory();
+      const handle = await dir.getFileHandle('probe', { create: true });
+      return typeof (handle as { createWritable?: unknown }).createWritable === 'function';
+    } catch {
+      return false;
+    }
+  });
+  test.skip(!canWrite, 'This browser cannot write to origin-private files');
+  await reencode(page);
+  await exportButton(page).click();
+  await expect(page.locator('.verdict .figure')).toBeVisible({ timeout: 60_000 });
+  await page.getByRole('button', { name: 'Share' }).click();
+  const note = page.locator('.share-note');
+  await expect(note).toBeVisible();
+  await expect(note).not.toContainText('Download');
+  await expect(note).toContainText('saved where you chose');
+});
+
 test('comparison labels follow the wipe line and hide when their side is too narrow', async ({
   page,
 }) => {

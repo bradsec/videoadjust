@@ -1317,7 +1317,10 @@ function renderResult(
       navigator.share({ files: [file] }).catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error('sharing failed', err);
-        shareNote.textContent = 'Sharing did not work here. Use Download instead.';
+        shareNote.textContent =
+          state.sinkKind === 'file-stream'
+            ? 'Sharing did not work here. The file is saved where you chose.'
+            : 'Sharing did not work here. Use Download instead.';
         shareNote.hidden = false;
       });
     });
