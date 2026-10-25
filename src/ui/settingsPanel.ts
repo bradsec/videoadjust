@@ -783,10 +783,7 @@ export function mountSettings(
   function renderExportLabel(): void {
     if (busy || invalidTarget) exportButton.setAttribute('aria-disabled', 'true');
     else exportButton.removeAttribute('aria-disabled');
-    exportButton.replaceChildren(
-      icon('i-down'),
-      busy ? 'Exporting...' : value.passthrough ? 'Export trimmed copy' : 'Export',
-    );
+    exportButton.replaceChildren(icon('i-down'), busy ? 'Exporting...' : 'Export');
   }
   function setBusy(next: boolean): void {
     busy = next;

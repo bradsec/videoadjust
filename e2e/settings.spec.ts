@@ -244,7 +244,7 @@ test('already small video offers trim-only export', async ({ page }) => {
   const card = page.getByRole('region', { name: 'Export summary' });
   await expect(card.getByText('This video is already small', { exact: true })).toBeVisible();
   await expect(card).toContainText('trim this video');
-  await expect(card.getByRole('button', { name: 'Export trimmed copy' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Export', exact: true })).toBeVisible();
   await expect(card.getByText('Not needed for a trimmed copy')).toBeVisible();
   await card.locator('summary').click();
   await expect(card.getByLabel('Resolution', { exact: true })).toBeDisabled();
@@ -297,7 +297,7 @@ test('target size stays available for a trimmed copy', async ({ page }) => {
   await card.getByLabel('Target size', { exact: true }).selectOption('25');
   await expect(card.getByLabel('Target size', { exact: true })).toBeEnabled();
   await expect(card).toContainText('The trimmed copy is already under your target size');
-  await expect(card.getByRole('button', { name: 'Export trimmed copy' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Export', exact: true })).toBeVisible();
   const reset = card.getByRole('button', { name: 'Reset to auto: Target size' });
   await expect(reset).toBeEnabled();
   await reset.click();
