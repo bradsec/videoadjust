@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.14] - 2026-10-27
+
+### Changed
+
+- Compacted the Trim start and end controls into a row below the waveform, with the kept duration between them.
+
 ## [0.22.13] - 2026-10-26
 
 ### Fixed

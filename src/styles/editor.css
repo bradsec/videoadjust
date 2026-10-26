@@ -273,10 +273,6 @@
   font-size: var(--fs-18);
   font-weight: 650;
 }
-.trim-head .num {
-  font-size: var(--fs-14);
-  color: var(--text-2);
-}
 .trim-head h2 {
   margin-right: auto;
 }
@@ -433,25 +429,44 @@
   outline-offset: 2px;
 }
 .trim-readouts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   align-items: start;
-  column-gap: var(--s-4);
-  margin-top: var(--s-5);
-  padding-top: var(--s-4);
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-3);
+  margin-top: var(--s-3);
+  padding-top: var(--s-3);
   border-top: 1px solid var(--line);
 }
 .trim-readout {
   display: grid;
-  grid-template-areas: 'label' 'input' 'cue' 'error';
-  justify-items: start;
-  align-content: start;
-  row-gap: var(--s-2);
-  min-width: 0;
+  grid-template-areas: 'cue label input' 'error error error';
+  align-items: center;
+  column-gap: var(--s-2);
+  flex: none;
 }
 .trim-readout + .trim-readout {
-  justify-items: end;
+  grid-template-areas: 'label input cue' 'error error error';
+  margin-left: auto;
+  order: 2;
   text-align: end;
+}
+.trim-kept {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex: 1 1 160px;
+  align-self: center;
+  order: 1;
+  color: var(--text-2);
+  font-size: var(--fs-14);
+  white-space: nowrap;
+}
+.trim-kept::before,
+.trim-kept::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--line);
 }
 .trim-label {
   grid-area: label;
@@ -467,7 +482,7 @@
   border: 0;
   border-bottom: 1px solid transparent;
   background: transparent;
-  font-size: clamp(var(--fs-24), 6vw, var(--fs-32));
+  font-size: var(--fs-18);
   font-weight: 650;
   line-height: 1.2;
 }
@@ -505,6 +520,12 @@
 }
 .btn-cue svg.i {
   color: var(--accent-text);
+}
+@media (max-width: 500px) {
+  .trim-kept {
+    flex-basis: 100%;
+    order: 3;
+  }
 }
 
 /* Inspector: one card, one 24px inset for every block. */

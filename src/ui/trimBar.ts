@@ -69,7 +69,7 @@ export function mountTrimBar(
   const section = el('section', 'trim');
   section.setAttribute('aria-label', 'Trim');
   const head = el('div', 'trim-head');
-  const kept = el('span', 'num');
+  const kept = el('span', 'trim-kept num');
   const reset = el('button', 'setting-reset', 'Reset trim');
   reset.type = 'button';
   reset.prepend(icon('i-reset'));
@@ -77,7 +77,7 @@ export function mountTrimBar(
     opts.onChange({ start: 0, end: duration });
     handles[0]!.focus();
   });
-  head.append(el('h2', undefined, 'Trim'), reset, kept);
+  head.append(el('h2', undefined, 'Trim'), reset);
   const strip = el('div', 'trim-strip');
   strip.setAttribute('aria-label', 'Trim range');
   const ruler = el('div', 'trim-ruler');
@@ -203,12 +203,14 @@ export function mountTrimBar(
     button.setAttribute('aria-label', button.title);
     button.prepend(icon(side === 'start' ? 'i-start' : 'i-end'));
     button.addEventListener('click', () => change(side, video.currentTime));
-    group.append(label, input, error, button);
+    if (side === 'start') group.append(button, label, input, error);
+    else group.append(label, input, button, error);
     readouts.append(group);
     inputs.push(input);
     errors.push(error);
     playheadButtons.push(button);
   }
+  readouts.append(kept);
   // Audio lanes sit directly under the filmstrip so they share its timeline.
   const waveformSlot = el('div', 'trim-lanes');
   section.append(head, ruler, strip, waveformSlot, readouts);

@@ -88,7 +88,7 @@ test.describe('with a video loaded', () => {
     await page.keyboard.press('ArrowRight');
     await expect(start).toHaveAttribute('aria-valuenow', '0.1');
     await expect(page.getByRole('textbox', { name: 'Trim start' })).toHaveValue('0:00.1');
-    await expect(page.locator('.trim-head')).toContainText('kept');
+    await expect(page.locator('.trim-kept')).toContainText('kept');
     await expect(page.locator('.export-estimate-big')).not.toHaveText(initialEstimate!);
   });
 
@@ -101,7 +101,7 @@ test.describe('with a video loaded', () => {
       const endReadout = page.getByRole('textbox', { name: 'Trim end' });
       const fullEnd = await endReadout.inputValue();
       const duration = await end.getAttribute('aria-valuenow');
-      const kept = page.locator('.trim-head .num');
+      const kept = page.locator('.trim-kept');
       const fullKept = await kept.textContent();
       const reset = page.getByRole('button', { name: 'Reset trim', exact: true });
       await expect(reset).toBeHidden();
@@ -212,7 +212,7 @@ test.describe('with a video loaded', () => {
   test('typed time updates trim and invalid time keeps the previous value', async ({ page }) => {
     const input = page.getByRole('textbox', { name: 'Trim start' });
     const start = page.getByRole('slider', { name: 'Start' });
-    const kept = page.locator('.trim-head .num');
+    const kept = page.locator('.trim-kept');
     const original = await kept.textContent();
     await input.fill('0:01.5');
     await input.press('Enter');
@@ -250,10 +250,11 @@ test.describe('with a video loaded', () => {
     await expect(page.getByRole('slider', { name: 'End' })).toHaveAttribute('aria-valuenow', '2');
   });
 
-  test('trim readouts sit flush with the trim section edges at every width', async ({ page }) => {
+  test('trim readouts keep controls together and align to section edges', async ({ page }) => {
     const groups = page.locator('.trim-readout');
     for (const viewport of [
       { width: 320, height: 640 },
+      { width: 375, height: 812 },
       { width: 390, height: 844 },
       { width: 768, height: 844 },
       { width: 1440, height: 900 },
@@ -262,19 +263,36 @@ test.describe('with a video loaded', () => {
       const head = (await page.locator('.trim-head').boundingBox())!;
       const start = (await groups.first().boundingBox())!;
       const end = (await groups.last().boundingBox())!;
-      expect(Math.abs(start.y - end.y)).toBeLessThanOrEqual(1);
-      for (const group of [groups.first(), groups.last()]) {
+      for (const [side, group] of [
+        ['start', groups.first()],
+        ['end', groups.last()],
+      ] as const) {
         const label = (await group.locator('.trim-label').boundingBox())!;
         const input = (await group.locator('.trim-input').boundingBox())!;
         const button = (await group.locator('.btn-cue').boundingBox())!;
-        expect(label.y).toBeLessThan(input.y);
-        expect(input.y + input.height).toBeLessThanOrEqual(button.y + 1);
+        expect(
+          Math.abs(label.y + label.height / 2 - input.y - input.height / 2),
+        ).toBeLessThanOrEqual(1);
+        expect(
+          Math.abs(button.y + button.height / 2 - input.y - input.height / 2),
+        ).toBeLessThanOrEqual(1);
+        if (side === 'start') {
+          expect(button.x + button.width).toBeLessThanOrEqual(label.x + 1);
+          expect(label.x + label.width).toBeLessThanOrEqual(input.x + 1);
+        } else {
+          expect(label.x + label.width).toBeLessThanOrEqual(input.x + 1);
+          expect(input.x + input.width).toBeLessThanOrEqual(button.x + 1);
+        }
       }
-      for (const selector of ['.trim-label', '.trim-input', '.btn-cue']) {
-        const startItem = (await groups.first().locator(selector).boundingBox())!;
-        const endItem = (await groups.last().locator(selector).boundingBox())!;
-        expect(Math.abs(startItem.x - head.x)).toBeLessThanOrEqual(1);
-        expect(Math.abs(endItem.x + endItem.width - head.x - head.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(start.x - head.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(end.x + end.width - head.x - head.width)).toBeLessThanOrEqual(1);
+      const kept = (await page.locator('.trim-kept').boundingBox())!;
+      if (viewport.width > 500) {
+        expect(Math.abs(start.y - end.y)).toBeLessThanOrEqual(1);
+        expect(kept.x).toBeGreaterThan(start.x + start.width);
+        expect(kept.x + kept.width).toBeLessThan(end.x);
+      } else {
+        expect(kept.y).toBeGreaterThanOrEqual(Math.max(start.y + start.height, end.y + end.height));
       }
       const overflow = await page.evaluate(() => ({
         scrollWidth: document.scrollingElement!.scrollWidth,

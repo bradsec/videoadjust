@@ -34,7 +34,7 @@ test('trim readouts keep one width as the tenths pass zero', async ({ page }) =>
   await expect(start).toBeVisible();
   const startValue = page.getByRole('textbox', { name: 'Trim start' });
   const endValue = page.getByRole('textbox', { name: 'Trim end' });
-  const kept = page.locator('.trim-head .num');
+  const kept = page.locator('.trim-kept');
   for (const field of [startValue, endValue]) {
     expect(await field.evaluate((node) => getComputedStyle(node).fontVariantNumeric)).toContain(
       'tabular-nums',
