@@ -4,14 +4,13 @@ import type { Settings } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
 
 type Size = { width: number; height: number };
+export type PreparedFrameMatrix = [number, number, number, number, number, number];
 
-export function drawPreparedFrame(
-  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  input: CanvasImageSource,
+export function preparedFrameMatrix(
   source: Size,
   output: Size,
   transform: Settings['transform'],
-): void {
+): PreparedFrameMatrix {
   const rotate = transform?.rotate ?? 0;
   const rotated = rotatedSize(source.width, source.height, rotate);
   const frame = normalizeCrop(
@@ -20,19 +19,37 @@ export function drawPreparedFrame(
     transform?.crop ?? 'original',
     transform?.rect,
   ) ?? { left: 0, top: 0, ...rotated };
-  context.setTransform(
-    output.width / frame.width,
-    0,
-    0,
-    output.height / frame.height,
-    (-frame.left * output.width) / frame.width,
-    (-frame.top * output.height) / frame.height,
-  );
-  context.clearRect(frame.left, frame.top, frame.width, frame.height);
-  context.translate(rotated.width / 2, rotated.height / 2);
-  context.scale(transform?.flip ? -1 : 1, 1);
-  context.rotate((rotate * Math.PI) / 180);
-  context.drawImage(input, -source.width / 2, -source.height / 2, source.width, source.height);
+  const x = output.width / frame.width;
+  const y = output.height / frame.height;
+  const flip = transform?.flip ? -1 : 1;
+  const radians = (rotate * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const a = x * flip * cos;
+  const b = y * sin;
+  const c = -x * flip * sin;
+  const d = y * cos;
+  return [
+    a,
+    b,
+    c,
+    d,
+    x * (rotated.width / 2 - frame.left) - (a * source.width + c * source.height) / 2,
+    y * (rotated.height / 2 - frame.top) - (b * source.width + d * source.height) / 2,
+  ];
+}
+
+export function drawPreparedFrame(
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  input: CanvasImageSource,
+  source: Size,
+  output: Size,
+  transform: Settings['transform'],
+): void {
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, output.width, output.height);
+  context.setTransform(...preparedFrameMatrix(source, output, transform));
+  context.drawImage(input, 0, 0, source.width, source.height);
   context.setTransform(1, 0, 0, 1, 0, 0);
 }
 

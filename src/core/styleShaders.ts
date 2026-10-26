@@ -7,6 +7,24 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
+export const PREPARE = `#version 300 es
+precision highp float;
+uniform sampler2D sourceTex;
+uniform mat3 outputToSource;
+uniform vec2 sourceSize;
+uniform vec2 outputSize;
+out vec4 outColor;
+void main() {
+  // GL framebuffer pixels start at the bottom; canvas pixel coordinates start at the top.
+  vec2 outputPixel = vec2(gl_FragCoord.x, outputSize.y - gl_FragCoord.y);
+  vec2 sourcePixel = (outputToSource * vec3(outputPixel, 1.0)).xy;
+  if (any(lessThan(sourcePixel, vec2(0.0))) || any(greaterThan(sourcePixel, sourceSize))) {
+    outColor = vec4(0.0);
+    return;
+  }
+  outColor = texture(sourceTex, vec2(sourcePixel.x / sourceSize.x, 1.0 - sourcePixel.y / sourceSize.y));
+}`;
+
 const CORRECTION = `
 uniform vec4 correction;
 vec3 correctColor(vec3 c) {

@@ -1,4 +1,4 @@
-import { drawPreparedFrame } from '../core/frameExport';
+import { drawPreparedFrame, preparedFrameMatrix } from '../core/frameExport';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from '../core/overlays';
 import {
   createStyleRenderer,
@@ -228,21 +228,24 @@ export function mountLivePreview(
       lastFrame = index;
     }
     try {
-      if (!styleContext) throw new Error('Canvas is unavailable for Video Style preview.');
       const output = renderSize;
-      if (styleSource.width !== output.width) styleSource.width = output.width;
-      if (styleSource.height !== output.height) styleSource.height = output.height;
-      drawPreparedFrame(styleContext, video, source, output, settings.transform);
-      if (!settings.colors || hasStyleEffects(settings.style)) {
-        styleRenderer ??= createStyleRenderer(styleCanvas);
+      const styled = !settings.colors || hasStyleEffects(settings.style);
+      if (styled) {
+        styleRenderer ??= createStyleRenderer(styleCanvas, { preserveDrawingBuffer: false });
         styleRenderer.draw(
-          styleSource,
+          video,
           output.width,
           output.height,
           time,
           normalizeStyle(settings.style),
           settings.output,
+          { source, matrix: preparedFrameMatrix(source, output, settings.transform) },
         );
+      } else {
+        if (!styleContext) throw new Error('Canvas is unavailable for Video Style preview.');
+        if (styleSource.width !== output.width) styleSource.width = output.width;
+        if (styleSource.height !== output.height) styleSource.height = output.height;
+        drawPreparedFrame(styleContext, video, source, output, settings.transform);
       }
       if (settings.colors) {
         if (!paletteContext || !paletteSourceContext)
@@ -251,11 +254,7 @@ export function mountLivePreview(
         if (paletteSource.height !== output.height) paletteSource.height = output.height;
         if (paletteCanvas.width !== output.width) paletteCanvas.width = output.width;
         if (paletteCanvas.height !== output.height) paletteCanvas.height = output.height;
-        paletteSourceContext.drawImage(
-          hasStyleEffects(settings.style) ? styleCanvas : styleSource,
-          0,
-          0,
-        );
+        paletteSourceContext.drawImage(styled ? styleCanvas : styleSource, 0, 0);
         if (overlayLayer)
           paletteSourceContext.drawImage(overlayLayer, 0, 0, output.width, output.height);
         const pixels = paletteSourceContext.getImageData(0, 0, output.width, output.height);

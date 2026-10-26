@@ -1,4 +1,5 @@
-import { DOWN, PREFILTER, STYLE, UP, VERTEX } from './styleShaders';
+import type { PreparedFrameMatrix } from './frameExport';
+import { DOWN, PREFILTER, PREPARE, STYLE, UP, VERTEX } from './styleShaders';
 
 export const STYLE_PRESETS = [
   {
@@ -226,9 +227,12 @@ interface GlowLevel {
   height: number;
 }
 
-export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas) {
+export function createStyleRenderer(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  options: { preserveDrawingBuffer?: boolean } = {},
+) {
   const gl = canvas.getContext('webgl2', {
-    preserveDrawingBuffer: true,
+    preserveDrawingBuffer: options.preserveDrawingBuffer ?? true,
     alpha: false,
   }) as WebGL2RenderingContext | null;
   if (!gl) throw new Error('Video Style needs WebGL2 in this browser.');
@@ -254,6 +258,8 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
   let upLevels: GlowLevel[] = [];
   let glowWidth = 0;
   let glowHeight = 0;
+  let prepared: GlowLevel | undefined;
+  let prepareProgram: WebGLProgram | undefined;
   const freeLevels = () => {
     for (const level of [...downLevels, ...upLevels]) {
       gl.deleteTexture(level.texture);
@@ -318,6 +324,7 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
       time: number,
       value: StyleSettings,
       reference: { width: number; height: number } = { width, height },
+      prepare?: { source: { width: number; height: number }; matrix: PreparedFrameMatrix },
     ): void {
       if (gl.isContextLost()) throw new Error('Video Style graphics context was lost.');
       if (canvas.width !== width) canvas.width = width;
@@ -328,10 +335,44 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
       // Allocating binds new textures to the active unit, so it must run before the
       // source frame is bound.
       if (glowing) allocateGlow(width, height);
+      if (prepare && (!prepared || prepared.width !== width || prepared.height !== height)) {
+        if (prepared) {
+          gl.deleteTexture(prepared.texture);
+          gl.deleteFramebuffer(prepared.buffer);
+        }
+        prepared = level(width, height);
+      }
       bind(source, 0);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, input);
+      const frame = prepare ? prepared!.texture : source;
+      if (prepare) {
+        prepareProgram ??= program(gl, PREPARE);
+        const [a, b, c, d, e, f] = prepare.matrix;
+        const det = a * d - b * c;
+        useProgram(prepareProgram);
+        gl.uniform1i(uniform('sourceTex'), 0);
+        gl.uniformMatrix3fv(
+          uniform('outputToSource'),
+          false,
+          new Float32Array([
+            d / det,
+            -b / det,
+            0,
+            -c / det,
+            a / det,
+            0,
+            (c * f - d * e) / det,
+            (b * e - a * f) / det,
+            1,
+          ]),
+        );
+        gl.uniform2f(uniform('sourceSize'), prepare.source.width, prepare.source.height);
+        gl.uniform2f(uniform('outputSize'), width, height);
+        pass(prepared!, width, height);
+      }
       if (glowing) {
         useProgram(prefilter);
+        bind(frame, 0);
         gl.uniform1i(uniform('sourceTex'), 0);
         gl.uniform2f(uniform('srcTexel'), 1 / reference.width, 1 / reference.height);
         gl.uniform1i(uniform('kind'), mapped.kind);
@@ -370,7 +411,7 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
         }
       }
       useProgram(styleProgram);
-      bind(source, 0);
+      bind(frame, 0);
       bind(upLevels[0]?.texture ?? null, 1);
       gl.uniform1i(uniform('sourceTex'), 0);
       gl.uniform1i(uniform('glowTex'), 1);
@@ -387,8 +428,13 @@ export function createStyleRenderer(canvas: HTMLCanvasElement | OffscreenCanvas)
     },
     destroy(): void {
       freeLevels();
+      if (prepared) {
+        gl.deleteTexture(prepared.texture);
+        gl.deleteFramebuffer(prepared.buffer);
+      }
       gl.deleteTexture(source);
       for (const item of [prefilter, down, up, styleProgram]) gl.deleteProgram(item);
+      if (prepareProgram) gl.deleteProgram(prepareProgram);
       gl.deleteVertexArray(vertexArray);
     },
   };
