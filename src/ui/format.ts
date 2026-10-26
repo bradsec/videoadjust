@@ -16,16 +16,22 @@ export function formatBitrate(bps: number): string {
 }
 
 /**
- * m:ss, or h:mm:ss from one hour; a fraction shows one decimal place. With `tenths` the
- * decimal always shows (0:04.0), so a live counter keeps one width as the tenths pass zero.
+ * m:ss, or h:mm:ss from one hour; the default fraction shows one decimal place.
+ * With `tenths` or `hundredths`, the decimal always shows so a live counter keeps one width.
  */
-export function formatDuration(sec: number, opts: { tenths?: boolean } = {}): string {
+export function formatDuration(
+  sec: number,
+  opts: { tenths?: boolean; hundredths?: boolean } = {},
+): string {
   const total = Math.max(0, sec);
-  const tenths = Math.floor(total * 10 + 1e-9);
-  const whole = Math.floor(tenths / 10);
-  const frac = tenths % 10;
+  const precision = opts.hundredths ? 100 : 10;
+  const units = Math.floor(total * precision + 1e-9);
+  const whole = Math.floor(units / precision);
+  const frac = units % precision;
   const h = Math.floor(whole / 3600);
   const m = Math.floor((whole % 3600) / 60);
-  const s = String(whole % 60).padStart(2, '0') + (frac || opts.tenths ? `.${frac}` : '');
+  const s =
+    String(whole % 60).padStart(2, '0') +
+    (opts.hundredths ? `.${String(frac).padStart(2, '0')}` : frac || opts.tenths ? `.${frac}` : '');
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }

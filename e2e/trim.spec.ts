@@ -111,17 +111,23 @@ test.describe('with a video loaded', () => {
       node.pause();
       node.currentTime = 1;
     });
+    const playheadTime = page.locator('.trim-playhead-time');
+    await expect(playheadTime).toHaveText('0:01.00');
     const next = page.getByRole('button', { name: 'Next frame' });
     const previous = page.getByRole('button', { name: 'Previous frame' });
     await next.click();
+    await expect(playheadTime).toHaveText('0:01.03');
     await expect.poll(time).toBeGreaterThan(1.02);
     expect(await time()).toBeCloseTo(1 + 1 / 30, 2);
     await previous.click();
+    await expect(playheadTime).toHaveText('0:01.00');
     await expect.poll(time).toBeLessThan(1.02);
     expect(await time()).toBeCloseTo(1, 2);
     await page.keyboard.press('.');
+    await expect(playheadTime).toHaveText('0:01.03');
     await expect.poll(time).toBeGreaterThan(1.02);
     await page.keyboard.press(',');
+    await expect(playheadTime).toHaveText('0:01.00');
     await expect.poll(time).toBeLessThan(1.02);
     const input = page.getByRole('textbox', { name: 'Trim start' });
     await input.focus();
@@ -129,6 +135,12 @@ test.describe('with a video loaded', () => {
     await input.press('.');
     await input.press(',');
     expect(await time()).toBeCloseTo(before, 4);
+    await input.press('Escape');
+    await next.click();
+    await expect(playheadTime).toHaveText('0:01.03');
+    await next.click();
+    await expect(playheadTime).toHaveText('0:01.06');
+    await expect(playheadTime).toHaveAttribute('aria-label', 'Playhead 0:01.06');
   });
 
   test('keyboard changes trim and estimate', async ({ page }) => {
@@ -337,12 +349,13 @@ test.describe('with a video loaded', () => {
       }
       expect(Math.abs(start.x - head.x)).toBeLessThanOrEqual(1);
       expect(Math.abs(end.x + end.width - head.x - head.width)).toBeLessThanOrEqual(1);
-      const kept = (await page.locator('.trim-kept').boundingBox())!;
+      await expect(page.locator('.trim-head > .trim-kept')).toHaveCount(1);
       const frameGroup = (await page.locator('.trim-frame-group').boundingBox())!;
+      const time = (await page.locator('.trim-playhead-time').boundingBox())!;
       const previous = (await page.getByRole('button', { name: 'Previous frame' }).boundingBox())!;
       const next = (await page.getByRole('button', { name: 'Next frame' }).boundingBox())!;
-      expect(previous.x + previous.width).toBeLessThanOrEqual(kept.x + 1);
-      expect(kept.x + kept.width).toBeLessThanOrEqual(next.x + 1);
+      expect(previous.x + previous.width).toBeLessThanOrEqual(time.x + 1);
+      expect(time.x + time.width).toBeLessThanOrEqual(next.x + 1);
       if (viewport.width > 500) {
         expect(Math.abs(start.y - end.y)).toBeLessThanOrEqual(1);
         expect(frameGroup.x).toBeGreaterThan(start.x + start.width);

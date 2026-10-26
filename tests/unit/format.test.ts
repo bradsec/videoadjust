@@ -30,6 +30,15 @@ describe('format', () => {
     const widths = [3.8, 3.9, 4, 4.1].map((t) => formatDuration(t, fixed).length);
     expect(new Set(widths).size).toBe(1);
   });
+  it('floors hundredths and keeps two digits for a playhead counter', () => {
+    const fixed = { hundredths: true };
+    expect(formatDuration(1.0334, fixed)).toBe('0:01.03');
+    expect(formatDuration(0, fixed)).toBe('0:00.00');
+    expect(formatDuration(3723.456, fixed)).toBe('1:02:03.45');
+    expect(
+      new Set([0, 1.0334, 1.0667, 59.99, 60].map((t) => formatDuration(t, fixed).length)).size,
+    ).toBe(1);
+  });
   it('still drops a zero tenth by default', () => {
     expect(formatDuration(4, {})).toBe('0:04');
     expect(formatDuration(4, { tenths: false })).toBe('0:04');

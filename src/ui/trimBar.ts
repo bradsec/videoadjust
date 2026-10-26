@@ -84,6 +84,9 @@ export function mountTrimBar(
   const head = el('div', 'trim-head');
   const kept = el('span', 'trim-kept num');
   const frameGroup = el('div', 'trim-frame-group');
+  const playheadTime = el('span', 'trim-playhead-time num');
+  playheadTime.setAttribute('role', 'timer');
+  playheadTime.setAttribute('aria-live', 'off');
   const frameButtons = ([-1, 1] as const).map((direction) => {
     const button = el('button', 'btn btn-cue trim-frame-step');
     button.type = 'button';
@@ -93,7 +96,7 @@ export function mountTrimBar(
     button.addEventListener('click', () => stepFrame(direction));
     return button;
   });
-  frameGroup.append(frameButtons[0]!, kept, frameButtons[1]!);
+  frameGroup.append(frameButtons[0]!, playheadTime, frameButtons[1]!);
   const reset = el('button', 'setting-reset', 'Reset trim');
   reset.type = 'button';
   reset.prepend(icon('i-reset'));
@@ -101,7 +104,7 @@ export function mountTrimBar(
     opts.onChange({ start: 0, end: duration });
     handles[0]!.focus();
   });
-  head.append(el('h2', undefined, 'Trim'), reset);
+  head.append(el('h2', undefined, 'Trim'), reset, kept);
   const strip = el('div', 'trim-strip');
   strip.setAttribute('aria-label', 'Trim range');
   const ruler = el('div', 'trim-ruler');
@@ -317,9 +320,15 @@ export function mountTrimBar(
   function seek(position: number, exact: boolean): void {
     if (exact || !video.fastSeek) video.currentTime = position;
     else video.fastSeek(position);
+    renderPlayhead(position);
+  }
+  function renderPlayhead(position: number): void {
     setPercent(playhead, 'left', position);
     playhead.setAttribute('aria-valuenow', String(position));
     playhead.setAttribute('aria-valuetext', formatDuration(position));
+    const time = formatDuration(position, { hundredths: true });
+    playheadTime.textContent = time;
+    playheadTime.setAttribute('aria-label', `Playhead ${time}`);
   }
   function stepFrame(direction: -1 | 1): void {
     if (!previewPlayable || duration < MIN_TRIM_SPAN) return;
@@ -469,9 +478,7 @@ export function mountTrimBar(
     if (activeScrub !== null) return;
     if (!video.paused && (video.currentTime >= value.end || video.currentTime < value.start))
       video.currentTime = value.start;
-    setPercent(playhead, 'left', video.currentTime);
-    playhead.setAttribute('aria-valuenow', String(video.currentTime));
-    playhead.setAttribute('aria-valuetext', formatDuration(video.currentTime));
+    renderPlayhead(video.currentTime);
   }
   video.addEventListener('timeupdate', onTimeUpdate);
   video.addEventListener('seeked', onTimeUpdate);

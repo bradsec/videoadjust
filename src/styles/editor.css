@@ -459,20 +459,21 @@
   align-self: center;
   order: 1;
 }
-.trim-kept {
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
+.trim-frame-group::before,
+.trim-frame-group::after {
+  content: '';
   flex: 1;
+  border-top: 1px solid var(--line);
+}
+.trim-kept {
   color: var(--text-2);
   font-size: var(--fs-14);
   white-space: nowrap;
 }
-.trim-kept::before,
-.trim-kept::after {
-  content: '';
-  flex: 1;
-  border-top: 1px solid var(--line);
+.trim-playhead-time {
+  color: var(--text);
+  font-size: var(--fs-16);
+  white-space: nowrap;
 }
 .trim-label {
   grid-area: label;

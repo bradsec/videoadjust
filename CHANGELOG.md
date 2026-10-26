@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.18] - 2026-10-27
+
+### Changed
+
+- Moved kept duration to the Trim header and grouped frame steps around a playhead time readout with hundredths, so each frame step shows.
+
 ## [0.22.17] - 2026-10-27
 
 ### Changed
