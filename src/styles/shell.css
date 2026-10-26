@@ -105,6 +105,11 @@ svg.i .i-fill {
   gap: var(--s-1) var(--s-4);
   min-width: 0;
 }
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
 .mark {
   display: inline-flex;
   align-items: center;
@@ -186,7 +191,8 @@ footer a {
   font-variant-numeric: tabular-nums;
 }
 /* An icon-only .btn; the ::before keeps a 44px hit area around the 36px circle. */
-.top .about-link {
+.top .about-link,
+.top .help-link {
   flex: none;
   width: 36px;
   min-height: 36px;
@@ -194,17 +200,20 @@ footer a {
   justify-content: center;
   border-radius: 999px;
 }
-.top .about-link::before {
+.top .about-link::before,
+.top .help-link::before {
   content: '';
   position: absolute;
   inset: -4px;
 }
-.top .about-link svg.i {
+.top .about-link svg.i,
+.top .help-link svg.i {
   width: 18px;
   height: 18px;
   color: var(--accent-text);
 }
-.about-dialog {
+.about-dialog,
+.guide-dialog {
   width: min(420px, calc(100% - 2 * var(--gutter)));
   max-height: calc(100dvh - 40px);
   margin: auto;
@@ -217,8 +226,12 @@ footer a {
   color: var(--text);
   box-shadow: 0 24px 64px rgb(0 0 0 / 50%);
 }
+.guide-dialog {
+  width: min(680px, calc(100% - 2 * var(--gutter)));
+}
 /* The page behind blurs slightly, as in rastertrace. */
-.about-dialog::backdrop {
+.about-dialog::backdrop,
+.guide-dialog::backdrop {
   background: var(--scrim);
   backdrop-filter: blur(4px);
 }
@@ -258,6 +271,46 @@ footer a {
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
+}
+/* The title takes focus on open so screen readers start there; it is not a control. */
+.guide-dialog h2:focus {
+  outline: none;
+}
+.guide-dialog .dialog-actions {
+  position: sticky;
+  bottom: 0;
+  padding-block: var(--s-2);
+  background: var(--raised);
+}
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-5);
+}
+.help-grid section,
+.help-settings {
+  display: grid;
+  align-content: start;
+  gap: var(--s-2);
+}
+.help-grid h3 {
+  margin: 0;
+  font-size: var(--fs-16);
+}
+.help-settings {
+  margin: 0;
+}
+.help-settings dt {
+  font-weight: 650;
+}
+.help-settings dd {
+  margin: 0;
+  color: var(--text-2);
+}
+@media (max-width: 560px) {
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
 }
 footer a:hover {
   text-decoration-color: currentColor;

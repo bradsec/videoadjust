@@ -21,6 +21,14 @@ about.addEventListener('click', (event) => {
   if (event.target === about) about.close();
 });
 
+const help = document.querySelector<HTMLDialogElement>('#help-dialog')!;
+const helpButton = document.querySelector<HTMLButtonElement>('.help-link')!;
+helpButton.addEventListener('click', () => help.showModal());
+help.addEventListener('click', (event) => {
+  if (event.target === help) help.close();
+});
+help.addEventListener('close', () => helpButton.focus());
+
 const caps = probeCapabilities();
 
 // Probe results go on a data attribute rather than a global so the production

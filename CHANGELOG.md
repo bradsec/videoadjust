@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.21] - 2026-10-27
+
+### Added
+
+- Added a Help dialog with tools, trim controls, shortcuts, settings, and export guidance.
+
 ## [0.22.20] - 2026-10-27
 
 ### Fixed
