@@ -232,6 +232,9 @@ export function mountLivePreview(
       const styled = !settings.colors || hasStyleEffects(settings.style);
       if (styled) {
         styleRenderer ??= createStyleRenderer(styleCanvas, { preserveDrawingBuffer: false });
+        // Upload video directly to WebGL and transform on the GPU. On iPhone/iPad Safari,
+        // drawing to a 2D canvas then texImage2D(canvas) cost 14-56 ms per frame versus
+        // about 2 ms direct, making styled playback stutter (0.22.13).
         styleRenderer.draw(
           video,
           output.width,

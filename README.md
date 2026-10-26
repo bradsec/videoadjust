@@ -74,6 +74,8 @@ e2e/                Playwright browser and device tests
 
 Requires Node 22 and pnpm 10.
 
+Release history: [CHANGELOG.md](CHANGELOG.md).
+
 ```sh
 pnpm install
 pnpm dev            # dev server
