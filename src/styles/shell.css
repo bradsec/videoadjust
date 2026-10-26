@@ -283,9 +283,14 @@ footer a {
   background: var(--raised);
 }
 .help-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s-5);
+  columns: 2;
+  column-gap: var(--s-5);
+}
+.help-grid section {
+  break-inside: avoid;
+}
+.help-grid section:not(:last-child) {
+  margin-bottom: var(--s-5);
 }
 .help-grid section,
 .help-settings {
@@ -309,7 +314,7 @@ footer a {
 }
 @media (max-width: 560px) {
   .help-grid {
-    grid-template-columns: 1fr;
+    columns: 1;
   }
 }
 footer a:hover {

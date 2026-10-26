@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.22] - 2026-10-27
+
+### Fixed
+
+- Removed empty gaps between Help sections on desktop.
+
 ## [0.22.21] - 2026-10-27
 
 ### Added
