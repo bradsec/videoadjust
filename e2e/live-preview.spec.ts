@@ -10,7 +10,7 @@ test(
     await page.goto('/');
     await page.setInputFiles('#file', fixture);
     await page.locator('.style-adjust > summary').click();
-    await page.getByLabel('Video style', { exact: true }).selectOption('mono');
+    await page.getByLabel('Video style', { exact: true }).selectOption('duotone');
     await page.getByRole('button', { name: 'Crop and rotate' }).click();
     await page.getByLabel('Crop aspect ratio').selectOption('portrait');
     await page.getByRole('region', { name: 'Crop and rotate editor' }).getByText('Done').click();
@@ -21,7 +21,10 @@ test(
     const original = page.getByRole('button', { name: 'Show original', exact: true });
     const stage = page.locator('.live-preview-stage');
     await expect(original).toBeVisible();
-    await expect(page.locator('.live-preview-label')).toHaveText('Black & white');
+    const label = page.locator('.live-preview-label');
+    await expect(label).toHaveText('Duotone');
+    await expect(label).toHaveAttribute('title', 'Duotone');
+    await original.scrollIntoViewIfNeeded();
     const frameBox = (await page.locator('.live-preview-frame').boundingBox())!;
     expect(frameBox.width / frameBox.height).toBeCloseTo(9 / 16, 2);
     const boxes = await Promise.all(
@@ -37,14 +40,57 @@ test(
     expect(originalBox.y).toBeGreaterThanOrEqual(frameBox.y);
     expect(originalBox.x + originalBox.width).toBeLessThanOrEqual(frameBox.x + frameBox.width);
     expect(originalBox.y + originalBox.height).toBeLessThanOrEqual(frameBox.y + frameBox.height);
-    const labelBox = (await page.locator('.live-preview-label').boundingBox())!;
-    expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(originalBox.x);
-    expect(Math.abs(labelBox.y - originalBox.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(labelBox.height - originalBox.height)).toBeLessThanOrEqual(1);
+    const labelBox = (await label.boundingBox())!;
+    expect(labelBox.x).toBeGreaterThanOrEqual(frameBox.x);
+    expect(labelBox.y).toBeGreaterThanOrEqual(frameBox.y);
+    expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(frameBox.y + frameBox.height);
+    expect(
+      labelBox.x + labelBox.width <= originalBox.x ||
+        labelBox.y >= originalBox.y + originalBox.height,
+    ).toBe(true);
+    expect(await label.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     expect(
       await original.evaluate((button) => parseFloat(getComputedStyle(button, '::before').height)),
     ).toBeGreaterThanOrEqual(44);
     expect(stageBox.height).toBeLessThanOrEqual(0.6 * 640);
+
+    await original.click();
+    await expect(original).toHaveAttribute('aria-pressed', 'true');
+    expect(await original.evaluate((button) => getComputedStyle(button, '::after').content)).toBe(
+      '"Edited"',
+    );
+    await expect(label).toBeHidden();
+    const originalFrame = (await page.locator('.live-preview-frame').boundingBox())!;
+    const originalVideo = (await page.locator('.preview-video').boundingBox())!;
+    for (const [name, box] of [
+      ['frame', originalFrame],
+      ['video', originalVideo],
+    ] as const)
+      for (const key of ['x', 'y', 'width', 'height'] as const)
+        expect(Math.abs(box[key] - frameBox[key]), `${name}.${key}`).toBeLessThanOrEqual(1);
+    const originalButton = (await original.boundingBox())!;
+    // The pill is anchored top-right; "Edited" is narrower than "Original", so x and width differ.
+    const right = (box: typeof originalBox) => box.x + box.width;
+    expect(Math.abs(right(originalButton) - right(originalBox)), 'pill.right').toBeLessThanOrEqual(
+      1,
+    );
+    for (const key of ['y', 'height'] as const)
+      expect(Math.abs(originalButton[key] - originalBox[key]), `pill.${key}`).toBeLessThanOrEqual(
+        1,
+      );
+    expect(originalButton.x).toBeGreaterThanOrEqual(originalFrame.x);
+    expect(originalButton.y).toBeGreaterThanOrEqual(originalFrame.y);
+    expect(originalButton.x + originalButton.width).toBeLessThanOrEqual(
+      originalFrame.x + originalFrame.width,
+    );
+    expect(originalButton.y + originalButton.height).toBeLessThanOrEqual(
+      originalFrame.y + originalFrame.height,
+    );
+    await original.click();
+    await expect(label).toBeVisible();
+    expect(await original.evaluate((button) => getComputedStyle(button, '::after').content)).toBe(
+      '"Original"',
+    );
 
     await page
       .locator('.overlay-adjust > summary')
@@ -62,6 +108,33 @@ test(
     );
   },
 );
+
+test('desktop styled preview keeps its frame when showing original', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  await page.locator('.style-adjust > summary').click();
+  await page.getByLabel('Video style', { exact: true }).selectOption('duotone');
+  const frame = page.locator('.live-preview-frame');
+  const label = page.locator('.live-preview-label');
+  const original = page.getByRole('button', { name: 'Show original', exact: true });
+  await expect(page.locator('.live-preview-style')).toBeVisible();
+  await original.scrollIntoViewIfNeeded();
+  const before = (await frame.boundingBox())!;
+  await original.click();
+  await expect(original).toHaveAttribute('aria-pressed', 'true');
+  await expect(label).toHaveText('Original');
+  for (const [name, box] of [
+    ['frame', (await frame.boundingBox())!],
+    ['video', (await page.locator('.preview-video').boundingBox())!],
+  ] as const)
+    for (const key of ['x', 'y', 'width', 'height'] as const)
+      expect(Math.abs(box[key] - before[key]), `${name}.${key}`).toBeLessThanOrEqual(1);
+  const labelBox = (await label.boundingBox())!;
+  expect(labelBox.x).toBeGreaterThanOrEqual(before.x);
+  expect(labelBox.y).toBeGreaterThanOrEqual(before.y);
+  expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(before.x + before.width);
+  expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(before.y + before.height);
+});
 
 test('GIF preview applies the selected colour limit', async ({ page }) => {
   await page.goto('/');

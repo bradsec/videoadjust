@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.24] - 2026-10-27
+
+### Fixed
+
+- Kept the styled preview frame and corner pills in place when showing the original. On phones, narrow frames place the style label below the fixed button and hide it in original view.
+
 ## [0.22.23] - 2026-10-27
 
 ### Fixed

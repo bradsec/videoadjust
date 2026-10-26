@@ -88,6 +88,7 @@
 }
 .live-preview-frame {
   position: relative;
+  container-type: inline-size;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -100,13 +101,13 @@
   aspect-ratio: auto;
   border-radius: 0;
 }
-.live-preview-frame.is-edited,
-.live-preview-frame.is-edited .preview-video,
+.live-preview-frame.is-framed,
+.live-preview-frame.is-framed .preview-video,
 .live-preview-frame.is-edited .live-preview-style,
 .live-preview-frame.is-edited .live-preview-palette {
   position: absolute;
 }
-.live-preview-frame.is-edited .preview-video,
+.live-preview-frame.is-framed .preview-video,
 .live-preview-frame.is-edited .live-preview-style,
 .live-preview-frame.is-edited .live-preview-palette {
   left: 0;

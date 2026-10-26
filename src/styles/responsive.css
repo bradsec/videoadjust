@@ -50,6 +50,18 @@
     padding: 0;
     font-size: 0;
   }
+  .live-preview-frame:has(> .edit-tool[aria-pressed='true']) .live-preview-label {
+    display: none;
+  }
+  .live-preview-label {
+    max-width: calc(100% - 92px);
+  }
+  @container (max-width: 199px) {
+    .live-preview-label {
+      top: calc(var(--s-2) + 24px + var(--s-1));
+      max-width: calc(100% - 2 * var(--s-2));
+    }
+  }
   .live-preview-frame > .edit-tool:not([hidden]) {
     position: absolute;
     z-index: 2;
@@ -77,8 +89,8 @@
     content: 'Original';
     font-size: var(--fs-12);
   }
-  .live-preview-label {
-    max-width: max(0px, calc(100% - 92px));
+  .live-preview-frame > .edit-tool[aria-pressed='true']::after {
+    content: 'Edited';
   }
   .dock {
     position: fixed;

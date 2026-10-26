@@ -8,59 +8,14 @@ import {
   type StyleSettings,
 } from '../core/style';
 import type { Settings } from '../core/types';
-import { normalizeCrop, rotatedSize } from '../core/videoGeometry';
+import { rotatedSize } from '../core/videoGeometry';
 import { el, icon } from './dom';
 import { formatDuration } from './format';
+import { livePreviewGeometry, previewRenderSize } from './previewGeometry';
+
+export { livePreviewGeometry, previewRenderSize } from './previewGeometry';
 
 type Size = { width: number; height: number };
-
-export function previewRenderSize(output: Size, display: Size, dpr: number): Size {
-  const scale = Math.min(
-    1,
-    (display.width * dpr) / output.width,
-    (display.height * dpr) / output.height,
-  );
-  return {
-    width: Math.max(1, Math.min(output.width, Math.floor(output.width * scale))),
-    height: Math.max(1, Math.min(output.height, Math.floor(output.height * scale))),
-  };
-}
-
-export function livePreviewGeometry(
-  source: Size,
-  transform: Settings['transform'],
-  container: Size,
-) {
-  if (
-    ![source.width, source.height, container.width, container.height].every(
-      (value) => Number.isFinite(value) && value > 0,
-    )
-  )
-    return null;
-  const rotate = transform?.rotate ?? 0;
-  const rotated = rotatedSize(source.width, source.height, rotate);
-  const crop = normalizeCrop(
-    rotated.width,
-    rotated.height,
-    transform?.crop ?? 'original',
-    transform?.rect,
-  );
-  const frame = crop ?? { left: 0, top: 0, ...rotated };
-  const scale = Math.min(container.width / frame.width, container.height / frame.height);
-  const width = frame.width * scale;
-  const height = frame.height * scale;
-  return {
-    crop,
-    width,
-    height,
-    left: (container.width - width) / 2,
-    top: (container.height - height) / 2,
-    videoWidth: source.width * scale,
-    videoHeight: source.height * scale,
-    // CSS applies these right to left: centre the source, rotate, then flip in output space.
-    transform: `translate(${(rotated.width / 2 - frame.left) * scale}px, ${(rotated.height / 2 - frame.top) * scale}px) scaleX(${transform?.flip ? -1 : 1}) rotate(${rotate}deg) translate(-50%, -50%)`,
-  };
-}
 
 function looksDifferent(a: PreviewSettings, b: PreviewSettings): boolean {
   return (
@@ -386,7 +341,7 @@ export function mountLivePreview(
   }
 
   function layout(): void {
-    if (!settings || !active) return;
+    if (!settings || (!active && !showingOriginal)) return;
     const geometry = livePreviewGeometry(source, settings.transform, {
       width: stage.clientWidth,
       height: stage.clientHeight - parseFloat(getComputedStyle(stage).paddingBottom),
@@ -402,9 +357,9 @@ export function mountLivePreview(
       paletteVersion++;
       lastFrame = -1;
     }
-    video.style.width = `${geometry.videoWidth}px`;
-    video.style.height = `${geometry.videoHeight}px`;
-    video.style.transform = geometry.transform;
+    video.style.width = `${showingOriginal ? geometry.width : geometry.videoWidth}px`;
+    video.style.height = `${showingOriginal ? geometry.height : geometry.videoHeight}px`;
+    video.style.transform = showingOriginal ? 'none' : geometry.transform;
     styleCanvas.style.width = paletteCanvas.style.width = '100%';
     styleCanvas.style.height = paletteCanvas.style.height = '100%';
   }
@@ -433,23 +388,24 @@ export function mountLivePreview(
     active = edited && !showingOriginal;
     original.hidden = !edited;
     original.setAttribute('aria-pressed', String(showingOriginal));
-    const style = settings.style;
-    styleLabel.hidden = !settings.enabled || !hasStyleEffects(style);
-    if (!styleLabel.hidden)
-      styleLabel.textContent = showingOriginal
+    styleLabel.hidden = !settings.enabled || !hasStyleEffects(settings.style);
+    if (!styleLabel.hidden) {
+      styleLabel.title = styleLabel.textContent = showingOriginal
         ? 'Original'
-        : style?.id === 'none'
+        : settings.style?.id === 'none'
           ? 'Colour correction'
-          : STYLE_PRESETS.find((preset) => preset.id === style?.id)!.label;
+          : STYLE_PRESETS.find((preset) => preset.id === settings!.style?.id)!.label;
+    }
     // Showing the original does not replace playback controls.
     controls.hidden = !edited;
     video.controls = !edited;
+    frame.classList.toggle('is-framed', edited);
     frame.classList.toggle('is-edited', active);
     if (!active || !processed) stopStyle();
     styleCanvas.hidden = true;
     paletteCanvas.hidden = true;
     video.style.removeProperty('opacity');
-    if (active) {
+    if (edited) {
       stage.style.aspectRatio = `${shown.width} / ${shown.height}`;
       layout();
     } else {

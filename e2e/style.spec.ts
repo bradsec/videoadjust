@@ -159,6 +159,7 @@ test('preview label follows the selected style and original view', async ({ page
   await expect(label).toHaveText('Cinematic grade');
   await expect(label).toBeVisible();
   await expect(label).toHaveAttribute('aria-hidden', 'true');
+  await expect(label).toHaveAttribute('title', 'Cinematic grade');
   await style.selectOption('diffusion');
   await expect(label).toHaveText('Soft diffusion / Black Pro-Mist');
   for (const viewport of [
