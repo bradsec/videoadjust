@@ -368,7 +368,7 @@ export function renderPrepare(
       },
       (busy) => waveform.setStatus(busy ? 'Measuring loudness for the preview…' : null),
     );
-    previewAudio.update(previewAudioTarget(state));
+    previewAudio.update(previewAudioTarget(state), state.tool === 'gif');
     if (state.source.video)
       cropEditor = mountCropEditor(
         editorsHost,
@@ -431,7 +431,7 @@ export function renderPrepare(
     colourDetails.hidden = styleDetails.hidden;
     stylePanel.update(value.settings.style, styleUnavailable);
     editSection.hidden = value.tool === 'audio' || !previewPlayable || !value.source.video;
-    previewAudio?.update(previewAudioTarget(value));
+    previewAudio?.update(previewAudioTarget(value), value.tool === 'gif');
     updateWaveform();
     const previewOutput =
       value.tool === 'gif' && value.gifSettings

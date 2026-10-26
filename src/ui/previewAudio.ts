@@ -30,7 +30,7 @@ export function previewGain(
   normalizationDb: number,
   time: number,
 ): number {
-  if (!target) return 1;
+  if (!target) return 0;
   const duration = target.trim.end - target.trim.start;
   const s = normalizeAudioProcessing(target.processing, duration);
   return dbGain(s.gainDb + normalizationDb) * fadeEnvelope(s, time - target.trim.start, duration);
@@ -119,6 +119,7 @@ export function mountPreviewAudio(
   let frame = 0;
   let destroyed = false;
   let lastPlacement = '';
+  let mutedBeforeSilent: boolean | undefined;
 
   function apply(): void {
     if (!context || !originalGain || !addedGain || !masterGain) return;
@@ -137,11 +138,13 @@ export function mountPreviewAudio(
       0.01,
     );
     masterGain.channelCount = target?.channels ?? 2;
-    masterGain.gain.setTargetAtTime(
-      previewGain(target, normalizationDb, video.currentTime),
-      context.currentTime,
-      0.01,
-    );
+    if (!target) masterGain.gain.setValueAtTime(0, context.currentTime);
+    else
+      masterGain.gain.setTargetAtTime(
+        previewGain(target, normalizationDb, video.currentTime),
+        context.currentTime,
+        0.01,
+      );
   }
 
   function stopNode(): void {
@@ -276,6 +279,7 @@ export function mountPreviewAudio(
   }
 
   function syncVolume(): void {
+    if (mutedBeforeSilent !== undefined && !video.muted) video.muted = true;
     apply();
   }
 
@@ -345,8 +349,16 @@ export function mountPreviewAudio(
   video.addEventListener('volumechange', syncVolume);
 
   return {
-    update(next: PreviewAudioTarget): void {
+    update(next: PreviewAudioTarget, silent: boolean): void {
+      if (silent && mutedBeforeSilent === undefined) {
+        mutedBeforeSilent = video.muted;
+        video.muted = true;
+      }
       target = next;
+      if (!silent && mutedBeforeSilent !== undefined) {
+        video.muted = mutedBeforeSilent;
+        mutedBeforeSilent = undefined;
+      }
       analyse();
       if (context || !video.paused) connect();
       if (!video.paused) void context?.resume();

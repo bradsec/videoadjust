@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.15] - 2026-10-27
+
+### Fixed
+
+- Muted GIF preview audio from the video and mixed tracks, and restored the player's previous mute state when switching tools.
+
 ## [0.22.14] - 2026-10-27
 
 ### Changed

@@ -17,8 +17,8 @@ describe('preview audio gain', () => {
     channels: 2,
   };
 
-  it('is unity without a target', () => {
-    expect(previewGain(null, 0, 5)).toBe(1);
+  it('silences the routed preview without a target', () => {
+    expect(previewGain(null, 0, 5)).toBe(0);
   });
 
   it('follows export gain and fades on the kept range, in source time', () => {
@@ -71,12 +71,15 @@ describe('preview audio mix', () => {
 describe('preview graph', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('resumes a graph created by an edit during active video playback', () => {
+  it('resumes processing and silences GIF playback before restoring the mute state', () => {
     const resumes = vi.fn();
     const gains: number[] = [];
     const ceilings: { curve: Float32Array | null }[] = [];
     const node = () => ({
-      gain: { setTargetAtTime: (value: number) => gains.push(value) },
+      gain: {
+        setTargetAtTime: (value: number) => gains.push(value),
+        setValueAtTime: (value: number) => gains.push(value),
+      },
       connect(next: unknown) {
         return next;
       },
@@ -100,20 +103,38 @@ describe('preview graph', () => {
       },
     );
     vi.stubGlobal('cancelAnimationFrame', () => {});
-    const video = Object.assign(new EventTarget(), { currentTime: 15, paused: false });
-    const preview = mountPreviewAudio(video as HTMLVideoElement, {} as Input);
-    preview.update({
-      trim: { start: 10, end: 20 },
-      channels: 2,
-      processing: { gainDb: -6 },
-      mix: { original: { include: false, volumeDb: 0 } },
+    const video = Object.assign(new EventTarget(), {
+      currentTime: 15,
+      paused: false,
+      volume: 0.4,
+      muted: false,
     });
+    const preview = mountPreviewAudio(video as HTMLVideoElement, {} as Input);
+    preview.update(
+      {
+        trim: { start: 10, end: 20 },
+        channels: 2,
+        processing: { gainDb: -6 },
+        mix: { original: { include: false, volumeDb: 0 } },
+      },
+      false,
+    );
     expect(resumes).toHaveBeenCalledOnce();
     expect(gains[0]).toBe(0);
     expect(gains[2]).toBeCloseTo(0.501187, 6);
     expect(ceilings[0]!.curve).not.toBeNull();
-    preview.update({ trim: { start: 10, end: 20 }, channels: 2 });
+    preview.update({ trim: { start: 10, end: 20 }, channels: 2 }, false);
     expect(ceilings[0]!.curve).toBeNull();
+    preview.update(null, true);
+    expect(video.muted).toBe(true);
+    expect(gains.at(-1)).toBe(0);
+    video.muted = false;
+    video.volume = 0.8;
+    video.dispatchEvent(new Event('volumechange'));
+    expect(video.muted).toBe(true);
+    preview.update({ trim: { start: 10, end: 20 }, channels: 2 }, false);
+    expect(video.muted).toBe(false);
+    expect(video.volume).toBe(0.8);
     preview.destroy();
   });
 });
@@ -202,21 +223,24 @@ describe('added buffer playback', () => {
       muted: false,
     });
     const preview = mountPreviewAudio(video as HTMLVideoElement, {} as Input);
-    preview.update({
-      channels: 2,
-      trim: { start: 0, end: 10 },
-      mix: {
-        original: { include: true, volumeDb: 0 },
-        added: { volumeDb: 0, offset: 0, loop: true },
-      },
-      added: {
-        file: new File(['x'], 'music.mp3'),
-        input: {} as Input,
-        duration: 2,
+    preview.update(
+      {
         channels: 2,
-        sampleRate: 48000,
+        trim: { start: 0, end: 10 },
+        mix: {
+          original: { include: true, volumeDb: 0 },
+          added: { volumeDb: 0, offset: 0, loop: true },
+        },
+        added: {
+          file: new File(['x'], 'music.mp3'),
+          input: {} as Input,
+          duration: 2,
+          channels: 2,
+          sampleRate: 48000,
+        },
       },
-    });
+      false,
+    );
     await vi.waitFor(() => expect(starts).toHaveLength(1));
     // 3 s into a looping 2 s file is 1 s in; it stops at trim end, 7 s away.
     expect(starts[0]).toEqual([5, 1]);

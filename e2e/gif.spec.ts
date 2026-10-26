@@ -85,6 +85,36 @@ test('GIF tab shows settings and exports an image result', { tag: '@mobile' }, a
   await expect(page.getByRole('link', { name: /Download .*\.gif/i })).toBeVisible();
 });
 
+test('GIF preview stays muted and restores the mute state on other tools', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles(
+    '#file',
+    new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname,
+  );
+  const video = page.locator('video.preview-video');
+  await video.evaluate((player: HTMLVideoElement) => {
+    player.volume = 0.37;
+    player.muted = false;
+  });
+  await page.getByRole('tab', { name: 'GIF', exact: true }).click();
+  await expect(video).toHaveJSProperty('muted', true);
+  await video.evaluate((player: HTMLVideoElement) => {
+    player.muted = false;
+    player.volume = 0.8;
+  });
+  await expect(video).toHaveJSProperty('muted', true);
+  await page.getByRole('tab', { name: 'Extract audio', exact: true }).click();
+  await expect(video).toHaveJSProperty('muted', false);
+
+  await video.evaluate((player: HTMLVideoElement) => {
+    player.muted = true;
+    player.volume = 0.63;
+  });
+  await page.getByRole('tab', { name: 'GIF', exact: true }).click();
+  await page.getByRole('tab', { name: 'Shrink video', exact: true }).click();
+  await expect(video).toHaveJSProperty('muted', true);
+});
+
 test(
   'a blocked GIF export says why beside the docked action',
   { tag: '@mobile' },
