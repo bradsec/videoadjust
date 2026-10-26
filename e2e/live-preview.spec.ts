@@ -43,18 +43,18 @@ test(
     for (const name of ['Play', 'Pause'] as const) {
       const button = page.getByRole('button', { name, exact: true });
       await expect(button).toBeVisible();
-      const buttonBox = (await button.boundingBox())!;
-      const iconBox = (await button.locator('svg').boundingBox())!;
-      for (const [position, size] of [
-        ['x', 'width'],
-        ['y', 'height'],
-      ] as const)
-        expect(
-          Math.abs(
-            buttonBox[position] + buttonBox[size] / 2 - iconBox[position] - iconBox[size] / 2,
-          ),
-          `${name} icon ${position}`,
-        ).toBeLessThanOrEqual(1);
+      // Measure both boxes in one frame: playback re-renders the button and the page can scroll
+      // between two separate boundingBox() calls.
+      const offset = await button.evaluate((node) => {
+        const outer = node.getBoundingClientRect();
+        const inner = node.querySelector('svg')!.getBoundingClientRect();
+        return {
+          x: outer.x + outer.width / 2 - inner.x - inner.width / 2,
+          y: outer.y + outer.height / 2 - inner.y - inner.height / 2,
+        };
+      });
+      for (const axis of ['x', 'y'] as const)
+        expect(Math.abs(offset[axis]), `${name} icon ${axis}`).toBeLessThanOrEqual(1);
       await button.click();
     }
     expect(Math.abs(centre(playBox) - centre(scrubberBox))).toBeLessThanOrEqual(2);
@@ -63,6 +63,9 @@ test(
     expect(originalBox.y).toBeGreaterThanOrEqual(frameBox.y);
     expect(originalBox.x + originalBox.width).toBeLessThanOrEqual(frameBox.x + frameBox.width);
     expect(originalBox.y + originalBox.height).toBeLessThanOrEqual(frameBox.y + frameBox.height);
+    expect(
+      Math.abs(originalBox.x + originalBox.width / 2 - frameBox.x - frameBox.width / 2),
+    ).toBeLessThanOrEqual(1);
     expect(
       await original.evaluate((button) => parseFloat(getComputedStyle(button, '::before').height)),
     ).toBeGreaterThanOrEqual(44);
@@ -95,6 +98,11 @@ test(
     expect(originalButton.y + originalButton.height).toBeLessThanOrEqual(
       originalFrame.y + originalFrame.height,
     );
+    expect(
+      Math.abs(
+        originalButton.x + originalButton.width / 2 - originalFrame.x - originalFrame.width / 2,
+      ),
+    ).toBeLessThanOrEqual(1);
     await original.click();
     await expect(original).toHaveAttribute('aria-pressed', 'false');
     await expect(label).toBeHidden();
@@ -116,6 +124,31 @@ test(
     expect(pinnedOriginalBox.y + pinnedOriginalBox.height).toBeLessThanOrEqual(
       scrolledStageBox.y + scrolledStageBox.height,
     );
+  },
+);
+
+test(
+  'iphone styled preview centers Original over an uncropped landscape video',
+  { tag: '@mobile' },
+  async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'iphone');
+    await page.goto('/');
+    await page.setInputFiles('#file', fixture);
+    await page.locator('.style-adjust > summary').click();
+    await page.getByLabel('Video style', { exact: true }).selectOption('duotone');
+    const frame = page.locator('.live-preview-frame');
+    const original = page.getByRole('button', { name: 'Show original', exact: true });
+    await expect(original).toBeVisible();
+    for (const pressed of ['false', 'true']) {
+      await expect(original).toHaveAttribute('aria-pressed', pressed);
+      const frameBox = (await frame.boundingBox())!;
+      const originalBox = (await original.boundingBox())!;
+      expect(frameBox.width / frameBox.height).toBeCloseTo(16 / 9, 2);
+      expect(
+        Math.abs(originalBox.x + originalBox.width / 2 - frameBox.x - frameBox.width / 2),
+      ).toBeLessThanOrEqual(1);
+      if (pressed === 'false') await original.click();
+    }
   },
 );
 

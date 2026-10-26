@@ -58,7 +58,8 @@
     position: absolute;
     z-index: 2;
     top: var(--s-2);
-    right: var(--s-2);
+    left: 50%;
+    transform: translateX(-50%);
     min-height: 0;
     padding: var(--s-1) var(--s-2);
     border: 0;

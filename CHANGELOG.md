@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.27] - 2026-10-27
+
+### Changed
+
+- Centered the Show original switch at the top of the video frame on phones.
+
 ## [0.22.26] - 2026-10-27
 
 ### Fixed
