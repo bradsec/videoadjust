@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.19] - 2026-10-27
+
+### Fixed
+
+- Kept the phone preview pinned through the Prepare inspector and added space below its bottom edge.
+
 ## [0.22.18] - 2026-10-27
 
 ### Changed

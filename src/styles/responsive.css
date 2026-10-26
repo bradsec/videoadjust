@@ -1,15 +1,29 @@
 @media (max-width: 699px) {
+  .prepare-regions {
+    row-gap: 0;
+  }
+  .prepare-regions > .canvas {
+    display: contents;
+  }
+  .prepare-regions > .inspector {
+    margin-top: var(--s-5);
+  }
   html:has(.prepare-regions) {
-    scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 40svh + var(--s-5));
+    scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 40svh + var(--s-8) + var(--s-4));
   }
   .preview-host {
     position: sticky;
     top: env(safe-area-inset-top, 0px);
     z-index: 3;
+    padding-bottom: var(--s-3);
+    border-bottom: 1px solid var(--line);
     background: var(--bg);
     box-shadow:
       var(--gutter) 0 var(--bg),
       calc(-1 * var(--gutter)) 0 var(--bg);
+  }
+  .canvas:has(.editors > :not([hidden])) .preview-host {
+    display: none;
   }
   .live-preview-stage,
   .crop-editor-stage {

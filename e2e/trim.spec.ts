@@ -72,6 +72,14 @@ test('phone preview stays visible above frame controls', { tag: '@mobile' }, asy
   expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(height);
   expect(videoBox.y).toBeGreaterThanOrEqual(0);
   expect(videoBox.y + videoBox.height).toBeLessThanOrEqual(height);
+
+  const style = page.locator('.style-adjust > summary');
+  await style.evaluate((summary) => summary.scrollIntoView({ block: 'start' }));
+  const styleBox = (await style.boundingBox())!;
+  const pinnedVideoBox = (await page.locator('.preview-video').boundingBox())!;
+  expect(pinnedVideoBox.y).toBeGreaterThanOrEqual(0);
+  expect(pinnedVideoBox.y + pinnedVideoBox.height).toBeLessThanOrEqual(height);
+  expect(styleBox.y - pinnedVideoBox.y - pinnedVideoBox.height).toBeGreaterThanOrEqual(8);
 });
 
 // WebKit's Linux media backend can wedge the page when it navigates away while the preview
