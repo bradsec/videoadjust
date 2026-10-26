@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.20] - 2026-10-27
+
+### Fixed
+
+- Kept only the video pinned on phones, with compact styled preview controls below it and Show original on the stage.
+
 ## [0.22.19] - 2026-10-27
 
 ### Fixed

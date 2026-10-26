@@ -2,6 +2,67 @@ import { expect, test } from '@playwright/test';
 
 const fixture = new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname;
 
+test(
+  'phone styled preview keeps controls compact over a portrait crop',
+  { tag: '@mobile' },
+  async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('/');
+    await page.setInputFiles('#file', fixture);
+    await page.locator('.style-adjust > summary').click();
+    await page.getByLabel('Video style', { exact: true }).selectOption('mono');
+    await page.getByRole('button', { name: 'Crop and rotate' }).click();
+    await page.getByLabel('Crop aspect ratio').selectOption('portrait');
+    await page.getByRole('region', { name: 'Crop and rotate editor' }).getByText('Done').click();
+
+    const play = page.getByRole('button', { name: 'Play', exact: true });
+    const scrubber = page.getByRole('slider', { name: 'Preview position' });
+    const time = page.locator('.live-preview-bar .scrub-time');
+    const original = page.getByRole('button', { name: 'Show original', exact: true });
+    const stage = page.locator('.live-preview-stage');
+    await expect(original).toBeVisible();
+    await expect(page.locator('.live-preview-label')).toHaveText('Black & white');
+    const frameBox = (await page.locator('.live-preview-frame').boundingBox())!;
+    expect(frameBox.width / frameBox.height).toBeCloseTo(9 / 16, 2);
+    const boxes = await Promise.all(
+      [play, scrubber, time, original, stage].map((item) => item.boundingBox()),
+    );
+    const [playBox, scrubberBox, timeBox, originalBox, stageBox] = boxes.map((box) => box!);
+    const centre = (box: typeof playBox) => box.y + box.height / 2;
+    expect(playBox.width).toBeGreaterThanOrEqual(44);
+    expect(playBox.height).toBeGreaterThanOrEqual(44);
+    expect(Math.abs(centre(playBox) - centre(scrubberBox))).toBeLessThanOrEqual(2);
+    expect(Math.abs(centre(playBox) - centre(timeBox))).toBeLessThanOrEqual(2);
+    expect(originalBox.x).toBeGreaterThanOrEqual(frameBox.x);
+    expect(originalBox.y).toBeGreaterThanOrEqual(frameBox.y);
+    expect(originalBox.x + originalBox.width).toBeLessThanOrEqual(frameBox.x + frameBox.width);
+    expect(originalBox.y + originalBox.height).toBeLessThanOrEqual(frameBox.y + frameBox.height);
+    const labelBox = (await page.locator('.live-preview-label').boundingBox())!;
+    expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(originalBox.x);
+    expect(Math.abs(labelBox.y - originalBox.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(labelBox.height - originalBox.height)).toBeLessThanOrEqual(1);
+    expect(
+      await original.evaluate((button) => parseFloat(getComputedStyle(button, '::before').height)),
+    ).toBeGreaterThanOrEqual(44);
+    expect(stageBox.height).toBeLessThanOrEqual(0.6 * 640);
+
+    await page
+      .locator('.overlay-adjust > summary')
+      .evaluate((summary) => summary.scrollIntoView({ block: 'start' }));
+    await expect(stage).toHaveCSS('position', 'sticky');
+    await expect(stage).toBeInViewport({ ratio: 1 });
+    const scrolledStageBox = (await stage.boundingBox())!;
+    const barBox = (await page.locator('.live-preview-bar').boundingBox())!;
+    expect(scrolledStageBox.y).toBeGreaterThanOrEqual(0);
+    expect(barBox.y + barBox.height).toBeLessThanOrEqual(0);
+    const pinnedOriginalBox = (await original.boundingBox())!;
+    expect(pinnedOriginalBox.y).toBeGreaterThanOrEqual(scrolledStageBox.y);
+    expect(pinnedOriginalBox.y + pinnedOriginalBox.height).toBeLessThanOrEqual(
+      scrolledStageBox.y + scrolledStageBox.height,
+    );
+  },
+);
+
 test('GIF preview applies the selected colour limit', async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('#file', fixture);

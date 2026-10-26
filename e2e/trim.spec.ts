@@ -57,12 +57,15 @@ test('phone filmstrip keeps at least four thumbnails', { tag: '@mobile' }, async
 test('phone preview stays visible above frame controls', { tag: '@mobile' }, async ({ page }) => {
   await page.goto('/');
   await page.setInputFiles('#file', fixture);
-  const preview = page.locator('.preview-host');
+  const preview = page.locator('.live-preview-stage');
   if ((await page.evaluate(() => innerWidth)) >= 700) {
     await expect(preview).not.toHaveCSS('position', 'sticky');
     return;
   }
   await expect(preview).toHaveCSS('position', 'sticky');
+  expect(
+    await page.locator('.preview-video').evaluate((video: HTMLVideoElement) => video.controls),
+  ).toBe(true);
   const next = page.getByRole('button', { name: 'Next frame' });
   await next.evaluate((button) => button.scrollIntoView({ block: 'start' }));
   const buttonBox = (await next.boundingBox())!;

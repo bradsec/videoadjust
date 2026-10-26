@@ -187,10 +187,12 @@ test(
     await expect(
       page.getByRole('button', { name: 'Theater mode', includeHidden: true }),
     ).toBeHidden();
-    const canvas = (await page.locator('.prepare-regions .canvas').boundingBox())!;
+    // Phones lay out .canvas with display: contents so the preview can stick past it,
+    // so measure its last section instead of the canvas box.
+    const trim = (await page.locator('.prepare-regions .trim').boundingBox())!;
     const inspector = (await page.locator('.prepare-regions .inspector').boundingBox())!;
-    expect(inspector.y).toBeGreaterThanOrEqual(canvas.y + canvas.height);
-    expect(inspector.x).toBeCloseTo(canvas.x, 0);
+    expect(inspector.y).toBeGreaterThanOrEqual(trim.y + trim.height);
+    expect(inspector.x).toBeCloseTo(trim.x, 0);
   },
 );
 

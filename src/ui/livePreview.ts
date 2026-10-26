@@ -133,6 +133,7 @@ export function mountLivePreview(
   controls.hidden = true;
   const original = el('button', 'btn edit-tool', 'Show original');
   original.type = 'button';
+  original.setAttribute('aria-label', 'Show original');
   original.title =
     'Show the source without crop, rotation, mirroring or overlays. Changing any of these returns to the edited view';
   original.hidden = true;
@@ -143,6 +144,10 @@ export function mountLivePreview(
   bar.append(controls, original);
   host.classList.add('live-preview');
   host.append(stage, bar, status);
+  const phone = matchMedia('(max-width: 699px)');
+  const placeOriginal = () => (phone.matches ? frame : bar).append(original);
+  phone.addEventListener('change', placeOriginal);
+  placeOriginal();
   let settings: PreviewSettings | undefined;
   let showingOriginal = false;
   let active = false;
@@ -327,6 +332,7 @@ export function mountLivePreview(
 
   function syncPlayback(): void {
     const paused = video.paused;
+    play.setAttribute('aria-label', paused ? 'Play' : 'Pause');
     play.replaceChildren(icon(paused ? 'i-play' : 'i-pause'), paused ? 'Play' : 'Pause');
     range.value = String(video.currentTime);
     range.setAttribute('aria-valuetext', formatDuration(video.currentTime, { tenths: true }));
@@ -383,7 +389,7 @@ export function mountLivePreview(
     if (!settings || !active) return;
     const geometry = livePreviewGeometry(source, settings.transform, {
       width: stage.clientWidth,
-      height: stage.clientHeight,
+      height: stage.clientHeight - parseFloat(getComputedStyle(stage).paddingBottom),
     });
     if (!geometry) return;
     frame.style.width = `${geometry.width}px`;
@@ -435,7 +441,7 @@ export function mountLivePreview(
         : style?.id === 'none'
           ? 'Colour correction'
           : STYLE_PRESETS.find((preset) => preset.id === style?.id)!.label;
-    // The same controls serve both views, so Show original never moves or swaps them.
+    // Showing the original does not replace playback controls.
     controls.hidden = !edited;
     video.controls = !edited;
     frame.classList.toggle('is-edited', active);
@@ -476,15 +482,8 @@ export function mountLivePreview(
     drawStyle();
   });
   observer.observe(stage);
-  const playbackEvents = [
-    'play',
-    'pause',
-    'ended',
-    'timeupdate',
-    'seeked',
-    'loadedmetadata',
-  ] as const;
-  for (const event of playbackEvents) video.addEventListener(event, syncPlayback);
+  const events = ['play', 'pause', 'ended', 'timeupdate', 'seeked', 'loadedmetadata'] as const;
+  for (const event of events) video.addEventListener(event, syncPlayback);
   video.addEventListener('play', scheduleStyle);
   video.addEventListener('pause', stopStyle);
   video.addEventListener('ended', stopStyle);
@@ -521,7 +520,8 @@ export function mountLivePreview(
       video.removeEventListener('play', scheduleStyle);
       video.removeEventListener('pause', stopStyle);
       video.removeEventListener('ended', stopStyle);
-      for (const event of playbackEvents) video.removeEventListener(event, syncPlayback);
+      for (const event of events) video.removeEventListener(event, syncPlayback);
+      phone.removeEventListener('change', placeOriginal);
     },
   };
 }
