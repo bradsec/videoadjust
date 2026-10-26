@@ -40,6 +40,23 @@ test(
     const centre = (box: typeof playBox) => box.y + box.height / 2;
     expect(playBox.width).toBeGreaterThanOrEqual(44);
     expect(playBox.height).toBeGreaterThanOrEqual(44);
+    for (const name of ['Play', 'Pause'] as const) {
+      const button = page.getByRole('button', { name, exact: true });
+      await expect(button).toBeVisible();
+      const buttonBox = (await button.boundingBox())!;
+      const iconBox = (await button.locator('svg').boundingBox())!;
+      for (const [position, size] of [
+        ['x', 'width'],
+        ['y', 'height'],
+      ] as const)
+        expect(
+          Math.abs(
+            buttonBox[position] + buttonBox[size] / 2 - iconBox[position] - iconBox[size] / 2,
+          ),
+          `${name} icon ${position}`,
+        ).toBeLessThanOrEqual(1);
+      await button.click();
+    }
     expect(Math.abs(centre(playBox) - centre(scrubberBox))).toBeLessThanOrEqual(2);
     expect(Math.abs(centre(playBox) - centre(timeBox))).toBeLessThanOrEqual(2);
     expect(originalBox.x).toBeGreaterThanOrEqual(frameBox.x);

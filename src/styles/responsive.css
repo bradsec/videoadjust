@@ -49,6 +49,7 @@
     min-width: var(--tap);
     padding: 0;
     font-size: 0;
+    gap: 0;
   }
   .live-preview-label {
     display: none;

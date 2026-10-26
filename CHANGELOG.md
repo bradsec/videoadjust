@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.26] - 2026-10-27
+
+### Fixed
+
+- Centered the Play and Pause icons in the phone live-preview button.
+
 ## [0.22.25] - 2026-10-27
 
 ### Changed
