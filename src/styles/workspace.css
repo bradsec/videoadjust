@@ -88,7 +88,6 @@
 }
 .live-preview-frame {
   position: relative;
-  container-type: inline-size;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -153,6 +152,9 @@
 }
 .live-preview-bar > .edit-tool {
   flex: 0 0 auto;
+}
+.live-preview-switch {
+  display: none;
 }
 .live-preview-bar .scrub {
   flex-wrap: wrap;

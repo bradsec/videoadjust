@@ -168,6 +168,11 @@ test('preview label follows the selected style and original view', async ({ page
     { width: 1440, height: 900 },
   ]) {
     await page.setViewportSize(viewport);
+    if (viewport.width < 700) {
+      await expect(label).toBeHidden();
+      continue;
+    }
+    await expect(label).toBeVisible();
     const frameBox = (await frame.boundingBox())!;
     const labelBox = (await label.boundingBox())!;
     expect(labelBox.x).toBeGreaterThanOrEqual(frameBox.x);

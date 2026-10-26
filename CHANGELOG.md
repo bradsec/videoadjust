@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.25] - 2026-10-27
+
+### Changed
+
+- On phones, hid the styled preview label and made Show original a single fixed switch pill.
+
 ## [0.22.24] - 2026-10-27
 
 ### Fixed

@@ -24,6 +24,12 @@ test(
     const label = page.locator('.live-preview-label');
     await expect(label).toHaveText('Duotone');
     await expect(label).toHaveAttribute('title', 'Duotone');
+    await expect(label).toBeHidden();
+    await expect(original).toHaveAttribute('aria-pressed', 'false');
+    await expect(original.locator('.live-preview-switch')).toBeVisible();
+    expect(await original.evaluate((button) => getComputedStyle(button, '::after').content)).toBe(
+      '"Original"',
+    );
     await original.scrollIntoViewIfNeeded();
     const frameBox = (await page.locator('.live-preview-frame').boundingBox())!;
     expect(frameBox.width / frameBox.height).toBeCloseTo(9 / 16, 2);
@@ -40,15 +46,6 @@ test(
     expect(originalBox.y).toBeGreaterThanOrEqual(frameBox.y);
     expect(originalBox.x + originalBox.width).toBeLessThanOrEqual(frameBox.x + frameBox.width);
     expect(originalBox.y + originalBox.height).toBeLessThanOrEqual(frameBox.y + frameBox.height);
-    const labelBox = (await label.boundingBox())!;
-    expect(labelBox.x).toBeGreaterThanOrEqual(frameBox.x);
-    expect(labelBox.y).toBeGreaterThanOrEqual(frameBox.y);
-    expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(frameBox.y + frameBox.height);
-    expect(
-      labelBox.x + labelBox.width <= originalBox.x ||
-        labelBox.y >= originalBox.y + originalBox.height,
-    ).toBe(true);
-    expect(await label.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     expect(
       await original.evaluate((button) => parseFloat(getComputedStyle(button, '::before').height)),
     ).toBeGreaterThanOrEqual(44);
@@ -57,7 +54,7 @@ test(
     await original.click();
     await expect(original).toHaveAttribute('aria-pressed', 'true');
     expect(await original.evaluate((button) => getComputedStyle(button, '::after').content)).toBe(
-      '"Edited"',
+      '"Original"',
     );
     await expect(label).toBeHidden();
     const originalFrame = (await page.locator('.live-preview-frame').boundingBox())!;
@@ -69,12 +66,7 @@ test(
       for (const key of ['x', 'y', 'width', 'height'] as const)
         expect(Math.abs(box[key] - frameBox[key]), `${name}.${key}`).toBeLessThanOrEqual(1);
     const originalButton = (await original.boundingBox())!;
-    // The pill is anchored top-right; "Edited" is narrower than "Original", so x and width differ.
-    const right = (box: typeof originalBox) => box.x + box.width;
-    expect(Math.abs(right(originalButton) - right(originalBox)), 'pill.right').toBeLessThanOrEqual(
-      1,
-    );
-    for (const key of ['y', 'height'] as const)
+    for (const key of ['x', 'y', 'width', 'height'] as const)
       expect(Math.abs(originalButton[key] - originalBox[key]), `pill.${key}`).toBeLessThanOrEqual(
         1,
       );
@@ -87,7 +79,8 @@ test(
       originalFrame.y + originalFrame.height,
     );
     await original.click();
-    await expect(label).toBeVisible();
+    await expect(original).toHaveAttribute('aria-pressed', 'false');
+    await expect(label).toBeHidden();
     expect(await original.evaluate((button) => getComputedStyle(button, '::after').content)).toBe(
       '"Original"',
     );

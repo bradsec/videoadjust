@@ -87,6 +87,9 @@ export function mountLivePreview(
   controls.append(play, range, time);
   controls.hidden = true;
   const original = el('button', 'btn edit-tool', 'Show original');
+  const originalSwitch = el('span', 'live-preview-switch');
+  originalSwitch.setAttribute('aria-hidden', 'true');
+  original.prepend(originalSwitch);
   original.type = 'button';
   original.setAttribute('aria-label', 'Show original');
   original.title =
