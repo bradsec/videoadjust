@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.16] - 2026-10-27
+
+### Added
+
+- Added previous and next frame controls beside the kept duration, with comma and period shortcuts across all three tools.
+
 ## [0.22.15] - 2026-10-27
 
 ### Fixed

@@ -169,6 +169,7 @@ export function renderPrepare(
   const previewHost = el('div');
   const trim = mountTrimBar(trimHost, {
     duration: state.source.durationSec,
+    fps: state.source.video?.fps,
     aspect: state.source.video
       ? state.source.video.displayWidth / state.source.video.displayHeight
       : 16 / 9,

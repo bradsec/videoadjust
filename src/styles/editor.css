@@ -451,13 +451,19 @@
   order: 2;
   text-align: end;
 }
+.trim-frame-group {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: 1 1 260px;
+  align-self: center;
+  order: 1;
+}
 .trim-kept {
   display: flex;
   align-items: center;
-  gap: var(--s-3);
-  flex: 1 1 160px;
-  align-self: center;
-  order: 1;
+  gap: var(--s-2);
+  flex: 1;
   color: var(--text-2);
   font-size: var(--fs-14);
   white-space: nowrap;
@@ -521,8 +527,11 @@
 .btn-cue svg.i {
   color: var(--accent-text);
 }
+.trim-frame-step {
+  padding: 0;
+}
 @media (max-width: 500px) {
-  .trim-kept {
+  .trim-frame-group {
     flex-basis: 100%;
     order: 3;
   }

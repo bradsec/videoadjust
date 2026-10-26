@@ -5,6 +5,18 @@ import { formatTimelineLabel, parseTimecode, pickTickStep } from './timelineTick
 export const MIN_TRIM_SPAN = 0.1;
 export type Trim = { start: number; end: number };
 
+export function stepFrameTime(
+  current: number,
+  fps: number | undefined,
+  duration: number,
+  direction: -1 | 1,
+): number {
+  const rate = fps && Number.isFinite(fps) && fps > 0 ? fps : 30;
+  const time = Math.min(duration, Math.max(0, (Math.round(current * rate) + direction) / rate));
+  // Seek just inside a frame so browsers that round seek times down display that frame.
+  return time > 0 && time < duration ? Math.min(duration, time + 0.0001) : time;
+}
+
 export function thumbnailCount({
   stripWidth,
   stripHeight,
@@ -37,6 +49,7 @@ export function clampTrim(t: Trim, duration: number, moved: 'start' | 'end'): Tr
 
 export interface TrimBarOptions {
   duration: number;
+  fps?: number;
   aspect: number;
   value: Trim;
   video: HTMLVideoElement;
@@ -70,6 +83,17 @@ export function mountTrimBar(
   section.setAttribute('aria-label', 'Trim');
   const head = el('div', 'trim-head');
   const kept = el('span', 'trim-kept num');
+  const frameGroup = el('div', 'trim-frame-group');
+  const frameButtons = ([-1, 1] as const).map((direction) => {
+    const button = el('button', 'btn btn-cue trim-frame-step');
+    button.type = 'button';
+    button.setAttribute('aria-label', direction < 0 ? 'Previous frame' : 'Next frame');
+    button.title = `${direction < 0 ? 'Previous' : 'Next'} frame (${direction < 0 ? ',' : '.'})`;
+    button.append(icon(direction < 0 ? 'i-frame-prev' : 'i-frame-next'));
+    button.addEventListener('click', () => stepFrame(direction));
+    return button;
+  });
+  frameGroup.append(frameButtons[0]!, kept, frameButtons[1]!);
   const reset = el('button', 'setting-reset', 'Reset trim');
   reset.type = 'button';
   reset.prepend(icon('i-reset'));
@@ -210,7 +234,7 @@ export function mountTrimBar(
     errors.push(error);
     playheadButtons.push(button);
   }
-  readouts.append(kept);
+  readouts.append(frameGroup);
   // Audio lanes sit directly under the filmstrip so they share its timeline.
   const waveformSlot = el('div', 'trim-lanes');
   section.append(head, ruler, strip, waveformSlot, readouts);
@@ -297,6 +321,30 @@ export function mountTrimBar(
     playhead.setAttribute('aria-valuenow', String(position));
     playhead.setAttribute('aria-valuetext', formatDuration(position));
   }
+  function stepFrame(direction: -1 | 1): void {
+    if (!previewPlayable || duration < MIN_TRIM_SPAN) return;
+    if (!video.paused) video.pause();
+    seek(stepFrameTime(video.currentTime, opts.fps, duration, direction), true);
+  }
+  function onFrameKeydown(event: KeyboardEvent): void {
+    if (
+      (event.key !== ',' && event.key !== '.') ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.shiftKey ||
+      event.defaultPrevented ||
+      event.isComposing ||
+      (event.target instanceof Element &&
+        event.target.closest('input, textarea, select, [contenteditable]')) ||
+      document.querySelector('dialog[open], [aria-modal="true"]:not([hidden])')
+    )
+      return;
+    if (!previewPlayable || duration < MIN_TRIM_SPAN) return;
+    event.preventDefault();
+    stepFrame(event.key === ',' ? -1 : 1);
+  }
+  document.addEventListener('keydown', onFrameKeydown);
   function startScrub(event: PointerEvent): void {
     if (
       !previewPlayable ||
@@ -414,6 +462,8 @@ export function mountTrimBar(
     for (const button of playheadButtons) {
       button.disabled = !previewPlayable;
     }
+    for (const button of frameButtons)
+      button.disabled = !previewPlayable || duration < MIN_TRIM_SPAN;
   }
   function onTimeUpdate(): void {
     if (activeScrub !== null) return;
@@ -439,6 +489,7 @@ export function mountTrimBar(
       thumbnailAbort?.abort();
       clearTimeout(thumbnailResizeTimer);
       rulerResize.disconnect();
+      document.removeEventListener('keydown', onFrameKeydown);
       if (seekFrame) cancelAnimationFrame(seekFrame);
       video.removeEventListener('timeupdate', onTimeUpdate);
       video.removeEventListener('seeked', onTimeUpdate);

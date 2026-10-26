@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { clampTrim, MIN_TRIM_SPAN, thumbnailCount } from '../../src/ui/trimBar';
+import { clampTrim, MIN_TRIM_SPAN, stepFrameTime, thumbnailCount } from '../../src/ui/trimBar';
+
+describe('stepFrameTime', () => {
+  it('snaps to the source frame grid in both directions', () => {
+    expect(stepFrameTime(1.01, 30, 5, 1)).toBeCloseTo(31 / 30, 3);
+    expect(stepFrameTime(31 / 30 + 0.0001, 30, 5, -1)).toBeCloseTo(1, 3);
+  });
+  it('clamps to the clip and falls back to 30 fps', () => {
+    expect(stepFrameTime(0, 30, 5, -1)).toBe(0);
+    expect(stepFrameTime(5, 30, 5, 1)).toBe(5);
+    expect(stepFrameTime(1, 30, 31 / 30 + 0.00005, 1)).toBeLessThanOrEqual(31 / 30 + 0.00005);
+    expect(stepFrameTime(1, 0, 5, 1)).toBeCloseTo(31 / 30, 3);
+    expect(stepFrameTime(1, NaN, 5, -1)).toBeCloseTo(29 / 30, 3);
+  });
+});
 
 describe('thumbnailCount', () => {
   it.each([

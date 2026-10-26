@@ -69,6 +69,8 @@ test('unplayable preview keeps trim handles and disables playhead buttons', asyn
   await expect(page.locator('.preview-note')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Set start to playhead' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Set end to playhead' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Previous frame' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Next frame' })).toBeDisabled();
   await expect(page.getByRole('slider', { name: 'Start' })).toBeEnabled();
   await expect(page.locator('.trim-thumbs canvas').first()).toBeVisible();
 });
@@ -78,6 +80,35 @@ test.describe('with a video loaded', () => {
     await page.goto('/');
     await page.setInputFiles('#file', fixture);
     await expect(page.getByRole('slider', { name: 'Start' })).toBeVisible();
+  });
+
+  test('frame buttons and shortcuts step the paused preview, except while typing', async ({
+    page,
+  }) => {
+    const video = page.locator('.preview-video');
+    const time = () => video.evaluate((node: HTMLVideoElement) => node.currentTime);
+    await video.evaluate((node: HTMLVideoElement) => {
+      node.pause();
+      node.currentTime = 1;
+    });
+    const next = page.getByRole('button', { name: 'Next frame' });
+    const previous = page.getByRole('button', { name: 'Previous frame' });
+    await next.click();
+    await expect.poll(time).toBeGreaterThan(1.02);
+    expect(await time()).toBeCloseTo(1 + 1 / 30, 2);
+    await previous.click();
+    await expect.poll(time).toBeLessThan(1.02);
+    expect(await time()).toBeCloseTo(1, 2);
+    await page.keyboard.press('.');
+    await expect.poll(time).toBeGreaterThan(1.02);
+    await page.keyboard.press(',');
+    await expect.poll(time).toBeLessThan(1.02);
+    const input = page.getByRole('textbox', { name: 'Trim start' });
+    await input.focus();
+    const before = await time();
+    await input.press('.');
+    await input.press(',');
+    expect(await time()).toBeCloseTo(before, 4);
   });
 
   test('keyboard changes trim and estimate', async ({ page }) => {
@@ -287,12 +318,19 @@ test.describe('with a video loaded', () => {
       expect(Math.abs(start.x - head.x)).toBeLessThanOrEqual(1);
       expect(Math.abs(end.x + end.width - head.x - head.width)).toBeLessThanOrEqual(1);
       const kept = (await page.locator('.trim-kept').boundingBox())!;
+      const frameGroup = (await page.locator('.trim-frame-group').boundingBox())!;
+      const previous = (await page.getByRole('button', { name: 'Previous frame' }).boundingBox())!;
+      const next = (await page.getByRole('button', { name: 'Next frame' }).boundingBox())!;
+      expect(previous.x + previous.width).toBeLessThanOrEqual(kept.x + 1);
+      expect(kept.x + kept.width).toBeLessThanOrEqual(next.x + 1);
       if (viewport.width > 500) {
         expect(Math.abs(start.y - end.y)).toBeLessThanOrEqual(1);
-        expect(kept.x).toBeGreaterThan(start.x + start.width);
-        expect(kept.x + kept.width).toBeLessThan(end.x);
+        expect(frameGroup.x).toBeGreaterThan(start.x + start.width);
+        expect(frameGroup.x + frameGroup.width).toBeLessThan(end.x);
       } else {
-        expect(kept.y).toBeGreaterThanOrEqual(Math.max(start.y + start.height, end.y + end.height));
+        expect(frameGroup.y).toBeGreaterThanOrEqual(
+          Math.max(start.y + start.height, end.y + end.height),
+        );
       }
       const overflow = await page.evaluate(() => ({
         scrollWidth: document.scrollingElement!.scrollWidth,
