@@ -273,9 +273,11 @@ footer a {
   justify-content: flex-end;
 }
 /* The title takes focus on open so screen readers start there; it is not a control. */
+.about-dialog h2:focus,
 .guide-dialog h2:focus {
   outline: none;
 }
+.about-dialog .dialog-actions,
 .guide-dialog .dialog-actions {
   position: sticky;
   bottom: 0;

@@ -16,10 +16,12 @@ import { createApp } from './ui/app';
 // The About dialog is static markup; a click on the backdrop (the dialog box itself, outside
 // its form) closes it like Escape does.
 const about = document.querySelector<HTMLDialogElement>('#about-dialog')!;
-document.querySelector('.about-link')!.addEventListener('click', () => about.showModal());
+const aboutButton = document.querySelector<HTMLButtonElement>('.about-link')!;
+aboutButton.addEventListener('click', () => about.showModal());
 about.addEventListener('click', (event) => {
   if (event.target === about) about.close();
 });
+about.addEventListener('close', () => aboutButton.focus());
 
 const help = document.querySelector<HTMLDialogElement>('#help-dialog')!;
 const helpButton = document.querySelector<HTMLButtonElement>('.help-link')!;

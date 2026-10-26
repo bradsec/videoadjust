@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.23] - 2026-10-27
+
+### Fixed
+
+- Kept About's Close button visible on phones and returned focus to the About button after closing.
+
 ## [0.22.22] - 2026-10-27
 
 ### Fixed

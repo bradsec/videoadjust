@@ -119,9 +119,11 @@ test('footer links to the GitHub repo and the header opens About with the versio
   await expect(page.locator('footer')).not.toContainText('Licences');
   await expect(page.locator('footer .footer-links')).toContainText(`v${version}`);
 
-  await page.locator('header').getByRole('button', { name: 'About', exact: true }).click();
+  const aboutButton = page.locator('header').getByRole('button', { name: 'About', exact: true });
+  await aboutButton.click();
   const about = page.getByRole('dialog', { name: 'About videoadjust' });
   await expect(about).toBeVisible();
+  await expect(about.getByRole('heading', { name: 'About videoadjust' })).toBeFocused();
   await expect(about).toContainText(`Version ${version}`);
   await expect(about).toContainText('works offline after your first visit');
   await expect(about.getByRole('link', { name: 'View third-party licences' })).toHaveAttribute(
@@ -132,7 +134,17 @@ test('footer links to the GitHub repo and the header opens About with the versio
   expect(axe.violations).toEqual([]);
   await about.getByRole('button', { name: 'Close' }).click();
   await expect(about).toBeHidden();
-  await page.getByRole('button', { name: 'About', exact: true }).click();
+  await expect(aboutButton).toBeFocused();
+  await aboutButton.click();
   await page.keyboard.press('Escape');
   await expect(about).toBeHidden();
+  await expect(aboutButton).toBeFocused();
+});
+
+test('About keeps Close visible on phones @mobile', async ({ page }) => {
+  await page.locator('header').getByRole('button', { name: 'About', exact: true }).click();
+  const about = page.getByRole('dialog', { name: 'About videoadjust' });
+  await expect(about).toBeVisible();
+  await expect(about.getByRole('heading', { name: 'About videoadjust' })).toBeFocused();
+  await expect(about.getByRole('button', { name: 'Close' })).toBeInViewport();
 });
