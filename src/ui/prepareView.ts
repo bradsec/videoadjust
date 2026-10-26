@@ -166,7 +166,7 @@ export function renderPrepare(
   let overlayEditor: ReturnType<typeof mountOverlayEditor> | undefined;
   let livePreview: ReturnType<typeof mountLivePreview> | undefined;
   let previewAudio: ReturnType<typeof mountPreviewAudio> | undefined;
-  const previewHost = el('div');
+  const previewHost = el('div', 'preview-host');
   const trim = mountTrimBar(trimHost, {
     duration: state.source.durationSec,
     fps: state.source.video?.fps,

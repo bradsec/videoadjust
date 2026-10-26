@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.22.17] - 2026-10-27
+
+### Changed
+
+- Kept the capped video preview visible above Trim controls while scrolling on phones.
+
 ## [0.22.16] - 2026-10-27
 
 ### Added

@@ -54,6 +54,26 @@ test('phone filmstrip keeps at least four thumbnails', { tag: '@mobile' }, async
   await expect.poll(() => page.locator('.trim-thumbs canvas').count()).toBeGreaterThanOrEqual(4);
 });
 
+test('phone preview stays visible above frame controls', { tag: '@mobile' }, async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  const preview = page.locator('.preview-host');
+  if ((await page.evaluate(() => innerWidth)) >= 700) {
+    await expect(preview).not.toHaveCSS('position', 'sticky');
+    return;
+  }
+  await expect(preview).toHaveCSS('position', 'sticky');
+  const next = page.getByRole('button', { name: 'Next frame' });
+  await next.evaluate((button) => button.scrollIntoView({ block: 'start' }));
+  const buttonBox = (await next.boundingBox())!;
+  const videoBox = (await page.locator('.preview-video').boundingBox())!;
+  const height = await page.evaluate(() => innerHeight);
+  expect(buttonBox.y).toBeGreaterThanOrEqual(videoBox.y + videoBox.height);
+  expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(height);
+  expect(videoBox.y).toBeGreaterThanOrEqual(0);
+  expect(videoBox.y + videoBox.height).toBeLessThanOrEqual(height);
+});
+
 // WebKit's Linux media backend can wedge the page when it navigates away while the preview
 // <video> is still loading, so a test that needs an init script must not load a file first.
 test('unplayable preview keeps trim handles and disables playhead buttons', async ({ page }) => {

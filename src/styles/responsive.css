@@ -1,10 +1,27 @@
 @media (max-width: 699px) {
+  html:has(.prepare-regions) {
+    scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 40svh + var(--s-5));
+  }
+  .preview-host {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 3;
+    background: var(--bg);
+    box-shadow:
+      var(--gutter) 0 var(--bg),
+      calc(-1 * var(--gutter)) 0 var(--bg);
+  }
+  .live-preview-stage,
+  .crop-editor-stage {
+    max-height: 40vh;
+    max-height: 40svh;
+  }
   .dock {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 2;
+    z-index: 4;
     padding: var(--s-3) var(--gutter) calc(var(--s-3) + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--line);
   }
