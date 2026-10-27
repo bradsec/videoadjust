@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.26.2] - 2026-10-28
+
+### Changed
+
+- Super 8 dust now varies in size, shape, angle and density, with occasional hairs and light flecks, instead of identical round specks on a grid.
+
 ## [0.26.1] - 2026-10-28
 
 ### Changed

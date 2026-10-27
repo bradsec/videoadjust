@@ -291,10 +291,30 @@ void main() {
     vec3 g = (sl + (s - sl) * 0.8) * vec3(1.05, 0.97, 0.82) * 0.92 + vec3(0.06, 0.04, 0.02);
     g += (valueNoise(px / (2.5 * scale), frame) - 0.5) * 0.08;
     g *= 1.0 - 0.45 * smoothstep(0.5, 1.25, length((uv - 0.5) * vec2(1.8, 1.6)));
-    // Wear: dark dust specks each frame and now and then a bright vertical scratch.
-    vec2 dust = uv * vec2(48.0, 27.0);
-    float speck = step(1.0 - 0.006 * detail, hash(floor(dust) + frame * 3.1));
-    g *= 1.0 - speck * (1.0 - smoothstep(0.1, 0.35, length(fract(dust) - 0.5))) * 0.7;
+    // Wear: dust varies in size, shape, angle and density, with the odd curved hair and a
+    // few light flecks where the emulsion is damaged. Two square-celled grids give many
+    // small specks and a few larger ones.
+    float aspect = texel.y / texel.x;
+    float dark = 0.0;
+    float light = 0.0;
+    for (int layer = 0; layer < 2; layer++) {
+      float rows = layer == 0 ? 27.0 : 8.0;
+      vec2 grid = uv * vec2(rows * aspect, rows);
+      vec2 id = floor(grid) + float(layer) * 101.0 + frame * 3.1;
+      if (hash(id) < 1.0 - (layer == 0 ? 0.006 : 0.012) * detail) continue;
+      float angle = hash(id + 19.0) * 6.2831853;
+      vec2 d = mat2(cos(angle), sin(angle), -sin(angle), cos(angle))
+        * (fract(grid) - (0.2 + 0.6 * vec2(hash(id + 7.0), hash(id + 13.0))));
+      bool hair = layer == 1 && hash(id + 23.0) > 0.7;
+      float size = layer == 0 ? mix(0.04, 0.22, pow(hash(id + 29.0), 2.0)) : mix(0.03, 0.12, hash(id + 29.0));
+      vec2 axes = hair ? vec2(0.4, 0.012) : size * vec2(1.0, mix(0.45, 1.0, hash(id + 37.0)));
+      if (hair) d.y -= d.x * d.x * (hash(id + 41.0) - 0.5) * 4.0;
+      float shape = length(d / axes) + (valueNoise(d * 14.0 + id, 0.0) - 0.5) * (hair ? 0.0 : 0.6);
+      float mark = (1.0 - smoothstep(0.7, 1.0, shape)) * mix(0.35, 0.9, hash(id + 31.0));
+      if (!hair && hash(id + 43.0) > 0.85) light = max(light, mark);
+      else dark = max(dark, mark);
+    }
+    g = mix(g * (1.0 - dark), vec3(0.92, 0.9, 0.82), light * 0.8);
     float reel = floor(mediaTime * 2.0);
     float scratch = step(1.0 - 0.5 * detail, hash(vec2(reel, 6.0)));
     g += scratch * (1.0 - smoothstep(0.0, texel.x * 1.5 * scale, abs(uv.x - hash(vec2(reel, 5.0))))) * 0.25;
