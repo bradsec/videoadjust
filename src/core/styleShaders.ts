@@ -49,7 +49,8 @@ ${CORRECTION}
 vec3 bright(vec3 c) {
   c = correctColor(c);
   float peak = max(c.r, max(c.g, c.b));
-  float threshold = kind == 4 ? 0.5 : 0.48;
+  // Halation only rims the brightest areas.
+  float threshold = kind == 4 ? 0.5 : kind == 13 ? 0.62 : 0.48;
   float knee = 0.2;
   float soft = clamp(peak - threshold + knee, 0.0, 2.0 * knee);
   soft = soft * soft / (4.0 * knee);
@@ -156,7 +157,7 @@ void main() {
   float frame = mod(floor(mediaTime * 24.0), 251.0);
   // Geometric styles scale their offsets by intensity; cross-fading a displaced image with
   // the original would only produce a ghost.
-  bool geometric = kind == 3 || kind == 5 || kind == 9;
+  bool geometric = kind == 3 || kind == 5 || kind == 9 || kind == 11 || kind == 15;
   if (kind == 1) {
     // Grade luminance first to keep saturated colours from clipping channel by channel.
     c = base * (sCurve(l, 1.3) / max(l, 0.0001));
@@ -280,6 +281,73 @@ void main() {
     near += readAt(uv + vec2(0.0, radius.y)) + readAt(uv - vec2(0.0, radius.y));
     c = mix(base, near * 0.25, 0.2 * detail * smoothstep(0.35, 0.85, l));
     c = 1.0 - (1.0 - c) * (1.0 - clamp(halo, 0.0, 1.0));
+  } else if (kind == 11) {
+    float amt = intensity;
+    // Gate weave: the film settles slightly differently in the projector gate each frame.
+    vec2 weave = (vec2(hash(vec2(frame, 41.0)), hash(vec2(frame, 43.0))) - 0.5) * vec2(0.003, 0.004);
+    vec3 s = readAt(uv + weave * amt);
+    float sl = luma(s);
+    // Faded reversal stock: muted colour, warm cast, lifted blacks and soft highlights.
+    vec3 g = (sl + (s - sl) * 0.8) * vec3(1.05, 0.97, 0.82) * 0.92 + vec3(0.06, 0.04, 0.02);
+    g += (valueNoise(px / (2.5 * scale), frame) - 0.5) * 0.08;
+    g *= 1.0 - 0.45 * smoothstep(0.5, 1.25, length((uv - 0.5) * vec2(1.8, 1.6)));
+    // Wear: dark dust specks each frame and now and then a bright vertical scratch.
+    vec2 dust = uv * vec2(48.0, 27.0);
+    float speck = step(1.0 - 0.006 * detail, hash(floor(dust) + frame * 3.1));
+    g *= 1.0 - speck * (1.0 - smoothstep(0.1, 0.35, length(fract(dust) - 0.5))) * 0.7;
+    float reel = floor(mediaTime * 2.0);
+    float scratch = step(1.0 - 0.5 * detail, hash(vec2(reel, 6.0)));
+    g += scratch * (1.0 - smoothstep(0.0, texel.x * 1.5 * scale, abs(uv.x - hash(vec2(reel, 5.0))))) * 0.25;
+    g *= 1.0 + (hash(vec2(frame, 47.0)) - 0.5) * 0.06;
+    c = mix(s, g, amt);
+  } else if (kind == 12) {
+    // DV camcorder: edge-enhanced luma, chroma averaged over 4-pixel runs as in 4:1:1
+    // sampling, a cool digital cast and hard-clipped highlights.
+    vec2 dx = vec2(texel.x * scale, 0.0);
+    vec2 dy = vec2(0.0, texel.y * scale);
+    float soft = (toYiq(readAt(uv + dx)).x + toYiq(readAt(uv - dx)).x
+      + toYiq(readAt(uv + dy)).x + toYiq(readAt(uv - dy)).x) * 0.25;
+    float y = toYiq(base).x;
+    y += (y - soft) * (0.8 + 2.2 * detail);
+    float run = 4.0 * dx.x;
+    float x0 = (floor(uv.x / run) + 0.5) * run;
+    vec2 iq = vec2(0.0);
+    for (int i = 0; i < 4; i++) iq += toYiq(readAt(vec2(x0 + (float(i) - 1.5) * dx.x, uv.y))).yz;
+    c = fromYiq(vec3(y, iq * 0.275)) * vec3(0.97, 1.0, 1.05);
+    c = min(c * 1.08, vec3(0.97));
+    c += (hash(floor(px / (8.0 * scale)) + frame) - 0.5) * 0.02 + (hash(px + frame * 3.0) - 0.5) * 0.02;
+  } else if (kind == 13) {
+    // Film halation: light reflecting back through the film base leaves a red-orange rim
+    // around highlights.
+    float spread = luma(texture(glowTex, uv).rgb) * (1.4 + 1.6 * detail);
+    vec3 halo = vec3(1.0, 0.32, 0.12) * spread * (1.0 - 0.5 * smoothstep(0.6, 1.0, l));
+    c = 1.0 - (1.0 - base) * (1.0 - clamp(halo, 0.0, 1.0));
+  } else if (kind == 14) {
+    // Pastel matte: softened colour, lifted blacks, rolled-off whites, pink shadows and
+    // mint highlights.
+    float fade = 0.06 + 0.14 * detail;
+    c = (l + (base - l) * 0.65) * (0.94 - fade) + fade;
+    c += vec3(0.03, 0.0, 0.025) * (1.0 - smoothstep(0.1, 0.6, l));
+    c += vec3(-0.01, 0.02, 0.01) * smoothstep(0.5, 1.0, l);
+  } else if (kind == 15) {
+    float amt = intensity;
+    // Curved glass pulls the picture in at the corners, which fall to black.
+    vec2 cc = uv - 0.5;
+    float k = mix(0.02, 0.18, detail) * amt;
+    vec2 p = 0.5 + cc * (1.0 + 4.0 * k * dot(cc, cc)) / (1.0 + k);
+    vec3 s = readAt(p);
+    vec2 spread = vec2(texel.x * 2.0 * scale, 0.0);
+    s = max(s, (readAt(p + spread) + readAt(p - spread)) * 0.25 + s * 0.5);
+    // About 240 scanlines, fewer on small outputs so lines stay at least 3 pixels apart.
+    // Bright content widens the beam, as on a real tube.
+    float beam = sin(fract(p.y * min(240.0, 1.0 / (3.0 * texel.y))) * 3.14159265);
+    float scan = mix(0.5, 1.0, pow(beam, 1.0 + 1.5 * (1.0 - luma(s))));
+    float stripe = mod(floor(px.x / max(scale, 1.0)), 3.0);
+    vec3 grille = vec3(0.75) + 0.25 * vec3(stripe == 0.0, stripe == 1.0, stripe == 2.0);
+    vec3 tube = s * scan * grille * 1.25;
+    tube *= 1.0 - 0.35 * smoothstep(0.5, 1.0, length(cc * vec2(1.6, 1.4)));
+    bool inside = all(greaterThanEqual(p, vec2(0.0))) && all(lessThanEqual(p, vec2(1.0)));
+    c = inside ? mix(s, tube, amt) : vec3(0.0);
   }
   c = clamp(c, 0.0, 1.0);
   outColor = vec4(geometric ? c : mix(base, c, intensity), 1.0);

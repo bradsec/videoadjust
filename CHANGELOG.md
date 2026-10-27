@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.26.0] - 2026-10-28
+
+### Added
+
+- Added Super 8 film, MiniDV camcorder, Film halation, Pastel matte, and CRT screen styles.
+
 ## [0.25.0] - 2026-10-28
 
 ### Added

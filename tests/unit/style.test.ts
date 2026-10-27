@@ -162,7 +162,7 @@ describe('video styles', () => {
     },
   );
 
-  it('defines None and ten distinct presets with usable detail ranges', () => {
+  it('defines None and fifteen distinct presets with usable detail ranges', () => {
     expect(STYLE_PRESETS.map((preset) => preset.id)).toEqual([
       'none',
       'cinematic',
@@ -175,6 +175,11 @@ describe('video styles', () => {
       'duotone',
       'glitch',
       'diffusion',
+      'super8',
+      'minidv',
+      'halation',
+      'pastel',
+      'crt',
     ]);
     for (const preset of STYLE_PRESETS) {
       expect(preset.label).toBeTruthy();

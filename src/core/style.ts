@@ -101,6 +101,51 @@ export const STYLE_PRESETS = [
     detailStep: 0.01,
     defaultDetail: 0.5,
   },
+  {
+    id: 'super8',
+    label: 'Super 8 film',
+    detailLabel: 'Wear',
+    detailMin: 0,
+    detailMax: 1,
+    detailStep: 0.01,
+    defaultDetail: 0.5,
+  },
+  {
+    id: 'minidv',
+    label: 'MiniDV camcorder',
+    detailLabel: 'Sharpening',
+    detailMin: 0,
+    detailMax: 1,
+    detailStep: 0.01,
+    defaultDetail: 0.5,
+  },
+  {
+    id: 'halation',
+    label: 'Film halation',
+    detailLabel: 'Spread',
+    detailMin: 0,
+    detailMax: 1,
+    detailStep: 0.01,
+    defaultDetail: 0.5,
+  },
+  {
+    id: 'pastel',
+    label: 'Pastel matte',
+    detailLabel: 'Fade',
+    detailMin: 0,
+    detailMax: 1,
+    detailStep: 0.01,
+    defaultDetail: 0.5,
+  },
+  {
+    id: 'crt',
+    label: 'CRT screen',
+    detailLabel: 'Curvature',
+    detailMin: 0,
+    detailMax: 1,
+    detailStep: 0.01,
+    defaultDetail: 0.5,
+  },
 ] as const;
 
 export type StyleId = (typeof STYLE_PRESETS)[number]['id'];
@@ -331,7 +376,7 @@ export function createStyleRenderer(
       if (canvas.height !== height) canvas.height = height;
       gl.bindVertexArray(vertexArray);
       const mapped = styleUniforms(value);
-      const glowing = mapped.kind === 4 || mapped.kind === 10;
+      const glowing = mapped.kind === 4 || mapped.kind === 10 || mapped.kind === 13;
       // Allocating binds new textures to the active unit, so it must run before the
       // source frame is bound.
       if (glowing) allocateGlow(width, height);
