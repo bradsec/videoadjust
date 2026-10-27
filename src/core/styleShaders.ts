@@ -50,7 +50,7 @@ vec3 bright(vec3 c) {
   c = correctColor(c);
   float peak = max(c.r, max(c.g, c.b));
   // Halation only rims the brightest areas.
-  float threshold = kind == 4 ? 0.5 : kind == 13 ? 0.62 : 0.48;
+  float threshold = kind == 4 ? 0.5 : kind == 13 ? 0.55 : 0.48;
   float knee = 0.2;
   float soft = clamp(peak - threshold + knee, 0.0, 2.0 * knee);
   soft = soft * soft / (4.0 * knee);
@@ -178,8 +178,8 @@ void main() {
     float n = valueNoise(gp, frame) + 0.5 * valueNoise(gp * 2.03 + 11.0, frame + 101.0)
       + 0.5 * hash(px + frame * 7.0);
     vec3 tint = vec3(valueNoise(gp + 31.0, frame), valueNoise(gp + 57.0, frame), valueNoise(gp + 83.0, frame)) - 0.5;
-    vec3 g = vec3(n * 0.5 - 0.5) + tint * 0.25;
-    c = base + g * 0.22 * mix(0.3, 1.0, 4.0 * l * (1.0 - l));
+    vec3 g = vec3(n * 0.5 - 0.5) + tint * 0.15;
+    c = base + g * 0.16 * mix(0.2, 1.0, 4.0 * l * (1.0 - l));
   } else if (kind == 3) {
     float amt = intensity;
     float tracking = 0.4 + detail * 1.6;
@@ -230,7 +230,7 @@ void main() {
     // Radial fringing, strongest at the corners. Three taps per fringe smear it like a lens
     // instead of leaving a hard ghost.
     vec2 dir = uv - 0.5;
-    vec2 off = dir * mix(0.012, 0.05, detail) * intensity * (0.8 + 1.6 * dot(dir, dir));
+    vec2 off = dir * mix(0.004, 0.022, detail) * intensity * (0.8 + 1.6 * dot(dir, dir));
     vec3 acc = vec3(0.0);
     for (int i = 0; i < 3; i++) {
       float w = float(i) * 0.5;
@@ -303,32 +303,42 @@ void main() {
   } else if (kind == 12) {
     // DV camcorder: edge-enhanced luma, chroma averaged over 4-pixel runs as in 4:1:1
     // sampling, a cool digital cast and hard-clipped highlights.
-    vec2 dx = vec2(texel.x * scale, 0.0);
-    vec2 dy = vec2(0.0, texel.y * scale);
+    vec2 dx = vec2(texel.x * 1.5 * scale, 0.0);
+    vec2 dy = vec2(0.0, texel.y * 1.5 * scale);
     float soft = (toYiq(readAt(uv + dx)).x + toYiq(readAt(uv - dx)).x
       + toYiq(readAt(uv + dy)).x + toYiq(readAt(uv - dy)).x) * 0.25;
     float y = toYiq(base).x;
-    y += (y - soft) * (0.8 + 2.2 * detail);
-    float run = 4.0 * dx.x;
+    float edge = y - soft;
+    y += edge * (1.5 + 3.0 * detail);
+    float run = 4.0 * texel.x * scale;
     float x0 = (floor(uv.x / run) + 0.5) * run;
     vec2 iq = vec2(0.0);
-    for (int i = 0; i < 4; i++) iq += toYiq(readAt(vec2(x0 + (float(i) - 1.5) * dx.x, uv.y))).yz;
-    c = fromYiq(vec3(y, iq * 0.275)) * vec3(0.97, 1.0, 1.05);
-    c = min(c * 1.08, vec3(0.97));
-    c += (hash(floor(px / (8.0 * scale)) + frame) - 0.5) * 0.02 + (hash(px + frame * 3.0) - 0.5) * 0.02;
+    for (int i = 0; i < 4; i++) iq += toYiq(readAt(vec2(x0 + (float(i) - 1.5) * run * 0.25, uv.y))).yz;
+    // Punchy colour with cool whites.
+    c = fromYiq(vec3(y, iq * 0.3)) * vec3(0.97, 1.0, 1.04);
+    c += vec3(-0.03, 0.0, 0.04) * smoothstep(0.6, 1.0, l);
+    c = min(c * 1.1, vec3(0.95));
+    // Compression noise: faint 8x8 blocks and mosquito noise that clings to edges.
+    c += (hash(floor(px / (8.0 * scale)) + frame) - 0.5) * 0.02;
+    c += (hash(px + frame * 3.0) - 0.5) * 0.03 * (0.4 + min(abs(edge) * 10.0, 1.6));
   } else if (kind == 13) {
     // Film halation: light reflecting back through the film base leaves a red-orange rim
     // around highlights.
-    float spread = luma(texture(glowTex, uv).rgb) * (1.4 + 1.6 * detail);
-    vec3 halo = vec3(1.0, 0.32, 0.12) * spread * (1.0 - 0.5 * smoothstep(0.6, 1.0, l));
+    // Inside a bright area the glow matches the pixel's own highlight and adds little; the rim
+    // forms where light scattered from a highlight falls on darker surroundings.
+    // own approximates this pixel's share of the thresholded glow (see PREFILTER).
+    float peak = max(base.r, max(base.g, base.b));
+    float own = l * max(peak - 0.55, 0.0) / max(peak, 0.0001);
+    float rim = max(luma(texture(glowTex, uv).rgb) - own, 0.0) * (1.6 + 2.4 * detail);
+    vec3 halo = vec3(1.0, 0.28, 0.1) * rim;
     c = 1.0 - (1.0 - base) * (1.0 - clamp(halo, 0.0, 1.0));
   } else if (kind == 14) {
     // Pastel matte: softened colour, lifted blacks, rolled-off whites, pink shadows and
     // mint highlights.
-    float fade = 0.06 + 0.14 * detail;
-    c = (l + (base - l) * 0.65) * (0.94 - fade) + fade;
-    c += vec3(0.03, 0.0, 0.025) * (1.0 - smoothstep(0.1, 0.6, l));
-    c += vec3(-0.01, 0.02, 0.01) * smoothstep(0.5, 1.0, l);
+    float fade = 0.04 + 0.12 * detail;
+    c = pow(max(l + (base - l) * 0.6, 0.0), vec3(0.85)) * (0.95 - fade) + fade;
+    c += vec3(0.035, 0.0, 0.03) * (1.0 - smoothstep(0.1, 0.6, l));
+    c += vec3(-0.015, 0.025, 0.015) * smoothstep(0.5, 1.0, l);
   } else if (kind == 15) {
     float amt = intensity;
     // Curved glass pulls the picture in at the corners, which fall to black.

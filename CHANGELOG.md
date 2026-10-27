@@ -2,6 +2,16 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.26.1] - 2026-10-28
+
+### Changed
+
+- Tuned styles against real footage: finer, quieter film grain; lens-like chromatic aberration instead of a wide smear; stronger MiniDV sharpening, cool whites and edge noise; a lighter, less muddy pastel matte.
+
+### Fixed
+
+- Film halation now rims highlights in red-orange instead of tinting large bright areas such as skies.
+
 ## [0.26.0] - 2026-10-28
 
 ### Added
