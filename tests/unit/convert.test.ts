@@ -12,6 +12,7 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import {
   audioExtractJob,
+  cutVideoFrameTiming,
   createAudioOutputFormat,
   createOutputFormat,
   discardedPrimaryTracks,
@@ -42,6 +43,33 @@ const audio: AudioExtractSettings = {
 };
 
 describe('conversion jobs', () => {
+  it('clips a frame at each joined range boundary', () => {
+    const ranges = [
+      { start: 0, end: 1 },
+      { start: 2, end: 3 },
+    ];
+    expect(cutVideoFrameTiming(0.96, 0.1, ranges)?.timestamp).toBeCloseTo(0.96);
+    expect(cutVideoFrameTiming(0.96, 0.1, ranges)?.duration).toBeCloseTo(0.04);
+    expect(cutVideoFrameTiming(1.1, 0.1, ranges)).toBeNull();
+    expect(cutVideoFrameTiming(2, 0.1, ranges)).toEqual({ timestamp: 1, duration: 0.1 });
+  });
+  it('re-encodes joined video and mixes audio when sections are cut', () => {
+    const job = shrinkJob({
+      ...base,
+      passthrough: true,
+      cuts: [{ start: 0.8, end: 1.1 }],
+    });
+    expect(job.copiesVideo).toBe(false);
+    expect(job.options.video).toMatchObject({
+      forceTranscode: true,
+      process: expect.any(Function),
+    });
+    expect(job.options.audio).toEqual({ discard: true });
+    expect(job.customAudio).toBeDefined();
+    expect(
+      audioExtractJob({ ...audio, cuts: [{ start: 0.8, end: 1.1 }] }).customAudio,
+    ).toBeDefined();
+  });
   it('re-encodes Fit at the foreground size and emits the fitted frame size', () => {
     const source = {
       video: { displayWidth: 1920, displayHeight: 1080 },

@@ -7,6 +7,7 @@ import {
   SAMPLE_CEILING,
   type AudioProcessing,
 } from './audioProcess';
+import { keptDuration, keptRanges, type Cut } from './cuts';
 
 export interface AudioMix {
   original: { include: boolean; volumeDb: number };
@@ -151,6 +152,7 @@ class PcmReader {
     rate: number,
     gain: number,
     sourceTime: (time: number) => number | null,
+    gainAt?: (time: number) => number,
   ): Promise<void> {
     for (let i = 0; i < output[0]!.length; i++) {
       const time = sourceTime(timestamp + i / rate);
@@ -181,7 +183,8 @@ class PcmReader {
           (this.next && Math.abs(this.next.timestamp - current.end) < 1 / current.rate
             ? this.next.planes[c]![0]!
             : left);
-        output[c]![i] += (left + (right - left) * fraction) * gain;
+        output[c]![i] +=
+          (left + (right - left) * fraction) * gain * (gainAt?.(timestamp + i / rate) ?? 1);
       }
     }
     this.signal.throwIfAborted();
@@ -204,8 +207,23 @@ export function createMixProcessor(
   channels: number,
   rate = 48000,
   processing: Partial<AudioProcessing> = {},
+  cuts?: readonly Cut[],
 ) {
-  const duration = Math.max(0, trim.end - trim.start);
+  const ranges = keptRanges(trim, cuts);
+  const duration = keptDuration(trim, cuts);
+  const segments = ranges.map((range, index) => ({
+    ...range,
+    outputStart: ranges.slice(0, index).reduce((sum, part) => sum + part.end - part.start, 0),
+  }));
+  const joins = segments.slice(1).map((segment) => segment.outputStart);
+  const sourceTime = (time: number): number | null => {
+    for (const segment of segments)
+      if (time >= segment.outputStart && time < segment.outputStart + segment.end - segment.start)
+        return segment.start + time - segment.outputStart;
+    return null;
+  };
+  const joinGain = (time: number) =>
+    joins.reduce((gain, join) => Math.min(gain, Math.abs(time - join) / 0.01), 1);
   const mix = normalizeAudioMix(value, duration);
   const master = normalizeAudioProcessing(processing, duration);
   let normalizationDb = 0;
@@ -229,7 +247,7 @@ export function createMixProcessor(
         ? new PcmReader(addedTrack, 0, added.duration, channels, signal)
         : undefined;
     try {
-      const frames = Math.floor(duration * rate);
+      const frames = Math.round(duration * rate);
       for (let start = 0; start < frames; start += 4096) {
         signal.throwIfAborted();
         const planes = Array.from(
@@ -242,7 +260,8 @@ export function createMixProcessor(
           timestamp,
           rate,
           dbGain(mix.original.volumeDb),
-          (time) => trim.start + time,
+          sourceTime,
+          joins.length ? joinGain : undefined,
         );
         if (music && mix.added && added) {
           const settings = mix.added;

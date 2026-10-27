@@ -39,4 +39,9 @@ describe('estimateBytes', () => {
       mid: 0,
     });
   });
+  it('uses the duration after cuts', () => {
+    expect(estimateBytes({ ...base, cuts: [{ start: 2, end: 4 }] }).mid).toBeCloseTo(
+      (((4_000_000 + 128_000) * 8) / 8) * 1.01,
+    );
+  });
 });

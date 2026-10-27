@@ -247,7 +247,7 @@ export function mountSettings(
       el(
         'p',
         'setting-help',
-        'Fast can retain footage before the chosen start in the file, hidden by MP4 playback metadata. Exact is slower and re-encodes video; audio copy remains available.',
+        'Fast can retain footage before the chosen start in the file, hidden by MP4 playback metadata. Exact re-encodes video. Cut sections always use exact encoding for video and audio.',
       ),
     );
     const groups: HTMLElement[] = [];

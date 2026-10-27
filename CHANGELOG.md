@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.24.0] - 2026-10-28
+
+### Added
+
+- Added Cut sections in Trim to remove and join multiple ranges in Shrink, Extract audio, and GIF exports.
+
 ## [0.23.0] - 2026-10-28
 
 ### Added

@@ -12,6 +12,7 @@ import type { Capabilities, SourceInfo } from '../core/types';
 import { el, icon, INSPECTOR_GROUP } from './dom';
 import { formatBytes, formatDuration } from './format';
 import { formatByteRange, sizeMeter } from './progress';
+import { keptDuration } from '../core/cuts';
 
 export interface AudioPanelOptions {
   auto: AudioExtractSettings;
@@ -206,7 +207,7 @@ export function mountAudioPanel(
     heading.textContent = wav
       ? `WAV · uncompressed ${channelName(next.channels)}`
       : `${shortLabel(next.format)} · ${kbps(next.bitrate)} ${channelName(next.channels)}`;
-    const kept = Math.max(0, next.trim.end - next.trim.start);
+    const kept = keptDuration(next.trim, next.cuts);
     sub.textContent = `Audio ${wholeSeconds(kept)} of ${wholeSeconds(source.durationSec)}${next.copy ? ' · no re-encoding' : ''}`;
     const { low, high } = estimateAudioBytes(next, source);
     const text = low === high ? formatBytes(high) : formatByteRange(low, high);

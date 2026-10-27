@@ -1,6 +1,7 @@
 import { el, icon } from './dom';
 import { formatDuration } from './format';
 import { formatTimelineLabel, parseTimecode, pickTickStep } from './timelineTicks';
+import { mountCutControls, previewSkip, type Cut } from './cutControls';
 
 export const MIN_TRIM_SPAN = 0.1;
 export type Trim = { start: number; end: number };
@@ -52,6 +53,7 @@ export interface TrimBarOptions {
   fps?: number;
   aspect: number;
   value: Trim;
+  cuts?: Cut[];
   video: HTMLVideoElement;
   thumbnails: (
     count: number,
@@ -61,6 +63,7 @@ export interface TrimBarOptions {
   ) => Promise<HTMLCanvasElement[]>;
   previewPlayable?: boolean;
   onChange: (t: Trim) => void;
+  onCutsChange?: (cuts: Cut[]) => void;
 }
 
 export function mountTrimBar(
@@ -68,7 +71,7 @@ export function mountTrimBar(
   opts: TrimBarOptions,
 ): {
   waveformSlot: HTMLElement;
-  update(value: Trim): void;
+  update(value: Trim, cuts?: Cut[]): void;
   setPreviewPlayable(value: boolean): void;
   destroy(): void;
 } {
@@ -238,9 +241,11 @@ export function mountTrimBar(
     playheadButtons.push(button);
   }
   readouts.append(frameGroup);
+  const cutControls = mountCutControls(video, duration, value, opts.cuts ?? [], opts.onCutsChange);
+  strip.insertBefore(cutControls.marks, handles[0]!);
   // Audio lanes sit directly under the filmstrip so they share its timeline.
   const waveformSlot = el('div', 'trim-lanes');
-  section.append(head, ruler, strip, waveformSlot, readouts);
+  section.append(head, ruler, strip, waveformSlot, readouts, cutControls.node);
   host.replaceChildren(section);
 
   function renderRuler(): void {
@@ -432,10 +437,11 @@ export function mountTrimBar(
   ): void {
     node.style[property] = `${duration > 0 ? (seconds / duration) * 100 : 0}%`;
   }
-  function update(next: Trim): void {
+  function update(next: Trim, nextCuts?: Cut[]): void {
     value = next;
+    cutControls.update(next, nextCuts);
     reset.hidden = next.start <= 0 && next.end >= duration;
-    kept.textContent = `${formatDuration(next.end - next.start, { tenths: true })} of ${formatDuration(duration, { tenths: true })} kept`;
+    kept.textContent = `${formatDuration(cutControls.kept(), { tenths: true })} of ${formatDuration(duration, { tenths: true })} kept`;
     for (const [index, side] of (['start', 'end'] as const).entries()) {
       const input = inputs[index]!;
       if (document.activeElement !== input) {
@@ -476,8 +482,8 @@ export function mountTrimBar(
   }
   function onTimeUpdate(): void {
     if (activeScrub !== null) return;
-    if (!video.paused && (video.currentTime >= value.end || video.currentTime < value.start))
-      video.currentTime = value.start;
+    const skip = !video.paused ? previewSkip(video.currentTime, value, cutControls.cuts()) : null;
+    if (skip !== null) video.currentTime = skip;
     renderPlayhead(video.currentTime);
   }
   video.addEventListener('timeupdate', onTimeUpdate);

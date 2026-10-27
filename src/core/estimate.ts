@@ -1,6 +1,7 @@
 import type { Settings, SourceInfo } from './types';
 import { hasAudioProcessing } from './audioProcess';
 import { hasAudioMix } from './audioMix';
+import { keptDuration } from './cuts';
 
 export const CONTAINER_OVERHEAD = 1.01;
 const LOW_FACTOR = 0.85;
@@ -13,7 +14,7 @@ export function estimateBytes(
     audio?: Pick<NonNullable<SourceInfo['audio']>, 'bitrate'> | null;
   },
 ): { low: number; high: number; mid: number } {
-  const seconds = Math.max(0, s.trim.end - s.trim.start);
+  const seconds = keptDuration(s.trim, s.cuts);
   const videoBitrate = s.video
     ? s.passthrough
       ? (source?.video?.bitrate ?? s.video.bitrate)

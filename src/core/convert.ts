@@ -2,6 +2,7 @@ import {
   Conversion,
   ConversionCanceledError,
   AudioSampleSource,
+  VideoSample,
   Mp3OutputFormat,
   Mp4OutputFormat,
   Output,
@@ -17,9 +18,9 @@ import {
   type OutputFormat,
   type Target,
   type TrackType,
-  type VideoSample,
 } from 'mediabunny';
 import type { AudioExtractSettings, AudioFormat } from './audioExtract';
+import { keptRanges, normalizeCuts, type Cut } from './cuts';
 import { processedAudioOptions, hasAudioProcessing, type AudioProcessing } from './audioProcess';
 import {
   createMixProcessor,
@@ -59,6 +60,23 @@ export type ConversionJob = {
 // Quality rejects non-integer bitrates; source bitrates come from packet statistics and can be fractional.
 const quality = (bitrate: number) => new Quality({ bitrate: Math.round(bitrate) });
 
+export function cutVideoFrameTiming(
+  sourceTime: number,
+  duration: number,
+  ranges: readonly Cut[],
+): { timestamp: number; duration: number } | null {
+  let timestamp = 0;
+  for (const range of ranges) {
+    if (sourceTime >= range.start && sourceTime < range.end)
+      return {
+        timestamp: timestamp + sourceTime - range.start,
+        duration: Math.min(duration, range.end - sourceTime),
+      };
+    timestamp += range.end - range.start;
+  }
+  return null;
+}
+
 function mixedAudioJob(
   encoding: AudioEncodingConfig,
   channels: number,
@@ -66,6 +84,7 @@ function mixedAudioJob(
   mix: AudioMix | undefined,
   processing: Partial<AudioProcessing> | undefined,
   added: AddedAudio | undefined,
+  cuts?: readonly Cut[],
 ): Pick<ConversionJob, 'customAudio' | 'prepare'> {
   let processor: ReturnType<typeof createMixProcessor>;
   return {
@@ -74,7 +93,7 @@ function mixedAudioJob(
       samples: (_input, signal) => processor.samples(signal),
     },
     async prepare(input, signal, progress) {
-      processor = createMixProcessor(input, added, mix, trim, channels, 48000, processing);
+      processor = createMixProcessor(input, added, mix, trim, channels, 48000, processing, cuts);
       await processor.prepare(signal, progress);
     },
   };
@@ -88,9 +107,11 @@ export function shrinkJob(
 ): ConversionJob & { copiesVideo: boolean } {
   const v = s.video;
   const a = s.audio;
+  const cuts = normalizeCuts(s.cuts, s.trim);
+  const ranges = cuts.length ? keptRanges(s.trim, cuts) : [];
   const keepsAudio = !!a && mixHasAudio(s.mix, true);
   const mixed =
-    keepsAudio && (hasAudioMix(s.mix) || !!added)
+    keepsAudio && (hasAudioMix(s.mix) || !!added || cuts.length > 0)
       ? mixedAudioJob(
           { codec: a!.codec, quality: quality(a!.bitrate) },
           a!.channels,
@@ -98,6 +119,7 @@ export function shrinkJob(
           s.mix,
           s.audioProcessing,
           added,
+          cuts,
         )
       : undefined;
   const audioProcessor =
@@ -132,6 +154,7 @@ export function shrinkJob(
     transformed ||
     fitted ||
     s.trimPrecision === 'exact' ||
+    cuts.length > 0 ||
     !!s.keyFrameInterval ||
     !!overlay ||
     styled;
@@ -164,16 +187,31 @@ export function shrinkJob(
             // the export. The target's headroom and Try again smaller cover any overshoot.
             quality: quality(v.bitrate),
             ...(reencode || s.targetSizeMB ? { forceTranscode: true } : {}),
-            ...(transformed || fitted || overlay || styled
+            ...(transformed || fitted || overlay || styled || cuts.length
               ? { allowTransformationMetadata: false }
               : {}),
-            ...(overlay || styled || fitted
+            ...(overlay || styled || fitted || cuts.length
               ? {
-                  processedWidth: v.width,
-                  processedHeight: v.height,
+                  ...(overlay || styled || fitted
+                    ? { processedWidth: v.width, processedHeight: v.height }
+                    : {}),
                   // Samples arrive rotated, flipped, cropped and resized, so overlays land in
                   // output space. sample.draw reads the whole frame, which WebKit handles.
                   process: async (sample: VideoSample) => {
+                    const timing = cuts.length
+                      ? cutVideoFrameTiming(
+                          sample.timestamp + s.trim.start,
+                          sample.duration,
+                          ranges,
+                        )
+                      : null;
+                    if (cuts.length && !timing) return null;
+                    if (!overlay && !styled && !fitted) {
+                      // Mediabunny closes the input sample itself, so retime it in place.
+                      sample.setTimestamp(timing!.timestamp);
+                      sample.setDuration(timing!.duration);
+                      return sample;
+                    }
                     const overlayLayer = overlay
                       ? await (layer ??= renderOverlayLayer(v.width, v.height, overlay, assets))
                       : null;
@@ -208,10 +246,18 @@ export function shrinkJob(
                       if (!fittedContext) throw new Error('Canvas is unavailable for Fit export.');
                       paintFit(fittedContext, canvas, fit, s.fit!);
                       if (overlayLayer) fittedContext.drawImage(overlayLayer, 0, 0);
-                      return fittedCanvas;
+                      return cuts.length
+                        ? new VideoSample(fittedCanvas, {
+                            ...timing!,
+                          })
+                        : fittedCanvas;
                     }
                     if (overlayLayer) context.drawImage(overlayLayer, 0, 0);
-                    return canvas;
+                    return cuts.length
+                      ? new VideoSample(canvas, {
+                          ...timing!,
+                        })
+                      : canvas;
                   },
                 }
               : {}),
@@ -256,8 +302,9 @@ export function toConversionOptions(
 
 export function audioExtractJob(s: AudioExtractSettings, added?: AddedAudio): ConversionJob {
   const active = hasAudioProcessing(s.audioProcessing);
+  const cuts = normalizeCuts(s.cuts, s.trim);
   const mixed =
-    (hasAudioMix(s.mix) || !!added) && mixHasAudio(s.mix, true)
+    (hasAudioMix(s.mix) || !!added || cuts.length > 0) && mixHasAudio(s.mix, true)
       ? mixedAudioJob(
           {
             codec: s.format === 'wav' ? 'pcm-s16' : s.format === 'mp3' ? 'mp3' : 'aac',
@@ -268,6 +315,7 @@ export function audioExtractJob(s: AudioExtractSettings, added?: AddedAudio): Co
           s.mix,
           s.audioProcessing,
           added,
+          cuts,
         )
       : undefined;
   const audio: ConversionAudioOptions =

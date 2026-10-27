@@ -223,8 +223,8 @@ export function createExportFlow(
       prep.settings.transform,
       prep.settings.fit,
     );
-    const frames = gifFrameCount(settings.trim, settings.fps, settings.loop);
-    const seconds = gifPlaybackSeconds(settings.trim, settings.fps, settings.loop);
+    const frames = gifFrameCount(settings.trim, settings.fps, settings.loop, settings.cuts);
+    const seconds = gifPlaybackSeconds(settings.trim, settings.fps, settings.loop, settings.cuts);
     const budget = gifBudgetError(width, height, frames, seconds);
     if (budget) {
       toPrepare(prep, { tone: 'warn', title: 'GIF is too large', message: budget });

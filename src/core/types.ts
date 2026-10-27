@@ -3,6 +3,7 @@ import type { StyleSettings } from './style';
 import type { AudioProcessing } from './audioProcess';
 import type { AudioMix } from './audioMix';
 import type { FitSettings } from './fit';
+import type { Cut } from './cuts';
 
 export type Container = 'mp4' | 'webm';
 export type VideoCodecId = 'avc' | 'hevc' | 'av1' | 'vp9';
@@ -57,6 +58,7 @@ export interface Settings {
   /** Additional video budget reduction after an oversized export. */
   targetRetryScale?: number;
   trim: { start: number; end: number };
+  cuts?: Cut[];
   trimPrecision?: 'fast' | 'exact';
   keyFrameInterval?: 1 | 2 | null;
   transform?: { rotate: Rotation; flip: boolean; crop: CropPreset; rect?: CropRect | null };

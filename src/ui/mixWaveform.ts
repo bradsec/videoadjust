@@ -14,6 +14,7 @@ import {
 } from '../core/audioProcess';
 import { el } from './dom';
 import type { Trim } from './trimBar';
+import { keptDuration, sourceToOutput, type Cut } from '../core/cuts';
 import { computePeaks } from './waveform';
 import '../styles/audioMix.css';
 
@@ -62,6 +63,7 @@ export function waveformRangePeak(
 
 interface WaveformValue {
   trim: Trim;
+  cuts?: Cut[];
   mix?: AudioMix;
   added?: AddedAudio;
   processing?: Partial<AudioProcessing>;
@@ -107,7 +109,7 @@ export function mountMixWaveform(
   addedCanvas.tabIndex = 0;
   addedCanvas.classList.add('mix-waveform-drag');
   function offsetRange() {
-    return addedOffsetRange(value.added?.duration ?? 0, value.trim.end - value.trim.start);
+    return addedOffsetRange(value.added?.duration ?? 0, keptDuration(value.trim, value.cuts));
   }
   function moveAdded(offset: number): void {
     const added = value.mix?.added;
@@ -178,7 +180,7 @@ export function mountMixWaveform(
   function draw(): void {
     if (destroyed) return;
     const { trim } = value;
-    const span = trim.end - trim.start;
+    const span = keptDuration(trim, value.cuts);
     const master = normalizeAudioProcessing(value.processing, span);
     const normalizationDb = value.normalizationDb ?? 0;
     const original = value.mix?.original ?? { include: true, volumeDb: 0 };
@@ -251,16 +253,10 @@ export function mountMixWaveform(
             Math.max(0, from),
             isAdded && added?.loop ? to : Math.min(duration, to),
           );
-          const inTrim = sourceTime >= trim.start && sourceTime < trim.end;
+          const outputTime = sourceToOutput(sourceTime, trim, value.cuts);
+          const inTrim = outputTime !== null;
           const scaled = inTrim
-            ? scaledWaveformPeak(
-                peak,
-                volumeDb,
-                master,
-                sourceTime - trim.start,
-                span,
-                normalizationDb,
-              )
+            ? scaledWaveformPeak(peak, volumeDb, master, outputTime ?? 0, span, normalizationDb)
             : peak * dbGain(volumeDb + master.gainDb + normalizationDb);
           let combined = included ? scaled : 0;
           const otherPeaks = isAdded ? originalPeaks : addedPeaks;
@@ -289,7 +285,7 @@ export function mountMixWaveform(
               otherPeak,
               isAdded ? original.volumeDb : (added?.volumeDb ?? 0),
               master,
-              sourceTime - trim.start,
+              outputTime ?? 0,
               span,
               normalizationDb,
             );
@@ -304,6 +300,19 @@ export function mountMixWaveform(
         }
       }
       context.globalAlpha = 1;
+      for (const cut of value.cuts ?? []) {
+        const left = (cut.start / sourceDuration) * width;
+        const span = ((cut.end - cut.start) / sourceDuration) * width;
+        context.fillStyle = 'rgba(0, 0, 0, 0.42)';
+        context.fillRect(left, 0, span, height);
+        context.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+        for (let x = left - height; x < left + span; x += 8) {
+          context.beginPath();
+          context.moveTo(x, height);
+          context.lineTo(x + height, 0);
+          context.stroke();
+        }
+      }
       lane.canvas.dataset.peak = String(max);
       // Explain orange only when some is drawn.
       clipHelp.hidden = !clipping;

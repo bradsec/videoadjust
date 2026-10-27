@@ -89,6 +89,7 @@ export type AppAction =
       caps: Capabilities;
     }
   | { type: 'setTrim'; value: Settings['trim'] }
+  | { type: 'setCuts'; value: NonNullable<Settings['cuts']> }
   | { type: 'setSettings'; value: Settings }
   | { type: 'setMix'; value: AudioMix }
   | { type: 'setAudioProcessing'; value: AudioProcessing }

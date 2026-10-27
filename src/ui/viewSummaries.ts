@@ -32,6 +32,7 @@ export function previewAudioTarget(state: Of<'prepare'>): PreviewAudioTarget {
       ? {
           processing: state.audioSettings.audioProcessing,
           trim: state.audioSettings.trim,
+          cuts: state.audioSettings.cuts,
           channels: state.audioSettings.channels,
           mix: state.audioSettings.mix,
           added: state.addedAudio,
@@ -41,6 +42,7 @@ export function previewAudioTarget(state: Of<'prepare'>): PreviewAudioTarget {
   return {
     processing: state.settings.audioProcessing,
     trim: state.settings.trim,
+    cuts: state.settings.cuts,
     channels: state.settings.audio?.channels ?? 2,
     mix: state.settings.mix,
     added: state.addedAudio,

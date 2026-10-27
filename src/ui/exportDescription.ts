@@ -1,6 +1,7 @@
 import { AUDIO_FORMATS, type AudioExtractSettings } from '../core/audioExtract';
 import { hasAudioProcessing } from '../core/audioProcess';
 import { hasAudioMix } from '../core/audioMix';
+import { keptDuration } from '../core/cuts';
 import type { Settings, SourceInfo } from '../core/types';
 
 /** What the result shows for a file-stream output, where no Blob exists to read back. */
@@ -13,7 +14,7 @@ export function describeWritten(
 ): SourceInfo {
   const v = settings.video;
   const a = settings.audio;
-  const durationSec = Math.max(0, settings.trim.end - settings.trim.start);
+  const durationSec = keptDuration(settings.trim, settings.cuts);
   return {
     name,
     sizeBytes: bytes,
@@ -60,7 +61,7 @@ export function describeAudioWritten(
   return {
     name,
     sizeBytes: bytes,
-    durationSec: Math.max(0, s.trim.end - s.trim.start),
+    durationSec: keptDuration(s.trim, s.cuts),
     containerMime: AUDIO_FORMATS[s.format].mime,
     video: null,
     audio:

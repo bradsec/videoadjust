@@ -2,6 +2,7 @@ import { targetVideoBitrate } from './autoSettings';
 import { CONTAINER_OVERHEAD, estimateBytes } from './estimate';
 import type { AutoResult, Settings, SourceInfo } from './types';
 import { outputSize } from './videoGeometry';
+import { keptDuration } from './cuts';
 
 // Encoders can overshoot their requested bitrate; leave 8% headroom after mux overhead.
 export const TARGET_SIZE_SAFETY = 0.92;
@@ -33,7 +34,7 @@ export function applyTargetSize(s: Settings, auto: AutoResult, source: SourceInf
   const target = validTargetSize(s.targetSizeMB);
   if (!target || !s.video || !source.video) return { ...s, targetSizeMB: target };
   if (targetSizeStatus(s, source).alreadyUnder) return s;
-  const seconds = Math.max(0.1, s.trim.end - s.trim.start);
+  const seconds = Math.max(0.1, keptDuration(s.trim, s.cuts));
   const budget = (target * 1e6 * 8 * TARGET_SIZE_SAFETY) / seconds / CONTAINER_OVERHEAD;
   let video = { ...s.video };
   let audio = s.audio;

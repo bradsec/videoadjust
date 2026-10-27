@@ -1,5 +1,6 @@
 import { CanvasSink, type Input } from 'mediabunny';
 import { scaleToLongEdge } from './autoSettings';
+import { keptDuration, normalizeCuts, outputToSource, type Cut } from './cuts';
 import { fitGeometry, paintFit, type FitSettings } from './fit';
 import { renderOverlayLayer, type OverlayAssets } from './overlays';
 import { createStyleRenderer, hasStyleEffects } from './style';
@@ -8,6 +9,7 @@ import { normalizeCrop, rotatedSize } from './videoGeometry';
 
 export interface GifSettings {
   trim: { start: number; end: number };
+  cuts?: Cut[];
   /** Long edge in pixels, so a portrait frame is not larger than a landscape one. */
   size: number;
   fps: number;
@@ -88,6 +90,7 @@ export function validateGifSettings(
       : auto.fps;
   return {
     trim: value.trim,
+    ...(value.cuts ? { cuts: normalizeCuts(value.cuts, value.trim) } : {}),
     size: longEdge(Math.min(size, Math.max(frame.width, frame.height))),
     fps: Math.min(fps, sourceFps),
     loop: value.loop === 'once' || value.loop === 'boomerang' ? value.loop : 'forever',
@@ -139,16 +142,17 @@ export function gifFramePlan(
   trim: GifSettings['trim'],
   fps: number,
   loop: GifSettings['loop'] = 'forever',
+  cuts?: readonly Cut[],
 ): { timestamps: number[]; delaysMs: number[] } {
-  const duration = trim.end - trim.start;
+  const duration = keptDuration(trim, cuts);
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(fps) || fps <= 0)
     return { timestamps: [], delaysMs: [] };
-  const count = gifFrameCount(trim, fps);
+  const count = gifFrameCount(trim, fps, 'forever', cuts);
   const timestamps: number[] = [];
   const delaysMs: number[] = [];
   let previousCentiseconds = 0;
   for (let i = 0; i < count; i++) {
-    timestamps.push(trim.start + i / fps);
+    timestamps.push(outputToSource(i / fps, trim, cuts)!);
     const boundary = Math.min(duration, (i + 1) / fps);
     const centiseconds = Math.round(boundary * 100);
     delaysMs.push((centiseconds - previousCentiseconds) * 10);
@@ -166,8 +170,9 @@ export function gifFrameCount(
   trim: GifSettings['trim'],
   fps: number,
   loop: GifSettings['loop'] = 'forever',
+  cuts?: readonly Cut[],
 ): number {
-  const duration = trim.end - trim.start;
+  const duration = keptDuration(trim, cuts);
   const count =
     Number.isFinite(duration) && duration > 0 && Number.isFinite(fps) && fps > 0
       ? Math.ceil(duration * fps - 1e-9)
@@ -179,9 +184,10 @@ export function gifPlaybackSeconds(
   trim: GifSettings['trim'],
   fps: number,
   loop: GifSettings['loop'] = 'forever',
+  cuts?: readonly Cut[],
 ): number {
-  const duration = trim.end - trim.start;
-  const count = gifFrameCount(trim, fps);
+  const duration = keptDuration(trim, cuts);
+  const count = gifFrameCount(trim, fps, 'forever', cuts);
   if (!count) return 0;
   const total = Math.round(duration * 100);
   if (loop !== 'boomerang' || count === 1) return total / 100;
@@ -230,16 +236,21 @@ export async function exportGif(
       : null;
   const contentWidth = fitted?.content.width ?? width;
   const contentHeight = fitted?.content.height ?? height;
-  const count = gifFrameCount(settings.trim, settings.fps, settings.loop);
+  const count = gifFrameCount(settings.trim, settings.fps, settings.loop, settings.cuts);
   const budget = gifBudgetError(
     width,
     height,
     count,
-    gifPlaybackSeconds(settings.trim, settings.fps, settings.loop),
+    gifPlaybackSeconds(settings.trim, settings.fps, settings.loop, settings.cuts),
   );
   if (budget) throw new Error(budget);
   const overlayLayer = await renderOverlayLayer(width, height, overlays, assets);
-  const { timestamps, delaysMs } = gifFramePlan(settings.trim, settings.fps, settings.loop);
+  const { timestamps, delaysMs } = gifFramePlan(
+    settings.trim,
+    settings.fps,
+    settings.loop,
+    settings.cuts,
+  );
   const rotated = rotatedSize(video.displayWidth, video.displayHeight, transform?.rotate ?? 0);
   const crop = normalizeCrop(
     rotated.width,

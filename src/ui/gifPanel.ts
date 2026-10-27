@@ -191,8 +191,8 @@ export function mountGifPanel(
     colors.value = String(next.colors);
     compression.value = next.compression;
     const dimensions = gifDimensions(next, opts.source, transform, fit);
-    const frames = gifFrameCount(next.trim, next.fps, next.loop);
-    const seconds = gifPlaybackSeconds(next.trim, next.fps, next.loop);
+    const frames = gifFrameCount(next.trim, next.fps, next.loop, next.cuts);
+    const seconds = gifPlaybackSeconds(next.trim, next.fps, next.loop, next.cuts);
     heading.textContent = `${dimensions.width}x${dimensions.height} GIF`;
     sub.textContent = `${frames} frames · ${Number(next.fps.toFixed(2))} fps · ${formatDuration(seconds)}`;
     big.textContent = `${frames} frames · ${dimensions.width}x${dimensions.height}`;

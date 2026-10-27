@@ -1,4 +1,5 @@
 import type { Input } from 'mediabunny';
+import { keptDuration, sourceToOutput, type Cut } from '../core/cuts';
 import {
   createMixProcessor,
   hasAudioMix,
@@ -21,6 +22,7 @@ export type PreviewAudioTarget = {
   mix?: AudioMix;
   added?: AddedAudio;
   trim: { start: number; end: number };
+  cuts?: Cut[];
   channels: number;
 } | null;
 
@@ -31,14 +33,16 @@ export function previewGain(
   time: number,
 ): number {
   if (!target) return 0;
-  const duration = target.trim.end - target.trim.start;
+  const output = sourceToOutput(time, target.trim, target.cuts);
+  if (output === null) return 0;
+  const duration = keptDuration(target.trim, target.cuts);
   const s = normalizeAudioProcessing(target.processing, duration);
-  return dbGain(s.gainDb + normalizationDb) * fadeEnvelope(s, time - target.trim.start, duration);
+  return dbGain(s.gainDb + normalizationDb) * fadeEnvelope(s, output, duration);
 }
 
 export function previewTrackGains(target: PreviewAudioTarget): { original: number; added: number } {
   if (!target) return { original: 1, added: 0 };
-  const mix = normalizeAudioMix(target.mix, target.trim.end - target.trim.start);
+  const mix = normalizeAudioMix(target.mix, keptDuration(target.trim, target.cuts));
   return {
     original: mix.original.include ? dbGain(mix.original.volumeDb) : 0,
     added: mix.added ? dbGain(mix.added.volumeDb) : 0,
@@ -50,10 +54,12 @@ export function addedAudioTime(
   trim: { start: number; end: number },
   added: { offset: number; loop: boolean },
   duration: number,
+  cuts?: Cut[],
 ): number | null {
-  const elapsed = time - trim.start - added.offset;
-  if (duration <= 0 || elapsed < 0 || time >= trim.end || (!added.loop && elapsed >= duration))
-    return null;
+  const output = time < trim.end ? sourceToOutput(time, trim, cuts) : null;
+  if (output === null) return null;
+  const elapsed = output - added.offset;
+  if (duration <= 0 || elapsed < 0 || (!added.loop && elapsed >= duration)) return null;
   return added.loop ? elapsed % duration : elapsed;
 }
 
@@ -80,12 +86,14 @@ export function addedSchedule(
   trim: { start: number; end: number },
   added: { offset: number; loop: boolean },
   duration: number,
+  cuts?: Cut[],
 ): { delay: number; offset: number; until: number } | null {
-  const begins = trim.start + added.offset;
-  if (duration <= 0 || time >= trim.end || begins >= trim.end) return null;
-  const until = trim.end - time;
-  if (time < begins) return { delay: begins - time, offset: 0, until };
-  const position = addedAudioTime(time, trim, added, duration);
+  const output = sourceToOutput(time, trim, cuts);
+  const kept = keptDuration(trim, cuts);
+  if (output === null || duration <= 0 || output >= kept || added.offset >= kept) return null;
+  const until = kept - output;
+  if (output < added.offset) return { delay: added.offset - output, offset: 0, until };
+  const position = addedAudioTime(time, trim, added, duration, cuts);
   return position === null ? null : { delay: 0, offset: position, until };
 }
 
@@ -172,9 +180,15 @@ export function mountPreviewAudio(
     stopNode();
     if (!context || !addedGain || !addedBuffer || !target?.added || !target.mix?.added) return;
     if (video.paused || video.seeking) return;
-    const added = normalizeAudioMix(target.mix, target.trim.end - target.trim.start).added!;
+    const added = normalizeAudioMix(target.mix, keptDuration(target.trim, target.cuts)).added!;
     const rate = video.playbackRate || 1;
-    const plan = addedSchedule(video.currentTime, target.trim, added, addedBuffer.duration);
+    const plan = addedSchedule(
+      video.currentTime,
+      target.trim,
+      added,
+      addedBuffer.duration,
+      target.cuts,
+    );
     anchor = { video: video.currentTime, context: context.currentTime, rate };
     lastDriftCheck = performance.now();
     if (!plan) return;
@@ -287,7 +301,7 @@ export function mountPreviewAudio(
     const normalize = target ? normalizeAudioProcessing(target.processing, 1).normalize : null;
     const key =
       target && normalize !== null
-        ? `${normalize}|${target.trim.start}|${target.trim.end}|${target.channels}|${JSON.stringify(target.mix)}`
+        ? `${normalize}|${target.trim.start}|${target.trim.end}|${JSON.stringify(target.cuts)}|${target.channels}|${JSON.stringify(target.mix)}`
         : '';
     const addedInput = target?.added?.input;
     if (key === analysisKey && addedInput === analysisInput) return;
@@ -299,13 +313,13 @@ export function mountPreviewAudio(
     normalizationDb = 0;
     onNormalization(0);
     if (!key || !target) return;
-    const { processing, trim, channels, mix, added } = target;
+    const { processing, trim, cuts, channels, mix, added } = target;
     analysisTimer = setTimeout(() => {
       const controller = new AbortController();
       analysis = controller;
       onAnalysing(true);
       const measure = async () => {
-        if (hasAudioMix(mix)) {
+        if (hasAudioMix(mix) || cuts?.length) {
           const processor = createMixProcessor(
             input,
             added,
@@ -314,6 +328,7 @@ export function mountPreviewAudio(
             channels,
             48000,
             processing,
+            cuts,
           );
           await processor.prepare(controller.signal, () => {});
           return processor.normalizationDb();
@@ -364,7 +379,7 @@ export function mountPreviewAudio(
       if (!video.paused) void context?.resume();
       apply();
       // Offset, loop or trim edits move where the buffer should be.
-      const placement = JSON.stringify([next?.trim, next?.mix?.added]);
+      const placement = JSON.stringify([next?.trim, next?.cuts, next?.mix?.added]);
       if (placement !== lastPlacement) {
         lastPlacement = placement;
         startAdded();

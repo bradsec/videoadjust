@@ -1,4 +1,5 @@
 import { audioChangeCount } from '../core/audioMix';
+import { keptDuration } from '../core/cuts';
 import { exportCurrentFrame } from '../core/frameExport';
 import { gifDimensions } from '../core/gifExport';
 import { openImageSink, type GifSink } from '../core/sink';
@@ -121,7 +122,7 @@ export function renderPrepare(
     sourceHasAudio: !!state.source.audio?.decodable,
     mix: state.settings.mix,
     added: state.addedAudio,
-    duration: state.settings.trim.end - state.settings.trim.start,
+    duration: keptDuration(state.settings.trim, state.settings.cuts),
     onChange: (value) => dispatch({ type: 'setMix', value }),
     onAdd: (file) => dispatch({ type: 'addAudio', file }),
     onRemove: () => dispatch({ type: 'removeAddedAudio' }),
@@ -129,7 +130,7 @@ export function renderPrepare(
   const master = mountAudioProcessing(
     tracksHost.firstElementChild as HTMLElement,
     state.settings.audioProcessing,
-    state.settings.trim.end - state.settings.trim.start,
+    keptDuration(state.settings.trim, state.settings.cuts),
     (value) => dispatch({ type: 'setAudioProcessing', value }),
   );
   const audioPreviewNote = el('p', 'setting-help');
@@ -180,10 +181,12 @@ export function renderPrepare(
       ? state.source.video.displayWidth / state.source.video.displayHeight
       : 16 / 9,
     value: state.settings.trim,
+    cuts: state.settings.cuts,
     video,
     thumbnails: thumbnailsForSource,
     previewPlayable,
     onChange: (value) => dispatch({ type: 'setTrim', value }),
+    onCutsChange: (value) => dispatch({ type: 'setCuts', value }),
   });
   let normalizationDb = 0;
   const waveform = mountMixWaveform(
@@ -201,6 +204,7 @@ export function renderPrepare(
   function updateWaveform(): void {
     waveform.update({
       trim: current.settings.trim,
+      cuts: current.settings.cuts,
       mix: current.settings.mix,
       added: current.addedAudio,
       processing: current.settings.audioProcessing,
@@ -390,7 +394,7 @@ export function renderPrepare(
   title.focus();
   function update(value: AppState): void {
     if (value.kind !== 'prepare') return;
-    trim.update(value.settings.trim);
+    trim.update(value.settings.trim, value.settings.cuts ?? []);
     current = value;
     fitPanel.update(value.settings.fit, value.tool !== 'audio' && !!value.source.video);
     audioDetails.hidden = value.tool === 'gif';
@@ -405,11 +409,11 @@ export function renderPrepare(
       sourceHasAudio: !!value.source.audio?.decodable,
       mix: value.settings.mix,
       added: value.addedAudio,
-      duration: value.settings.trim.end - value.settings.trim.start,
+      duration: keptDuration(value.settings.trim, value.settings.cuts),
     });
     master.update(
       value.settings.audioProcessing,
-      value.settings.trim.end - value.settings.trim.start,
+      keptDuration(value.settings.trim, value.settings.cuts),
     );
     updateFrameButton();
     cropEditor?.update(value.settings);

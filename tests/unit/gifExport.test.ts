@@ -143,6 +143,16 @@ describe('GIF frames', () => {
     expect(plan.delaysMs.reduce((sum, delay) => sum + delay, 0)).toBe(1000);
   });
 
+  it('samples only kept source ranges and preserves joined playback time', () => {
+    const trim = { start: 0, end: 3 };
+    const cuts = [{ start: 1, end: 2 }];
+    const plan = gifFramePlan(trim, 2, 'forever', cuts);
+    expect(plan.timestamps).toEqual([0, 0.5, 2, 2.5]);
+    expect(plan.delaysMs).toEqual([500, 500, 500, 500]);
+    expect(gifPlaybackSeconds(trim, 2, 'forever', cuts)).toBe(2);
+    expect(gifFramePlan(trim, 2, 'boomerang', cuts).timestamps).toEqual([0, 0.5, 2, 2.5, 2, 0.5]);
+  });
+
   it('plays boomerang frames forward and backward without repeating endpoints', () => {
     const trim = { start: 0.25, end: 1.25 };
     const plan = gifFramePlan(trim, 5, 'boomerang');

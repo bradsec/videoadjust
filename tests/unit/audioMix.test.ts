@@ -236,6 +236,35 @@ describe('streaming audio mix', () => {
     expect(once[0]).toEqual([0, 0, Math.fround(0.1), Math.fround(0.2), 0, 0, 0, 0]);
   });
 
+  it('joins kept audio with a short fade and keeps added audio on output time', async () => {
+    const rate = 8000;
+    const original = source(
+      [Float32Array.from({ length: rate }, (_, i) => (i < rate / 2 ? 0.5 : -0.5))],
+      rate,
+    );
+    const music = source([new Float32Array(rate).fill(0.1)], rate);
+    decode(original, music);
+    const result = await render(
+      createMixProcessor(
+        original.input,
+        added(music),
+        { ...neutral, added: { volumeDb: 0, offset: 0.45, loop: false } },
+        trim,
+        1,
+        rate,
+        { fadeOut: 0.1 },
+        [{ start: 0.4, end: 0.6 }],
+      ),
+    );
+    const samples = result[0]!;
+    expect(samples).toHaveLength(6400);
+    expect(samples[3100]).toBeCloseTo(0.5);
+    expect(samples[3199]).toBeLessThan(0.02);
+    expect(samples[3200]).toBeCloseTo(0);
+    expect(samples[3600]).toBeCloseTo(-0.4);
+    expect(samples[6000]).toBeCloseTo(-0.2);
+  });
+
   it('resamples, duplicates mono into stereo, and applies separate track gains before the master', async () => {
     const original = source([new Float32Array(8).fill(0.2), new Float32Array(8).fill(-0.1)]);
     const music = source([new Float32Array(4).fill(0.4)], 4);

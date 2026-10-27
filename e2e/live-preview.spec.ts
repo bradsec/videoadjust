@@ -376,6 +376,8 @@ test('editor resets restore the frame and overlay anchors, and edits end Show or
   await page.getByRole('region', { name: 'Overlay editor', exact: true }).getByText('Done').click();
 
   await expect(original).toBeVisible();
+  // Measure in view: click() scrolls a partly hidden pill, which would move its box.
+  await original.scrollIntoViewIfNeeded();
   const placement = await original.boundingBox();
   await original.click();
   await expect(original).toHaveAttribute('aria-pressed', 'true');

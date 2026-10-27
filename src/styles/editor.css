@@ -342,6 +342,49 @@
   border-block: 3px solid var(--accent);
   pointer-events: none;
 }
+.trim-cut-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.trim-cut-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgb(0 0 0 / 55%) 0 6px,
+    rgb(255 255 255 / 15%) 6px 8px
+  );
+}
+.cut-sections {
+  margin-top: var(--s-4);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+.cut-sections h3 {
+  font-size: var(--fs-16);
+}
+.cut-list {
+  display: grid;
+  gap: var(--s-2);
+  margin-block: var(--s-2);
+}
+.cut-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.cut-row-label {
+  min-width: 5ch;
+}
+.cut-row .trim-input {
+  width: 8ch;
+}
+.cut-row .trim-error:not([hidden]) {
+  flex-basis: 100%;
+}
 .trim-handle {
   position: absolute;
   z-index: 2;

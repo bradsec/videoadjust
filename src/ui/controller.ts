@@ -2,6 +2,8 @@ import { autoAudioExtract, validateAudioExtract } from '../core/audioExtract';
 import { retryTargetSize } from '../core/targetSize';
 import { autoGifSettings, validateGifSettings } from '../core/gifExport';
 import { clampTrim } from './trimBar';
+import { keptSeconds, withCuts } from './controllerCuts';
+import { keptDuration, normalizeCuts } from '../core/cuts';
 import { normalizeAudioProcessing } from '../core/audioProcess';
 import { normalizeAudioMix, type AddedAudio, type AudioMix } from '../core/audioMix';
 import { readAddedAudio } from '../core/addedAudio';
@@ -143,10 +145,7 @@ export function createController(
         if (state.kind === 'prepare' && !state.exporting) {
           addedToken++;
           addedRead?.abort();
-          const mix = normalizeAudioMix(
-            state.settings.mix,
-            state.settings.trim.end - state.settings.trim.start,
-          );
+          const mix = normalizeAudioMix(state.settings.mix, keptSeconds(state));
           delete mix.added;
           applyMix({ ...state, addingAudio: undefined }, mix, undefined);
         }
@@ -154,10 +153,7 @@ export function createController(
       case 'setMix':
         if (state.kind === 'prepare' && !state.exporting) {
           supersedePending();
-          const mix = normalizeAudioMix(
-            action.value,
-            state.settings.trim.end - state.settings.trim.start,
-          );
+          const mix = normalizeAudioMix(action.value, keptSeconds(state));
           if (!state.addedAudio) delete mix.added;
           applyMix(state, mix, state.addedAudio);
         }
@@ -165,10 +161,7 @@ export function createController(
       case 'setAudioProcessing':
         if (state.kind === 'prepare') {
           supersedePending();
-          const audioProcessing = normalizeAudioProcessing(
-            action.value,
-            state.settings.trim.end - state.settings.trim.start,
-          );
+          const audioProcessing = normalizeAudioProcessing(action.value, keptSeconds(state));
           setState({
             ...state,
             exporting: undefined,
@@ -244,13 +237,15 @@ export function createController(
           supersedePending();
           const moved = action.value.start !== state.settings.trim.start ? 'start' : 'end';
           const trim = clampTrim(action.value, state.source.durationSec, moved);
+          const cuts = normalizeCuts(state.settings.cuts, trim);
+          const seconds = keptDuration(trim, cuts);
           setState({
             ...state,
             notice: unlessMemoryConfirm(state.notice),
             exporting: undefined,
             settings: state.settings.targetSizeMB
               ? validateSettings(
-                  { ...state.settings, trim, targetRetryScale: undefined },
+                  { ...state.settings, trim, cuts, targetRetryScale: undefined },
                   state.auto,
                   state.caps,
                   state.source,
@@ -258,14 +253,15 @@ export function createController(
               : {
                   ...state.settings,
                   trim,
+                  cuts,
                   ...(state.settings.mix
-                    ? { mix: normalizeAudioMix(state.settings.mix, trim.end - trim.start) }
+                    ? { mix: normalizeAudioMix(state.settings.mix, seconds) }
                     : {}),
                   ...(state.settings.audioProcessing
                     ? {
                         audioProcessing: normalizeAudioProcessing(
                           state.settings.audioProcessing,
-                          trim.end - trim.start,
+                          seconds,
                         ),
                       }
                     : {}),
@@ -273,27 +269,34 @@ export function createController(
             audioSettings: state.audioSettings && {
               ...state.audioSettings,
               trim,
+              cuts,
               ...(state.audioSettings.mix
-                ? { mix: normalizeAudioMix(state.audioSettings.mix, trim.end - trim.start) }
+                ? { mix: normalizeAudioMix(state.audioSettings.mix, seconds) }
                 : {}),
               ...(state.audioSettings.audioProcessing
                 ? {
                     audioProcessing: normalizeAudioProcessing(
                       state.audioSettings.audioProcessing,
-                      trim.end - trim.start,
+                      seconds,
                     ),
                   }
                 : {}),
             },
-            gifSettings: state.gifSettings && { ...state.gifSettings, trim },
+            gifSettings: state.gifSettings && { ...state.gifSettings, trim, cuts },
           });
+        }
+        return;
+      case 'setCuts':
+        if (state.kind === 'prepare') {
+          supersedePending();
+          setState(withCuts(state, action.value));
         }
         return;
       case 'setAudioSettings':
         if (state.kind === 'prepare' && state.audioAuto) {
           supersedePending();
           const value = validateAudioExtract(
-            { ...action.value, trim: state.settings.trim },
+            { ...action.value, trim: state.settings.trim, cuts: state.settings.cuts },
             state.audioAuto,
             audioMixSource(state.source, state.addedAudio),
             state.caps,
@@ -314,7 +317,7 @@ export function createController(
             notice: unlessMemoryConfirm(state.notice),
             exporting: undefined,
             gifSettings: validateGifSettings(
-              { ...action.value, trim: state.settings.trim },
+              { ...action.value, trim: state.settings.trim, cuts: state.settings.cuts },
               state.gifAuto,
               state.source,
               state.settings.transform,
@@ -335,6 +338,7 @@ export function createController(
               {
                 ...action.value,
                 trim: state.settings.trim,
+                cuts: state.settings.cuts,
                 // A retry ratio measured against one target does not carry over to another.
                 targetRetryScale:
                   action.value.targetSizeMB === state.settings.targetSizeMB
@@ -449,6 +453,7 @@ export function createController(
           {
             ...(from.audioSettings ?? audioAuto),
             trim: from.settings.trim,
+            cuts: from.settings.cuts,
             mix,
             audioProcessing: from.settings.audioProcessing,
           },
@@ -485,10 +490,7 @@ export function createController(
         added.input.dispose();
         return;
       }
-      const mix = normalizeAudioMix(
-        state.settings.mix,
-        state.settings.trim.end - state.settings.trim.start,
-      );
+      const mix = normalizeAudioMix(state.settings.mix, keptSeconds(state));
       mix.added = { volumeDb: 0, offset: 0, loop: false };
       applyMix({ ...state, addingAudio: undefined }, mix, added);
     } catch (error) {

@@ -133,6 +133,10 @@ describe('target size budget', () => {
     expect(trimmed.video!.bitrate).toBeGreaterThan(full.video!.bitrate);
     expect(estimateBytes(trimmed, source).mid).toBeLessThanOrEqual(8_000_000);
   });
+  it('uses the duration after cuts for the target bitrate', () => {
+    const cut = apply({ ...base, cuts: [{ start: 5, end: 10 }] });
+    expect(cut.video!.bitrate).toBe(Math.floor(((8_000_000 * 8) / 15 / 1.01) * 0.92 - 128_000));
+  });
 
   it('keeps an already-under-target trimmed copy without re-encoding', () => {
     const settings = { ...base, passthrough: true, trim: { start: 0, end: 1 } };

@@ -24,6 +24,7 @@ import type {
 } from '../core/types';
 import { formatBitrate } from './format';
 import { clampTrim } from './trimBar';
+import { keptDuration, normalizeCuts } from '../core/cuts';
 import type { AppState, Loaded } from './controllerTypes';
 
 const CODEC_LABELS: Record<string, string> = {
@@ -234,7 +235,9 @@ export function validateSettings(
 ): Settings {
   const fallback = auto.settings;
   const trim = clampTrim(value.trim, source.durationSec, 'end');
-  const mix = value.mix ? normalizeAudioMix(value.mix, trim.end - trim.start) : undefined;
+  const cuts = normalizeCuts(value.cuts, trim);
+  const seconds = keptDuration(trim, cuts);
+  const mix = value.mix ? normalizeAudioMix(value.mix, seconds) : undefined;
   const overlays = normalizeOverlays(value.overlays);
   const style = normalizeStyle(value.style);
   const fit = normalizeFit(value.fit);
@@ -308,6 +311,7 @@ export function validateSettings(
     const requested = requestedAudio.bitrate;
     const bitrate = allowed.includes(requested) ? requested : Math.min(requested, max);
     const copy =
+      !cuts.length &&
       !hasAudioProcessing(value.audioProcessing) &&
       !hasAudioMix(mix) &&
       container === fallback.container &&
@@ -338,10 +342,11 @@ export function validateSettings(
       overlays,
       style,
       fit,
+      cuts,
       ...(mix ? { mix } : {}),
       ...(value.audioProcessing
         ? {
-            audioProcessing: normalizeAudioProcessing(value.audioProcessing, trim.end - trim.start),
+            audioProcessing: normalizeAudioProcessing(value.audioProcessing, seconds),
           }
         : {}),
       targetSizeMB,
@@ -357,6 +362,7 @@ export function validateSettings(
           effectiveRect ||
           value.keyFrameInterval ||
           value.trimPrecision === 'exact' ||
+          cuts.length ||
           hasOverlays(overlays) ||
           hasStyleEffects(style) ||
           fit.aspect !== 'off'
@@ -395,6 +401,7 @@ function editChangeCount(current: Settings, auto: AutoResult): number {
       current.trim.start !== auto.settings.trim.start ||
         current.trim.end !== auto.settings.trim.end,
     ) +
+    Number(!!current.cuts?.length) +
     Number(!!current.overlays?.text.enabled) +
     Number(!!current.overlays?.image.enabled) +
     Number(hasStyleEffects(current.style)) +

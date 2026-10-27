@@ -46,6 +46,20 @@ function auto(src = source()): AudioExtractSettings {
 }
 
 describe('audio extract rules', () => {
+  it('uses kept duration for cuts and disables audio copy', () => {
+    const src = source({ bitrate: 96000 });
+    const base = { ...auto(src), format: 'm4a' as const, copy: true };
+    const cut = {
+      ...base,
+      cuts: [
+        { start: 10, end: 14 },
+        { start: 30, end: 32 },
+      ],
+    };
+    expect(validateAudioExtract(cut, base, src, caps()).copy).toBe(false);
+    expect(estimateAudioBytes(cut, src).mid).toBeCloseTo(((96000 * 54) / 8) * 1.01);
+    expect(audioExtractChangeCount(cut, base, src, caps())).toBe(1);
+  });
   it('normalizes mix settings and preserves copy eligibility only for a neutral mix', () => {
     const src = source({ bitrate: 96000 });
     const automatic = auto(src);
