@@ -1,4 +1,5 @@
 import { drawPreparedFrame, preparedFrameMatrix } from '../core/frameExport';
+import { paintFit } from '../core/fit';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from '../core/overlays';
 import {
   createStyleRenderer,
@@ -11,9 +12,15 @@ import type { Settings } from '../core/types';
 import { rotatedSize } from '../core/videoGeometry';
 import { el, icon } from './dom';
 import { formatDuration } from './format';
-import { livePreviewGeometry, previewRenderSize } from './previewGeometry';
+import {
+  livePreviewGeometry,
+  previewFidelity,
+  previewFitDisplay,
+  previewFitFrame,
+  previewRenderSize,
+} from './previewGeometry';
 
-export { livePreviewGeometry, previewRenderSize } from './previewGeometry';
+export { livePreviewGeometry, previewFidelity, previewRenderSize } from './previewGeometry';
 
 type Size = { width: number; height: number };
 
@@ -21,13 +28,14 @@ function looksDifferent(a: PreviewSettings, b: PreviewSettings): boolean {
   return (
     a.enabled !== b.enabled ||
     a.assets?.image !== b.assets?.image ||
-    JSON.stringify([a.transform, a.overlays, a.output, a.style, a.fps, a.colors]) !==
-      JSON.stringify([b.transform, b.overlays, b.output, b.style, b.fps, b.colors])
+    JSON.stringify([a.transform, a.fit, a.overlays, a.output, a.style, a.fps, a.colors]) !==
+      JSON.stringify([b.transform, b.fit, b.overlays, b.output, b.style, b.fps, b.colors])
   );
 }
 
 interface PreviewSettings {
   transform: Settings['transform'];
+  fit?: Settings['fit'];
   overlays: Settings['overlays'];
   style: StyleSettings | undefined;
   output: Size;
@@ -37,17 +45,6 @@ interface PreviewSettings {
   colors?: 256 | 128 | 64;
   assets?: OverlayAssets;
   enabled: boolean;
-}
-
-/** Whether the export would visibly differ from the source in resolution or frame rate. */
-export function previewFidelity(
-  settings: Pick<PreviewSettings, 'output' | 'fps' | 'sourceFps'>,
-  frame: Size,
-): { scaled: boolean; reduced: boolean } {
-  return {
-    scaled: settings.output.width * settings.output.height < frame.width * frame.height,
-    reduced: !!settings.fps && !!settings.sourceFps && settings.fps < settings.sourceFps - 0.01,
-  };
 }
 
 export function mountLivePreview(
@@ -62,6 +59,9 @@ export function mountLivePreview(
   const styleCanvas = el('canvas', 'live-preview-style');
   styleCanvas.setAttribute('aria-hidden', 'true');
   styleCanvas.hidden = true;
+  const fitCanvas = el('canvas', 'live-preview-fit');
+  fitCanvas.setAttribute('aria-hidden', 'true');
+  fitCanvas.hidden = true;
   const paletteCanvas = el('canvas', 'live-preview-palette');
   paletteCanvas.setAttribute('aria-hidden', 'true');
   paletteCanvas.hidden = true;
@@ -71,7 +71,7 @@ export function mountLivePreview(
   const styleLabel = el('span', 'live-preview-label');
   styleLabel.setAttribute('aria-hidden', 'true');
   styleLabel.hidden = true;
-  frame.append(video, styleCanvas, overlay, paletteCanvas, styleLabel);
+  frame.append(video, styleCanvas, fitCanvas, overlay, paletteCanvas, styleLabel);
   stage.append(frame);
   const bar = el('div', 'live-preview-bar');
   const controls = el('div', 'scrub');
@@ -114,6 +114,7 @@ export function mountLivePreview(
   let styleRenderer: ReturnType<typeof createStyleRenderer> | undefined;
   const styleSource = document.createElement('canvas');
   const styleContext = styleSource.getContext('2d');
+  const fitContext = fitCanvas.getContext('2d');
   const paletteSource = document.createElement('canvas');
   const paletteSourceContext = paletteSource.getContext('2d', { willReadFrequently: true });
   const paletteContext = paletteCanvas.getContext('2d');
@@ -179,7 +180,9 @@ export function mountLivePreview(
       !active ||
       !settings ||
       !processed ||
-      (styleFailed && (!settings.colors || hasStyleEffects(settings.style))) ||
+      (styleFailed &&
+        (hasStyleEffects(settings.style) ||
+          (!settings.colors && (!settings.fit || settings.fit.aspect === 'off')))) ||
       (paletteFailed && !!settings.colors)
     )
       return;
@@ -192,7 +195,9 @@ export function mountLivePreview(
     }
     try {
       const output = renderSize;
-      const styled = !settings.colors || hasStyleEffects(settings.style);
+      const fitted = previewFitFrame(source, settings.transform, settings.fit, output);
+      const content = fitted?.content ?? output;
+      const styled = hasStyleEffects(settings.style) || (!settings.colors && !fitted);
       if (styled) {
         styleRenderer ??= createStyleRenderer(styleCanvas, { preserveDrawingBuffer: false });
         // Upload video directly to WebGL and transform on the GPU. On iPhone/iPad Safari,
@@ -200,18 +205,24 @@ export function mountLivePreview(
         // about 2 ms direct, making styled playback stutter (0.22.13).
         styleRenderer.draw(
           video,
-          output.width,
-          output.height,
+          content.width,
+          content.height,
           time,
           normalizeStyle(settings.style),
           settings.output,
-          { source, matrix: preparedFrameMatrix(source, output, settings.transform) },
+          { source, matrix: preparedFrameMatrix(source, content, settings.transform) },
         );
       } else {
         if (!styleContext) throw new Error('Canvas is unavailable for Video Style preview.');
-        if (styleSource.width !== output.width) styleSource.width = output.width;
-        if (styleSource.height !== output.height) styleSource.height = output.height;
-        drawPreparedFrame(styleContext, video, source, output, settings.transform);
+        if (styleSource.width !== content.width) styleSource.width = content.width;
+        if (styleSource.height !== content.height) styleSource.height = content.height;
+        drawPreparedFrame(styleContext, video, source, content, settings.transform);
+      }
+      if (fitted) {
+        if (!fitContext) throw new Error('Canvas is unavailable for Fit preview.');
+        if (fitCanvas.width !== output.width) fitCanvas.width = output.width;
+        if (fitCanvas.height !== output.height) fitCanvas.height = output.height;
+        paintFit(fitContext, styled ? styleCanvas : styleSource, fitted, settings.fit!);
       }
       if (settings.colors) {
         if (!paletteContext || !paletteSourceContext)
@@ -220,20 +231,26 @@ export function mountLivePreview(
         if (paletteSource.height !== output.height) paletteSource.height = output.height;
         if (paletteCanvas.width !== output.width) paletteCanvas.width = output.width;
         if (paletteCanvas.height !== output.height) paletteCanvas.height = output.height;
-        paletteSourceContext.drawImage(styled ? styleCanvas : styleSource, 0, 0);
+        paletteSourceContext.drawImage(
+          fitted ? fitCanvas : styled ? styleCanvas : styleSource,
+          0,
+          0,
+        );
         if (overlayLayer)
           paletteSourceContext.drawImage(overlayLayer, 0, 0, output.width, output.height);
         const pixels = paletteSourceContext.getImageData(0, 0, output.width, output.height);
         queuePalette(pixels.data, output.width, output.height);
       } else {
         paletteCanvas.hidden = true;
-        styleCanvas.hidden = false;
+        styleCanvas.hidden = !!fitted;
+        fitCanvas.hidden = !fitted;
         video.style.opacity = '0';
       }
     } catch {
       styleFailed = true;
       stopStyle();
       styleCanvas.hidden = true;
+      fitCanvas.hidden = true;
       paletteCanvas.hidden = true;
       video.style.removeProperty('opacity');
       onStyleUnavailable();
@@ -245,7 +262,9 @@ export function mountLivePreview(
       !active ||
       !settings ||
       !processed ||
-      (styleFailed && (!settings.colors || hasStyleEffects(settings.style))) ||
+      (styleFailed &&
+        (hasStyleEffects(settings.style) ||
+          (!settings.colors && (!settings.fit || settings.fit.aspect === 'off')))) ||
       (paletteFailed && !!settings.colors) ||
       video.paused
     )
@@ -284,6 +303,7 @@ export function mountLivePreview(
     styleFailed = true;
     stopStyle();
     styleCanvas.hidden = true;
+    fitCanvas.hidden = true;
     video.style.removeProperty('opacity');
     onStyleUnavailable();
   });
@@ -345,26 +365,30 @@ export function mountLivePreview(
 
   function layout(): void {
     if (!settings || (!active && !showingOriginal)) return;
-    const geometry = livePreviewGeometry(source, settings.transform, {
+    const container = {
       width: stage.clientWidth,
       height: stage.clientHeight - parseFloat(getComputedStyle(stage).paddingBottom),
-    });
+    };
+    const geometry = livePreviewGeometry(source, settings.transform, container);
     if (!geometry) return;
-    frame.style.width = `${geometry.width}px`;
-    frame.style.height = `${geometry.height}px`;
-    frame.style.left = `${geometry.left}px`;
-    frame.style.top = `${geometry.top}px`;
-    const nextSize = previewRenderSize(settings.output, geometry, window.devicePixelRatio || 1);
+    const fitted = settings.fit?.aspect !== undefined && settings.fit.aspect !== 'off';
+    const display = fitted ? previewFitDisplay(settings.output, container) : geometry;
+    frame.style.width = `${display.width}px`;
+    frame.style.height = `${display.height}px`;
+    frame.style.left = `${display.left}px`;
+    frame.style.top = `${display.top}px`;
+    const nextSize = previewRenderSize(settings.output, display, window.devicePixelRatio || 1);
     if (nextSize.width !== renderSize.width || nextSize.height !== renderSize.height) {
       renderSize = nextSize;
       paletteVersion++;
       lastFrame = -1;
     }
-    video.style.width = `${showingOriginal ? geometry.width : geometry.videoWidth}px`;
-    video.style.height = `${showingOriginal ? geometry.height : geometry.videoHeight}px`;
+    video.style.width = `${showingOriginal ? display.width : geometry.videoWidth}px`;
+    video.style.height = `${showingOriginal ? display.height : geometry.videoHeight}px`;
     video.style.transform = showingOriginal ? 'none' : geometry.transform;
     styleCanvas.style.width = paletteCanvas.style.width = '100%';
     styleCanvas.style.height = paletteCanvas.style.height = '100%';
+    fitCanvas.style.width = fitCanvas.style.height = '100%';
   }
 
   function refresh(): void {
@@ -378,6 +402,7 @@ export function mountLivePreview(
     lastFrame = -1;
     processed =
       hasStyleEffects(settings.style) ||
+      (settings.fit?.aspect !== undefined && settings.fit.aspect !== 'off') ||
       !!settings.colors ||
       (!styleFailed && (fidelity.scaled || fidelity.reduced));
     const edited =
@@ -385,6 +410,7 @@ export function mountLivePreview(
       (!!settings.transform?.rotate ||
         !!settings.transform?.flip ||
         !!geometry?.crop ||
+        (settings.fit?.aspect !== undefined && settings.fit.aspect !== 'off') ||
         processed ||
         (!!settings.overlays && hasOverlays(settings.overlays)));
     if (!edited) showingOriginal = false;
@@ -406,10 +432,14 @@ export function mountLivePreview(
     frame.classList.toggle('is-edited', active);
     if (!active || !processed) stopStyle();
     styleCanvas.hidden = true;
+    fitCanvas.hidden = true;
     paletteCanvas.hidden = true;
     video.style.removeProperty('opacity');
     if (edited) {
-      stage.style.aspectRatio = `${shown.width} / ${shown.height}`;
+      stage.style.aspectRatio =
+        settings.fit?.aspect && settings.fit.aspect !== 'off'
+          ? `${settings.output.width} / ${settings.output.height}`
+          : `${shown.width} / ${shown.height}`;
       layout();
     } else {
       stage.style.removeProperty('aspect-ratio');

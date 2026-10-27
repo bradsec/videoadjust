@@ -58,6 +58,7 @@ export function showPanel(
       value: value.gifSettings,
       source: value.source,
       transform: value.settings.transform,
+      fit: value.settings.fit,
       onChange: (next) => dispatch({ type: 'setGifSettings', value: next }),
       onExport,
       onResetAll,
@@ -66,7 +67,8 @@ export function showPanel(
       dispatch({ type: 'setSettings', value: { ...current().settings, transform } });
     const panel: PreparePanel['panel'] = {
       resetAll: gif.resetAll,
-      update: (s) => s.gifSettings && gif.update(s.gifSettings, s.settings.transform),
+      update: (s) =>
+        s.gifSettings && gif.update(s.gifSettings, s.settings.transform, s.settings.fit),
       setBusy: gif.setBusy,
     };
     return { panel, changeTransform };

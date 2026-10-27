@@ -42,6 +42,29 @@ const audio: AudioExtractSettings = {
 };
 
 describe('conversion jobs', () => {
+  it('re-encodes Fit at the foreground size and emits the fitted frame size', () => {
+    const source = {
+      video: { displayWidth: 1920, displayHeight: 1080 },
+    } as Parameters<typeof shrinkJob>[1];
+    const job = shrinkJob(
+      {
+        ...base,
+        passthrough: true,
+        fit: { aspect: '1:1', background: 'black', color: '#ffffff' },
+        video: { ...base.video!, width: 1080, height: 1080 },
+      },
+      source,
+    );
+    expect(job.copiesVideo).toBe(false);
+    expect(job.options.video).toMatchObject({
+      width: 1080,
+      height: 608,
+      processedWidth: 1080,
+      processedHeight: 1080,
+      forceTranscode: true,
+      process: expect.any(Function),
+    });
+  });
   it('keeps neutral mixes on the existing copy path and discards excluded originals', () => {
     const mix = { original: { include: true, volumeDb: 0 } };
     expect(shrinkJob({ ...base, passthrough: true, mix }).options.audio).toEqual({});

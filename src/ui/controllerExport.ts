@@ -217,7 +217,12 @@ export function createExportFlow(
   async function startGifExport(prep: Extract<AppState, { kind: 'prepare' }>): Promise<void> {
     const settings = prep.gifSettings;
     if (!settings) return;
-    const { width, height } = gifDimensions(settings, prep.source, prep.settings.transform);
+    const { width, height } = gifDimensions(
+      settings,
+      prep.source,
+      prep.settings.transform,
+      prep.settings.fit,
+    );
     const frames = gifFrameCount(settings.trim, settings.fps, settings.loop);
     const seconds = gifPlaybackSeconds(settings.trim, settings.fps, settings.loop);
     const budget = gifBudgetError(width, height, frames, seconds);
@@ -285,6 +290,7 @@ export function createExportFlow(
         base.settings.overlays,
         base.overlayAssets,
         base.settings.style,
+        base.settings.fit,
       );
       if (token !== exportToken) return;
       const blob = await sink.finish(bytes);

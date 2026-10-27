@@ -59,6 +59,7 @@ export function applyTargetSize(s: Settings, auto: AutoResult, source: SourceInf
         s.transform?.crop ?? 'original',
         edge,
         s.transform?.rect,
+        s.fit,
       ),
     };
   }

@@ -29,6 +29,7 @@ import {
   type AudioMix,
 } from './audioMix';
 import { registerFrameCrop } from './frameCrop';
+import { fitGeometry, paintFit } from './fit';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from './overlays';
 import { createStyleRenderer, hasStyleEffects } from './style';
 import type { SinkPlan } from './sink';
@@ -108,10 +109,9 @@ export function shrinkJob(
         })
       : undefined;
   const transform = s.transform;
-  const rotated =
-    source?.video && transform
-      ? rotatedSize(source.video.displayWidth, source.video.displayHeight, transform.rotate)
-      : null;
+  const rotated = source?.video
+    ? rotatedSize(source.video.displayWidth, source.video.displayHeight, transform?.rotate ?? 0)
+    : null;
   if (transform && (transform.crop !== 'original' || transform.rect) && !rotated)
     throw new Error('Source video dimensions are required for cropping.');
   const crop =
@@ -123,10 +123,21 @@ export function shrinkJob(
     (transform.rotate !== 0 || transform.flip || transform.crop !== 'original' || !!crop);
   const overlay = s.overlays && hasOverlays(s.overlays) ? s.overlays : undefined;
   const styled = hasStyleEffects(s.style);
+  const fitted = s.fit?.aspect !== undefined && s.fit.aspect !== 'off';
+  if (fitted && !source?.video) throw new Error('Source video dimensions are required for Fit.');
+  const frame = crop ?? rotated;
+  const fit =
+    fitted && frame && v ? fitGeometry(frame, s.fit!.aspect, Math.max(v.width, v.height)) : null;
   const reencode =
-    transformed || s.trimPrecision === 'exact' || !!s.keyFrameInterval || !!overlay || styled;
+    transformed ||
+    fitted ||
+    s.trimPrecision === 'exact' ||
+    !!s.keyFrameInterval ||
+    !!overlay ||
+    styled;
   const copiesVideo = !!v && s.passthrough && !reencode;
   let canvas: OffscreenCanvas | undefined;
+  let fittedCanvas: OffscreenCanvas | undefined;
   let styleCanvas: OffscreenCanvas | undefined;
   let styleRenderer: ReturnType<typeof createStyleRenderer> | undefined;
   let styleUnavailable = false;
@@ -143,8 +154,8 @@ export function shrinkJob(
       ? copiesVideo
         ? {}
         : {
-            width: v.width,
-            height: v.height,
+            width: fit?.content.width ?? v.width,
+            height: fit?.content.height ?? v.height,
             fit: 'contain',
             frameRate: v.fps,
             codec: v.codec,
@@ -153,8 +164,10 @@ export function shrinkJob(
             // the export. The target's headroom and Try again smaller cover any overshoot.
             quality: quality(v.bitrate),
             ...(reencode || s.targetSizeMB ? { forceTranscode: true } : {}),
-            ...(transformed || overlay || styled ? { allowTransformationMetadata: false } : {}),
-            ...(overlay || styled
+            ...(transformed || fitted || overlay || styled
+              ? { allowTransformationMetadata: false }
+              : {}),
+            ...(overlay || styled || fitted
               ? {
                   processedWidth: v.width,
                   processedHeight: v.height,
@@ -164,19 +177,22 @@ export function shrinkJob(
                     const overlayLayer = overlay
                       ? await (layer ??= renderOverlayLayer(v.width, v.height, overlay, assets))
                       : null;
-                    canvas ??= new OffscreenCanvas(v.width, v.height);
+                    canvas ??= new OffscreenCanvas(
+                      fit?.content.width ?? v.width,
+                      fit?.content.height ?? v.height,
+                    );
                     const context = canvas.getContext('2d');
                     if (!context) throw new Error('Canvas is unavailable for overlay export.');
-                    context.clearRect(0, 0, v.width, v.height);
-                    sample.draw(context, 0, 0, v.width, v.height);
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    sample.draw(context, 0, 0, canvas.width, canvas.height);
                     if (styled && s.style && !styleUnavailable) {
                       try {
-                        styleCanvas ??= new OffscreenCanvas(v.width, v.height);
+                        styleCanvas ??= new OffscreenCanvas(canvas.width, canvas.height);
                         styleRenderer ??= createStyleRenderer(styleCanvas);
                         styleRenderer.draw(
                           canvas,
-                          v.width,
-                          v.height,
+                          canvas.width,
+                          canvas.height,
                           sample.timestamp + s.trim.start,
                           s.style,
                         );
@@ -185,6 +201,14 @@ export function shrinkJob(
                         styleUnavailable = true;
                         console.warn('Video Style disabled during export:', error);
                       }
+                    }
+                    if (fit) {
+                      fittedCanvas ??= new OffscreenCanvas(v.width, v.height);
+                      const fittedContext = fittedCanvas.getContext('2d');
+                      if (!fittedContext) throw new Error('Canvas is unavailable for Fit export.');
+                      paintFit(fittedContext, canvas, fit, s.fit!);
+                      if (overlayLayer) fittedContext.drawImage(overlayLayer, 0, 0);
+                      return fittedCanvas;
                     }
                     if (overlayLayer) context.drawImage(overlayLayer, 0, 0);
                     return canvas;

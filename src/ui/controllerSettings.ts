@@ -9,6 +9,7 @@ import { targetVideoBitrate } from '../core/autoSettings';
 import { hasAudioProcessing, normalizeAudioProcessing } from '../core/audioProcess';
 import { hasAudioMix, normalizeAudioMix, type AddedAudio } from '../core/audioMix';
 import { hasOverlays, normalizeOverlays } from '../core/overlays';
+import { DEFAULT_FIT, normalizeFit } from '../core/fit';
 import { hasStyleEffects, normalizeStyle } from '../core/style';
 import { applyTargetSize, validTargetSize } from '../core/targetSize';
 import { normalizeCrop, outputSize, rotatedSize, videoFrameSize } from '../core/videoGeometry';
@@ -81,6 +82,7 @@ export function smallerSettings(
         settings.transform?.crop ?? 'original',
         next,
         settings.transform?.rect,
+        settings.fit,
       );
       const bitrate = Math.round(
         Math.min(targetVideoBitrate(v.codec, width, height, v.fps), sv.bitrate ?? Infinity),
@@ -184,6 +186,27 @@ export function preserveQuality(
   source: SourceInfo,
 ): Settings {
   if (requested.targetSizeMB) return requested;
+  if (
+    source.video &&
+    requested.video &&
+    JSON.stringify(normalizeFit(previous.fit)) !== JSON.stringify(normalizeFit(requested.fit))
+  ) {
+    const transform = requested.transform;
+    requested = {
+      ...requested,
+      video: {
+        ...requested.video,
+        ...outputSize(
+          source.video,
+          transform?.rotate ?? 0,
+          transform?.crop ?? 'original',
+          Math.max(requested.video.width, requested.video.height),
+          transform?.rect,
+          requested.fit,
+        ),
+      },
+    };
+  }
   const old = previous.video;
   const next = requested.video;
   if (!old || !next || next.bitrate !== old.bitrate) return requested;
@@ -214,6 +237,7 @@ export function validateSettings(
   const mix = value.mix ? normalizeAudioMix(value.mix, trim.end - trim.start) : undefined;
   const overlays = normalizeOverlays(value.overlays);
   const style = normalizeStyle(value.style);
+  const fit = normalizeFit(value.fit);
   const container =
     availableVideoCodecs(value.container, caps).length &&
     (value.container !== 'webm' || (!source.audio && !mix?.added) || caps.audio.opus)
@@ -244,7 +268,7 @@ export function validateSettings(
     const edge = allowedEdges.includes(requestedEdge)
       ? requestedEdge
       : Math.max(fallback.video.width, fallback.video.height);
-    const { width, height } = outputSize(source.video, rotate, crop, edge, rect);
+    const { width, height } = outputSize(source.video, rotate, crop, edge, rect, fit);
     const fps =
       Number.isFinite(requested.fps) && requested.fps > 0
         ? Math.min(requested.fps, source.video.fps)
@@ -313,6 +337,7 @@ export function validateSettings(
     {
       overlays,
       style,
+      fit,
       ...(mix ? { mix } : {}),
       ...(value.audioProcessing
         ? {
@@ -333,7 +358,8 @@ export function validateSettings(
           value.keyFrameInterval ||
           value.trimPrecision === 'exact' ||
           hasOverlays(overlays) ||
-          hasStyleEffects(style)
+          hasStyleEffects(style) ||
+          fit.aspect !== 'off'
         ),
       trim,
       trimPrecision: value.trimPrecision === 'exact' ? 'exact' : 'fast',
@@ -373,7 +399,8 @@ function editChangeCount(current: Settings, auto: AutoResult): number {
     Number(!!current.overlays?.image.enabled) +
     Number(hasStyleEffects(current.style)) +
     Number(hasAudioProcessing(current.audioProcessing)) +
-    Number(hasAudioMix(current.mix))
+    Number(hasAudioMix(current.mix)) +
+    Number(JSON.stringify(normalizeFit(current.fit)) !== JSON.stringify(DEFAULT_FIT))
   );
 }
 
@@ -420,6 +447,7 @@ export function settingsChangeCount(
           current.transform?.crop ?? 'original',
           Math.max(automatic.video.width, automatic.video.height),
           current.transform?.rect,
+          current.fit,
         )
       : null;
   return (

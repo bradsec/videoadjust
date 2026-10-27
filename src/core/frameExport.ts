@@ -1,4 +1,5 @@
 import { renderOverlayLayer, type OverlayAssets } from './overlays';
+import { fitGeometry, paintFit } from './fit';
 import { createStyleRenderer, hasStyleEffects } from './style';
 import type { Settings } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
@@ -61,6 +62,7 @@ export async function exportCurrentFrame(
     timestamp: number;
     transform?: Settings['transform'];
     style?: Settings['style'];
+    fit?: Settings['fit'];
     overlays?: Settings['overlays'];
   },
   assets: OverlayAssets = {},
@@ -70,16 +72,38 @@ export async function exportCurrentFrame(
   const canvas = new OffscreenCanvas(width, height);
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas is unavailable for saving a frame.');
+  const rotated = rotatedSize(source.width, source.height, settings.transform?.rotate ?? 0);
+  const frame =
+    normalizeCrop(
+      rotated.width,
+      rotated.height,
+      settings.transform?.crop ?? 'original',
+      settings.transform?.rect,
+    ) ?? rotated;
+  const fit =
+    settings.fit?.aspect && settings.fit.aspect !== 'off'
+      ? fitGeometry(frame, settings.fit.aspect, Math.max(width, height))
+      : null;
+  const content = fit ? new OffscreenCanvas(fit.content.width, fit.content.height) : canvas;
+  const contentContext = fit ? content.getContext('2d') : context;
+  if (!contentContext) throw new Error('Canvas is unavailable for saving a frame.');
   // Capture before waiting for fonts or image assets, so playback cannot change the chosen frame.
-  drawPreparedFrame(context, input, source, settings.output, settings.transform);
+  drawPreparedFrame(
+    contentContext,
+    input,
+    source,
+    { width: content.width, height: content.height },
+    settings.transform,
+  );
   let renderer: ReturnType<typeof createStyleRenderer> | undefined;
   try {
     if (hasStyleEffects(settings.style) && settings.style) {
-      const styled = new OffscreenCanvas(width, height);
+      const styled = new OffscreenCanvas(content.width, content.height);
       renderer = createStyleRenderer(styled);
-      renderer.draw(canvas, width, height, settings.timestamp, settings.style);
-      context.drawImage(styled, 0, 0);
+      renderer.draw(content, content.width, content.height, settings.timestamp, settings.style);
+      contentContext.drawImage(styled, 0, 0);
     }
+    if (fit) paintFit(context, content, fit, settings.fit!);
     const layer = await renderOverlayLayer(width, height, settings.overlays, assets);
     if (layer) context.drawImage(layer, 0, 0);
     return await canvas.convertToBlob({ type: mime, quality: 0.92 });

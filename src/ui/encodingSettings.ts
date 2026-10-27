@@ -62,6 +62,7 @@ export function renderVideoSettings(
       crop,
       Math.max(autoVideo.width, autoVideo.height),
       rect,
+      state.value.fit,
     );
     const codec = group(
       'Video codec',
@@ -103,7 +104,7 @@ export function renderVideoSettings(
       size,
       'Resolution',
       edges.map((edge) => {
-        const dims = outputSize(opts.source.video!, rotate, crop, edge, rect);
+        const dims = outputSize(opts.source.video!, rotate, crop, edge, rect, state.value.fit);
         return {
           value: String(edge),
           label: `${Math.min(dims.width, dims.height)}p (${dims.width}x${dims.height})`,
@@ -111,13 +112,20 @@ export function renderVideoSettings(
       }),
       String(
         edges.find((edge) => {
-          const dims = outputSize(opts.source.video!, rotate, crop, edge, rect);
+          const dims = outputSize(opts.source.video!, rotate, crop, edge, rect, state.value.fit);
           return dims.width === video.width && dims.height === video.height;
         }) ?? sourceEdge,
       ),
       (edge) => {
         state.setPreferredEdge(Number(edge));
-        const dims = outputSize(opts.source.video!, rotate, crop, Number(edge), rect);
+        const dims = outputSize(
+          opts.source.video!,
+          rotate,
+          crop,
+          Number(edge),
+          rect,
+          state.value.fit,
+        );
         change({ ...state.value, video: { ...state.value.video!, ...dims } });
       },
     );
@@ -352,6 +360,7 @@ export function patchControls(
         next.transform?.crop ?? 'original',
         candidate,
         next.transform?.rect,
+        next.fit,
       );
       return dims.width === video.width && dims.height === video.height;
     });

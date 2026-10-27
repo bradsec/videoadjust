@@ -157,8 +157,9 @@ export function summaryGif(
   gif: Parameters<typeof gifDimensions>[0],
   source: SourceInfo,
   transform: Settings['transform'],
+  fit?: Settings['fit'],
 ): string {
-  const { width, height } = gifDimensions(gif, source, transform);
+  const { width, height } = gifDimensions(gif, source, transform, fit);
   return `${width}x${height}`;
 }
 

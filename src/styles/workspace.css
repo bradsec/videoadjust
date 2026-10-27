@@ -103,17 +103,20 @@
 .live-preview-frame.is-framed,
 .live-preview-frame.is-framed .preview-video,
 .live-preview-frame.is-edited .live-preview-style,
+.live-preview-frame.is-edited .live-preview-fit,
 .live-preview-frame.is-edited .live-preview-palette {
   position: absolute;
 }
 .live-preview-frame.is-framed .preview-video,
 .live-preview-frame.is-edited .live-preview-style,
+.live-preview-frame.is-edited .live-preview-fit,
 .live-preview-frame.is-edited .live-preview-palette {
   left: 0;
   top: 0;
   transform-origin: 0 0;
 }
 .live-preview-style,
+.live-preview-fit,
 .live-preview-palette {
   pointer-events: none;
 }

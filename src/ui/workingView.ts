@@ -30,7 +30,7 @@ export function renderWorking(
       state.tool === 'audio' && state.audioSettings
         ? summaryAudio(state.audioSettings)
         : state.tool === 'gif' && state.gifSettings
-          ? `${summaryGif(state.gifSettings, state.source, state.settings.transform)} · ${state.gifSettings.fps} fps GIF`
+          ? `${summaryGif(state.gifSettings, state.source, state.settings.transform, state.settings.fit)} · ${state.gifSettings.fps} fps GIF`
           : summaryOutput(state.settings),
     ),
   );

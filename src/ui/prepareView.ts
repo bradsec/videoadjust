@@ -8,6 +8,8 @@ import { mountAudioProcessing } from './audioProcessingControls';
 import { mountAudioTracks } from './audioTracksControls';
 import { canPlaySource } from './compare';
 import { mountCropEditor } from './cropEditor';
+import { mountEditControls } from './editControls';
+import { mountFitPanel } from './fitPanel';
 import { type AppAction, type AppState, type Tool, allSettingsChangeCount } from './controller';
 import { el, icon, INSPECTOR_GROUP } from './dom';
 import { mountLivePreview } from './livePreview';
@@ -99,9 +101,13 @@ export function renderPrepare(
   const overlayState = el('span', 'adjust-state');
   overlayHeading.append('Overlay', overlayState, icon('i-chev'));
   overlayDetails.append(overlayHeading);
-  settingsHost.append(panelHost, audioDetails, colourDetails, styleDetails, overlayDetails);
+  const fitPanel = mountFitPanel((fit) =>
+    dispatch({ type: 'setSettings', value: { ...current.settings, fit } }),
+  );
+  settingsHost.append(panelHost, fitPanel.node);
+  settingsHost.append(audioDetails, colourDetails, styleDetails, overlayDetails);
   // Inspector sections share one name so opening one closes the others; panels add their own.
-  for (const details of [audioDetails, colourDetails, styleDetails, overlayDetails])
+  for (const details of [fitPanel.node, audioDetails, colourDetails, styleDetails, overlayDetails])
     details.name = INSPECTOR_GROUP;
   // Closing a section above the one just opened shifts it up; keep its header in view.
   const keepOpenedInView = (event: Event) => {
@@ -223,38 +229,19 @@ export function renderPrepare(
   another.addEventListener('click', () => dispatch({ type: 'reset' }));
   head.append(another);
   // File, then preview, then the two kinds of edit, each under its own heading like Trim.
-  const editSection = el('section', 'edit-section');
-  editSection.setAttribute('aria-label', 'Edit');
-  const editHead = el('div', 'section-head');
-  editHead.append(el('h2', undefined, 'Edit'));
-  const editTools = el('div', 'edit-tools');
-  editSection.append(editHead, editTools);
-  // Icon-only so the row fits beside Crop and rotate on a phone; the format is in the icon.
-  const frameButtons = (['png', 'jpeg'] as const).map((format) => {
-    const name = format === 'png' ? 'PNG' : 'JPEG';
-    const button = el('button', 'btn edit-frame');
-    button.type = 'button';
-    button.setAttribute('aria-label', `Save frame as ${name}`);
-    button.title = `Save the current frame as ${name} at output resolution, including all edits`;
-    button.append(icon(`i-${format === 'png' ? 'png' : 'jpg'}`));
-    button.addEventListener('click', () => {
-      void saveCurrentFrame(format === 'jpeg');
-    });
-    return button;
-  });
-  const frameStatus = el('p', 'note');
-  frameStatus.setAttribute('role', 'status');
+  const {
+    section: editSection,
+    tools: editTools,
+    frameButtons,
+    status: frameStatus,
+    updateFrameButtons,
+  } = mountEditControls(saveCurrentFrame);
   let savingFrame = false;
   let frameSink: GifSink | undefined;
   let frameUrl: string | undefined;
   let destroyed = false;
   function updateFrameButton(): void {
-    const disabled = !!current.exporting || video.readyState < 2 || video.seeking;
-    for (const button of frameButtons) {
-      button.disabled = disabled;
-      // aria-disabled while saving keeps keyboard focus on the button that was pressed.
-      button.setAttribute('aria-disabled', String(savingFrame));
-    }
+    updateFrameButtons(!!current.exporting || video.readyState < 2 || video.seeking, savingFrame);
   }
   for (const event of ['loadeddata', 'seeking', 'seeked'])
     video.addEventListener(event, updateFrameButton);
@@ -262,7 +249,12 @@ export function renderPrepare(
     const source = current.source.video;
     const output =
       current.tool === 'gif' && current.gifSettings
-        ? gifDimensions(current.gifSettings, current.source, current.settings.transform)
+        ? gifDimensions(
+            current.gifSettings,
+            current.source,
+            current.settings.transform,
+            current.settings.fit,
+          )
         : current.settings.video;
     if (!source || !output || savingFrame || frameButtons[0]!.disabled) return;
     savingFrame = true;
@@ -288,6 +280,7 @@ export function renderPrepare(
             timestamp: video.currentTime,
             transform: current.settings.transform,
             style: current.settings.style,
+            fit: current.settings.fit,
             overlays: current.settings.overlays,
           },
           current.overlayAssets,
@@ -330,7 +323,6 @@ export function renderPrepare(
       updateFrameButton();
     }
   }
-  editSection.append(frameStatus);
   // Editors take the preview's place while open, so they sit directly after it.
   const editorsHost = el('div', 'editors');
   const onSpaceKeydown = (event: KeyboardEvent) => onSpace(event, video, editorsHost, livePreview);
@@ -392,10 +384,6 @@ export function renderPrepare(
     previewNote.hidden = false;
     canvas.append(previewNote);
   }
-  // Frame saves sit on the heading row so the tool buttons keep the full width on phones.
-  const frameActions = el('div', 'edit-frame-actions');
-  frameActions.append(...frameButtons);
-  editHead.append(frameActions);
   canvas.append(noticeSlot, trimHost);
   stage.append(canvas, settingsHost);
   container.replaceChildren(stage);
@@ -404,6 +392,7 @@ export function renderPrepare(
     if (value.kind !== 'prepare') return;
     trim.update(value.settings.trim);
     current = value;
+    fitPanel.update(value.settings.fit, value.tool !== 'audio' && !!value.source.video);
     audioDetails.hidden = value.tool === 'gif';
     const audioChanges = audioChangeCount(value.settings.mix, value.settings.audioProcessing);
     audioState.textContent = audioChanges
@@ -436,11 +425,17 @@ export function renderPrepare(
     updateWaveform();
     const previewOutput =
       value.tool === 'gif' && value.gifSettings
-        ? gifDimensions(value.gifSettings, value.source, value.settings.transform)
+        ? gifDimensions(
+            value.gifSettings,
+            value.source,
+            value.settings.transform,
+            value.settings.fit,
+          )
         : value.settings.video;
     if (value.source.video)
       livePreview?.update({
         transform: value.settings.transform,
+        fit: value.settings.fit,
         style: value.settings.style,
         overlays: value.settings.overlays,
         assets: value.overlayAssets,

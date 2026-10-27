@@ -1,5 +1,6 @@
 import { CanvasSink, type Input } from 'mediabunny';
 import { scaleToLongEdge } from './autoSettings';
+import { fitGeometry, paintFit, type FitSettings } from './fit';
 import { renderOverlayLayer, type OverlayAssets } from './overlays';
 import { createStyleRenderer, hasStyleEffects } from './style';
 import type { Settings, SourceInfo, Rotation, CropRect } from './types';
@@ -102,8 +103,13 @@ export function gifDimensions(
   settings: GifSettings,
   source: SourceInfo,
   transform?: Settings['transform'],
+  fit?: FitSettings,
 ): { width: number; height: number } {
   const frame = gifFrameSize(source, transform);
+  if (fit?.aspect && fit.aspect !== 'off') {
+    const { width, height } = fitGeometry(frame, fit.aspect, settings.size);
+    return { width, height };
+  }
   return scaleToLongEdge(frame.width, frame.height, settings.size);
 }
 
@@ -212,11 +218,18 @@ export async function exportGif(
   overlays?: Settings['overlays'],
   assets: OverlayAssets = {},
   style?: Settings['style'],
+  fit?: FitSettings,
 ): Promise<{ bytes: Uint8Array; styleDropped: boolean }> {
   const video = source.video;
   const track = await input.getPrimaryVideoTrack();
   if (!video || !track) throw new Error('GIF export needs a video track.');
-  const { width, height } = gifDimensions(settings, source, transform);
+  const { width, height } = gifDimensions(settings, source, transform, fit);
+  const fitted =
+    fit?.aspect && fit.aspect !== 'off'
+      ? fitGeometry(gifFrameSize(source, transform), fit.aspect, settings.size)
+      : null;
+  const contentWidth = fitted?.content.width ?? width;
+  const contentHeight = fitted?.content.height ?? height;
   const count = gifFrameCount(settings.trim, settings.fps, settings.loop);
   const budget = gifBudgetError(
     width,
@@ -235,15 +248,20 @@ export async function exportGif(
     transform?.rect,
   );
   const rotation = ((video.rotation + (transform?.rotate ?? 0)) % 360) as Rotation;
-  const geometry = crop ? gifCropGeometry(rotated, crop, width) : null;
-  const target = geometry ? new OffscreenCanvas(width, height).getContext('2d') : null;
+  const geometry = crop ? gifCropGeometry(rotated, crop, contentWidth) : null;
+  const target = geometry
+    ? new OffscreenCanvas(contentWidth, contentHeight).getContext('2d')
+    : null;
+  const fittedCanvas = fitted ? new OffscreenCanvas(width, height) : null;
+  const fittedContext = fittedCanvas?.getContext('2d');
   let styleCanvas: OffscreenCanvas | undefined;
   let styleRenderer: ReturnType<typeof createStyleRenderer> | undefined;
   let styleUnavailable = false;
-  if (geometry && !target) throw new Error('Canvas is unavailable for GIF export.');
+  if ((geometry && !target) || (fitted && !fittedContext))
+    throw new Error('Canvas is unavailable for GIF export.');
   const sink = new CanvasSink(track, {
-    width: geometry?.width ?? width,
-    height: geometry?.height ?? height,
+    width: geometry?.width ?? contentWidth,
+    height: geometry?.height ?? contentHeight,
     fit: 'fill',
     rotation,
     flip: transform?.flip ?? false,
@@ -302,7 +320,7 @@ export async function exportGif(
       // Crop from a canvas: WebKit ignores VideoFrame source rectangles (see frameCrop.ts).
       if (geometry && target) {
         const rect = geometry.crop;
-        target.clearRect(0, 0, width, height);
+        target.clearRect(0, 0, contentWidth, contentHeight);
         target.drawImage(
           frame.canvas,
           rect.left,
@@ -311,8 +329,8 @@ export async function exportGif(
           rect.height,
           0,
           0,
-          width,
-          height,
+          contentWidth,
+          contentHeight,
         );
       }
       const context = (target ?? frame.canvas.getContext('2d')) as
@@ -320,18 +338,20 @@ export async function exportGif(
       if (!context) throw new Error('Canvas is unavailable for GIF export.');
       if (hasStyleEffects(style) && style && !styleUnavailable) {
         try {
-          styleCanvas ??= new OffscreenCanvas(width, height);
+          styleCanvas ??= new OffscreenCanvas(contentWidth, contentHeight);
           styleRenderer ??= createStyleRenderer(styleCanvas);
-          styleRenderer.draw(context.canvas, width, height, timestamps[i], style);
+          styleRenderer.draw(context.canvas, contentWidth, contentHeight, timestamps[i], style);
           context.drawImage(styleCanvas, 0, 0);
         } catch (error) {
           styleUnavailable = true;
           console.warn('Video Style disabled during GIF export:', error);
         }
       }
-      if (overlayLayer) context.drawImage(overlayLayer, 0, 0);
+      if (fitted && fittedContext) paintFit(fittedContext, context.canvas, fitted, fit!);
+      const outputContext = fittedContext ?? context;
+      if (overlayLayer) outputContext.drawImage(overlayLayer, 0, 0);
       // Copy pixels before the iterator can reuse its pooled canvas.
-      const rgba = context.getImageData(0, 0, width, height).data;
+      const rgba = outputContext.getImageData(0, 0, width, height).data;
       await send(
         {
           type: 'frame',

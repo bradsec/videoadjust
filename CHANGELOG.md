@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.23.0] - 2026-10-28
+
+### Added
+
+- Added Fit to aspect for Shrink, GIF, live preview, and saved frames, with blur, black, or solid colour backgrounds.
+
 ## [0.22.27] - 2026-10-27
 
 ### Changed

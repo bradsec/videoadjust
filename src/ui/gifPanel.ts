@@ -18,17 +18,19 @@ export function mountGifPanel(
     value: GifSettings;
     source: SourceInfo;
     transform: Settings['transform'];
+    fit?: Settings['fit'];
     onChange(value: GifSettings): void;
     onExport(): void;
     onResetAll?: () => void;
   },
 ): {
   resetAll: ReturnType<typeof mountResetAll>;
-  update(value: GifSettings, transform: Settings['transform']): void;
+  update(value: GifSettings, transform: Settings['transform'], fit?: Settings['fit']): void;
   setBusy(value: boolean): void;
 } {
   let value = opts.value;
   let transform = opts.transform;
+  let fit = opts.fit;
   const card = el('section', 'card export-summary');
   card.setAttribute('aria-label', 'GIF summary');
   const spec = el('div', 'spec');
@@ -150,9 +152,14 @@ export function mountGifPanel(
   card.append(spec, dock, details);
   host.replaceChildren(card);
 
-  function update(next: GifSettings, nextTransform: Settings['transform']): void {
+  function update(
+    next: GifSettings,
+    nextTransform: Settings['transform'],
+    nextFit?: Settings['fit'],
+  ): void {
     value = next;
     transform = nextTransform;
+    fit = nextFit;
     const frame = gifFrameSize(opts.source, transform);
     const longEdge = Math.max(frame.width, frame.height);
     const sizes = [
@@ -164,7 +171,7 @@ export function mountGifPanel(
     ].sort((a, b) => a - b);
     size.replaceChildren(
       ...sizes.map((n) => {
-        const dims = gifDimensions({ ...next, size: n }, opts.source, transform);
+        const dims = gifDimensions({ ...next, size: n }, opts.source, transform, fit);
         const option = el('option', undefined, `${n} px long edge (${dims.width}x${dims.height})`);
         option.value = String(n);
         return option;
@@ -183,7 +190,7 @@ export function mountGifPanel(
     loop.value = next.loop;
     colors.value = String(next.colors);
     compression.value = next.compression;
-    const dimensions = gifDimensions(next, opts.source, transform);
+    const dimensions = gifDimensions(next, opts.source, transform, fit);
     const frames = gifFrameCount(next.trim, next.fps, next.loop);
     const seconds = gifPlaybackSeconds(next.trim, next.fps, next.loop);
     heading.textContent = `${dimensions.width}x${dimensions.height} GIF`;
@@ -200,6 +207,6 @@ export function mountGifPanel(
     else button.removeAttribute('aria-disabled');
     button.replaceChildren(icon('i-down'), busy ? 'Exporting GIF...' : 'Export GIF');
   }
-  update(value, transform);
+  update(value, transform, fit);
   return { update, setBusy, resetAll };
 }

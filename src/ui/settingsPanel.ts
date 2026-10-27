@@ -166,7 +166,10 @@ export function mountSettings(
       ...value,
       passthrough: false,
       transform: { ...transform, rect },
-      video: { ...video, ...outputSize(source, transform.rotate, transform.crop, edge, rect) },
+      video: {
+        ...video,
+        ...outputSize(source, transform.rotate, transform.crop, edge, rect, value.fit),
+      },
     });
   }
   function group(name: string, tip: string, automatic: string, reset: () => void): HTMLElement {

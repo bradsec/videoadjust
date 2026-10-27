@@ -1,4 +1,5 @@
 import { scaleToLongEdge } from './autoSettings';
+import { fitGeometry, type FitSettings } from './fit';
 import type { CropPreset, CropRect, Rotation, SourceInfo } from './types';
 
 const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
@@ -263,7 +264,12 @@ export function outputSize(
   crop: CropPreset,
   longEdge: number,
   rect?: CropRect | null,
+  fit?: FitSettings,
 ): { width: number; height: number } {
   const frame = videoFrameSize(source, rotate, crop, rect);
+  if (fit && fit.aspect !== 'off') {
+    const { width, height } = fitGeometry(frame, fit.aspect, longEdge);
+    return { width, height };
+  }
   return scaleToLongEdge(frame.width, frame.height, longEdge);
 }

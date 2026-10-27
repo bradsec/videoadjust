@@ -1,7 +1,19 @@
 import type { Settings } from '../core/types';
+import { fitContent } from '../core/fit';
 import { normalizeCrop, rotatedSize } from '../core/videoGeometry';
 
 type Size = { width: number; height: number };
+
+/** Whether the export would visibly differ from the source in resolution or frame rate. */
+export function previewFidelity(
+  settings: { output: Size; fps?: number | null; sourceFps?: number | null },
+  frame: Size,
+): { scaled: boolean; reduced: boolean } {
+  return {
+    scaled: settings.output.width * settings.output.height < frame.width * frame.height,
+    reduced: !!settings.fps && !!settings.sourceFps && settings.fps < settings.sourceFps - 0.01,
+  };
+}
 
 export function previewRenderSize(output: Size, display: Size, dpr: number): Size {
   const scale = Math.min(
@@ -12,6 +24,32 @@ export function previewRenderSize(output: Size, display: Size, dpr: number): Siz
   return {
     width: Math.max(1, Math.min(output.width, Math.floor(output.width * scale))),
     height: Math.max(1, Math.min(output.height, Math.floor(output.height * scale))),
+  };
+}
+
+export function previewFitFrame(
+  source: Size,
+  transform: Settings['transform'],
+  fit: Settings['fit'],
+  output: Size,
+) {
+  if (!fit || fit.aspect === 'off') return null;
+  const rotated = rotatedSize(source.width, source.height, transform?.rotate ?? 0);
+  const frame =
+    normalizeCrop(rotated.width, rotated.height, transform?.crop ?? 'original', transform?.rect) ??
+    rotated;
+  return fitContent(frame, output);
+}
+
+export function previewFitDisplay(output: Size, container: Size) {
+  const scale = Math.min(container.width / output.width, container.height / output.height);
+  const width = output.width * scale;
+  const height = output.height * scale;
+  return {
+    width,
+    height,
+    left: (container.width - width) / 2,
+    top: (container.height - height) / 2,
   };
 }
 
