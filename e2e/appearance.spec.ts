@@ -115,6 +115,10 @@ test('phone taps do not zoom the page', { tag: '@mobile' }, async ({ page }) => 
   await expect(page.getByRole('region', { name: 'Export summary' })).toBeVisible();
   for (const details of await page.locator('details').all())
     await details.evaluate((node) => ((node as HTMLDetailsElement).open = true));
+  // Inspector sections open one at a time, so reopen Overlay after the later sections.
+  await page
+    .locator('.overlay-adjust')
+    .evaluate((node) => ((node as HTMLDetailsElement).open = true));
   await page.getByLabel('Text overlay', { exact: true }).check();
   const look = await page.evaluate(() => ({
     touchAction: getComputedStyle(document.documentElement).touchAction,

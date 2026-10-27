@@ -7,6 +7,13 @@ import {
 } from '../core/style';
 import { el, icon } from './dom';
 
+export function webglStyleReason(): string {
+  const probe = document.createElement('canvas').getContext('webgl2');
+  if (!probe) return 'Video styles need WebGL2 in this browser.';
+  probe.getExtension('WEBGL_lose_context')?.loseContext();
+  return '';
+}
+
 export function mountStylePanel(
   host: HTMLElement,
   colourHost: HTMLElement,

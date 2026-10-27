@@ -9,6 +9,7 @@ import { targetVideoBitrate } from '../core/autoSettings';
 import { hasAudioProcessing, normalizeAudioProcessing } from '../core/audioProcess';
 import { hasAudioMix, normalizeAudioMix, type AddedAudio } from '../core/audioMix';
 import { hasOverlays, normalizeOverlays } from '../core/overlays';
+import { hasCaptions, normalizeCaptions } from '../core/captions';
 import { DEFAULT_FIT, normalizeFit } from '../core/fit';
 import { hasStyleEffects, normalizeStyle } from '../core/style';
 import { applyTargetSize, validTargetSize } from '../core/targetSize';
@@ -343,6 +344,7 @@ export function validateSettings(
       style,
       fit,
       cuts,
+      ...(value.captions ? { captions: normalizeCaptions(value.captions) } : {}),
       ...(mix ? { mix } : {}),
       ...(value.audioProcessing
         ? {
@@ -364,6 +366,7 @@ export function validateSettings(
           value.trimPrecision === 'exact' ||
           cuts.length ||
           hasOverlays(overlays) ||
+          hasCaptions(value.captions) ||
           hasStyleEffects(style) ||
           fit.aspect !== 'off'
         ),
@@ -402,6 +405,7 @@ function editChangeCount(current: Settings, auto: AutoResult): number {
         current.trim.end !== auto.settings.trim.end,
     ) +
     Number(!!current.cuts?.length) +
+    Number(hasCaptions(current.captions)) +
     Number(!!current.overlays?.text.enabled) +
     Number(!!current.overlays?.image.enabled) +
     Number(hasStyleEffects(current.style)) +

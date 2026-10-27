@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.25.0] - 2026-10-28
+
+### Added
+
+- Added Captions to burn timed text into Shrink, GIF, live preview, and saved frames, with SRT and WebVTT import.
+
 ## [0.24.0] - 2026-10-28
 
 ### Added

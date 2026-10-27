@@ -11,6 +11,7 @@ import { canPlaySource } from './compare';
 import { mountCropEditor } from './cropEditor';
 import { mountEditControls } from './editControls';
 import { mountFitPanel } from './fitPanel';
+import { mountCaptionPanel } from './captionPanel';
 import { type AppAction, type AppState, type Tool, allSettingsChangeCount } from './controller';
 import { el, icon, INSPECTOR_GROUP } from './dom';
 import { mountLivePreview } from './livePreview';
@@ -18,7 +19,7 @@ import { mountMixWaveform } from './mixWaveform';
 import { mountOverlayEditor } from './overlayEditor';
 import { mountOverlayPanel } from './overlayPanel';
 import { mountPreviewAudio } from './previewAudio';
-import { mountStylePanel } from './stylePanel';
+import { mountStylePanel, webglStyleReason } from './stylePanel';
 import { toast } from './toast';
 import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
 import { mountTrimBar } from './trimBar';
@@ -92,21 +93,21 @@ export function renderPrepare(
   panelHost.id = TOOL_PANEL_ID;
   panelHost.setAttribute('role', 'tabpanel');
   const styleDetails = el('details', 'adjust style-adjust');
-  let styleUnavailable = '';
-  const probe = document.createElement('canvas').getContext('webgl2');
-  if (!probe) styleUnavailable = 'Video styles need WebGL2 in this browser.';
-  else probe.getExtension('WEBGL_lose_context')?.loseContext();
+  let styleUnavailable = webglStyleReason();
   // Overlays apply to Shrink and GIF alike, so their controls sit below whichever panel shows.
   const overlayDetails = el('details', 'adjust overlay-adjust');
   const overlayHeading = el('summary');
   const overlayState = el('span', 'adjust-state');
   overlayHeading.append('Overlay', overlayState, icon('i-chev'));
   overlayDetails.append(overlayHeading);
-  const fitPanel = mountFitPanel((fit) =>
-    dispatch({ type: 'setSettings', value: { ...current.settings, fit } }),
+  const patch = (value: Partial<Settings>) =>
+    dispatch({ type: 'setSettings', value: { ...current.settings, ...value } });
+  const fitPanel = mountFitPanel((fit) => patch({ fit }));
+  const captionPanel = mountCaptionPanel(video, state.source.durationSec, (captions) =>
+    patch({ captions }),
   );
   settingsHost.append(panelHost, fitPanel.node);
-  settingsHost.append(audioDetails, colourDetails, styleDetails, overlayDetails);
+  settingsHost.append(audioDetails, colourDetails, styleDetails, overlayDetails, captionPanel.node);
   // Inspector sections share one name so opening one closes the others; panels add their own.
   for (const details of [fitPanel.node, audioDetails, colourDetails, styleDetails, overlayDetails])
     details.name = INSPECTOR_GROUP;
@@ -138,10 +139,9 @@ export function renderPrepare(
   audioPreviewNote.hidden = true;
   tracksHost.firstElementChild!.append(audioPreviewNote);
   const stylePanel = mountStylePanel(styleDetails, colourDetails, state.settings.style, (style) =>
-    dispatch({ type: 'setSettings', value: { ...current.settings, style } }),
+    patch({ style }),
   );
-  const changeOverlays = (overlays: Settings['overlays']) =>
-    dispatch({ type: 'setSettings', value: { ...current.settings, overlays } });
+  const changeOverlays = (overlays: Settings['overlays']) => patch({ overlays });
   const overlayPanel = mountOverlayPanel(
     overlayDetails,
     state.settings.overlays,
@@ -279,14 +279,7 @@ export function renderPrepare(
         exportCurrentFrame(
           video,
           { width: source.displayWidth, height: source.displayHeight },
-          {
-            output,
-            timestamp: video.currentTime,
-            transform: current.settings.transform,
-            style: current.settings.style,
-            fit: current.settings.fit,
-            overlays: current.settings.overlays,
-          },
+          { ...current.settings, output, timestamp: video.currentTime },
           current.overlayAssets,
           mime,
         ),
@@ -397,6 +390,7 @@ export function renderPrepare(
     trim.update(value.settings.trim, value.settings.cuts ?? []);
     current = value;
     fitPanel.update(value.settings.fit, value.tool !== 'audio' && !!value.source.video);
+    captionPanel.update(value.settings.captions, value.tool !== 'audio' && !!value.source.video);
     audioDetails.hidden = value.tool === 'gif';
     const audioChanges = audioChangeCount(value.settings.mix, value.settings.audioProcessing);
     audioState.textContent = audioChanges
@@ -442,6 +436,7 @@ export function renderPrepare(
         fit: value.settings.fit,
         style: value.settings.style,
         overlays: value.settings.overlays,
+        captions: value.settings.captions,
         assets: value.overlayAssets,
         output: previewOutput ?? {
           width: value.source.video.displayWidth,

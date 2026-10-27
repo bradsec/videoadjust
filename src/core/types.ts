@@ -4,6 +4,7 @@ import type { AudioProcessing } from './audioProcess';
 import type { AudioMix } from './audioMix';
 import type { FitSettings } from './fit';
 import type { Cut } from './cuts';
+import type { CaptionSettings } from './captions';
 
 export type Container = 'mp4' | 'webm';
 export type VideoCodecId = 'avc' | 'hevc' | 'av1' | 'vp9';
@@ -59,6 +60,7 @@ export interface Settings {
   targetRetryScale?: number;
   trim: { start: number; end: number };
   cuts?: Cut[];
+  captions?: CaptionSettings;
   trimPrecision?: 'fast' | 'exact';
   keyFrameInterval?: 1 | 2 | null;
   transform?: { rotate: Rotation; flip: boolean; crop: CropPreset; rect?: CropRect | null };

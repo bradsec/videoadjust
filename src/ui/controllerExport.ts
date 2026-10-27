@@ -291,6 +291,7 @@ export function createExportFlow(
         base.overlayAssets,
         base.settings.style,
         base.settings.fit,
+        base.settings.captions,
       );
       if (token !== exportToken) return;
       const blob = await sink.finish(bytes);

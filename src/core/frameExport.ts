@@ -1,3 +1,4 @@
+import { createCaptionRenderer, hasCaptions, normalizeCaptions } from './captions';
 import { renderOverlayLayer, type OverlayAssets } from './overlays';
 import { fitGeometry, paintFit } from './fit';
 import { createStyleRenderer, hasStyleEffects } from './style';
@@ -63,6 +64,7 @@ export async function exportCurrentFrame(
     transform?: Settings['transform'];
     style?: Settings['style'];
     fit?: Settings['fit'];
+    captions?: Settings['captions'];
     overlays?: Settings['overlays'];
   },
   assets: OverlayAssets = {},
@@ -106,6 +108,14 @@ export async function exportCurrentFrame(
     if (fit) paintFit(context, content, fit, settings.fit!);
     const layer = await renderOverlayLayer(width, height, settings.overlays, assets);
     if (layer) context.drawImage(layer, 0, 0);
+    const captionLayer = hasCaptions(settings.captions)
+      ? await createCaptionRenderer(
+          width,
+          height,
+          normalizeCaptions(settings.captions),
+        )(settings.timestamp)
+      : null;
+    if (captionLayer) context.drawImage(captionLayer, 0, 0);
     return await canvas.convertToBlob({ type: mime, quality: 0.92 });
   } finally {
     renderer?.destroy();

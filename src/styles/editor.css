@@ -582,3 +582,44 @@
 }
 
 /* Inspector: one card, one 24px inset for every block. */
+.caption-adjust .setting {
+  grid-template-columns: minmax(0, 1fr);
+}
+.caption-adjust input[type='file'] {
+  max-width: 100%;
+}
+.caption-add {
+  justify-self: start;
+}
+.caption-list {
+  display: grid;
+  gap: var(--s-3);
+}
+.caption-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--line);
+}
+.caption-row-label {
+  flex-basis: 100%;
+  color: var(--text-2);
+}
+.caption-row .trim-input {
+  width: 8ch;
+}
+.caption-text {
+  flex: 1 1 100%;
+  min-height: var(--tap);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--ctl);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  /* iOS zooms the page into any text field under 16px when it takes focus. */
+  font-size: var(--fs-16);
+  resize: vertical;
+}

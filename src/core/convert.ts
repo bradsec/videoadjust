@@ -30,6 +30,7 @@ import {
   type AudioMix,
 } from './audioMix';
 import { registerFrameCrop } from './frameCrop';
+import { createCaptionRenderer, hasCaptions, normalizeCaptions } from './captions';
 import { fitGeometry, paintFit } from './fit';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from './overlays';
 import { createStyleRenderer, hasStyleEffects } from './style';
@@ -150,14 +151,18 @@ export function shrinkJob(
   const frame = crop ?? rotated;
   const fit =
     fitted && frame && v ? fitGeometry(frame, s.fit!.aspect, Math.max(v.width, v.height)) : null;
+  const captionLayerAt =
+    hasCaptions(s.captions) && v
+      ? createCaptionRenderer(v.width, v.height, normalizeCaptions(s.captions))
+      : undefined;
+  const decorated = !!overlay || styled || fitted || !!captionLayerAt;
   const reencode =
     transformed ||
     fitted ||
     s.trimPrecision === 'exact' ||
     cuts.length > 0 ||
     !!s.keyFrameInterval ||
-    !!overlay ||
-    styled;
+    decorated;
   const copiesVideo = !!v && s.passthrough && !reencode;
   let canvas: OffscreenCanvas | undefined;
   let fittedCanvas: OffscreenCanvas | undefined;
@@ -187,26 +192,21 @@ export function shrinkJob(
             // the export. The target's headroom and Try again smaller cover any overshoot.
             quality: quality(v.bitrate),
             ...(reencode || s.targetSizeMB ? { forceTranscode: true } : {}),
-            ...(transformed || fitted || overlay || styled || cuts.length
+            ...(transformed || decorated || cuts.length
               ? { allowTransformationMetadata: false }
               : {}),
-            ...(overlay || styled || fitted || cuts.length
+            ...(decorated || cuts.length
               ? {
-                  ...(overlay || styled || fitted
-                    ? { processedWidth: v.width, processedHeight: v.height }
-                    : {}),
+                  ...(decorated ? { processedWidth: v.width, processedHeight: v.height } : {}),
                   // Samples arrive rotated, flipped, cropped and resized, so overlays land in
                   // output space. sample.draw reads the whole frame, which WebKit handles.
                   process: async (sample: VideoSample) => {
+                    const sourceTime = sample.timestamp + s.trim.start;
                     const timing = cuts.length
-                      ? cutVideoFrameTiming(
-                          sample.timestamp + s.trim.start,
-                          sample.duration,
-                          ranges,
-                        )
+                      ? cutVideoFrameTiming(sourceTime, sample.duration, ranges)
                       : null;
                     if (cuts.length && !timing) return null;
-                    if (!overlay && !styled && !fitted) {
+                    if (!decorated) {
                       // Mediabunny closes the input sample itself, so retime it in place.
                       sample.setTimestamp(timing!.timestamp);
                       sample.setDuration(timing!.duration);
@@ -231,7 +231,7 @@ export function shrinkJob(
                           canvas,
                           canvas.width,
                           canvas.height,
-                          sample.timestamp + s.trim.start,
+                          sourceTime,
                           s.style,
                         );
                         context.drawImage(styleCanvas, 0, 0);
@@ -240,24 +240,18 @@ export function shrinkJob(
                         console.warn('Video Style disabled during export:', error);
                       }
                     }
+                    let target = context;
                     if (fit) {
                       fittedCanvas ??= new OffscreenCanvas(v.width, v.height);
                       const fittedContext = fittedCanvas.getContext('2d');
                       if (!fittedContext) throw new Error('Canvas is unavailable for Fit export.');
                       paintFit(fittedContext, canvas, fit, s.fit!);
-                      if (overlayLayer) fittedContext.drawImage(overlayLayer, 0, 0);
-                      return cuts.length
-                        ? new VideoSample(fittedCanvas, {
-                            ...timing!,
-                          })
-                        : fittedCanvas;
+                      target = fittedContext;
                     }
-                    if (overlayLayer) context.drawImage(overlayLayer, 0, 0);
-                    return cuts.length
-                      ? new VideoSample(canvas, {
-                          ...timing!,
-                        })
-                      : canvas;
+                    if (overlayLayer) target.drawImage(overlayLayer, 0, 0);
+                    const captionLayer = await captionLayerAt?.(sourceTime);
+                    if (captionLayer) target.drawImage(captionLayer, 0, 0);
+                    return timing ? new VideoSample(target.canvas, timing) : target.canvas;
                   },
                 }
               : {}),

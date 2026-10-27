@@ -1,5 +1,7 @@
 import { drawPreparedFrame, preparedFrameMatrix } from '../core/frameExport';
 import { paintFit } from '../core/fit';
+import { hasCaptions } from '../core/captions';
+import { mountCaptionPreview } from './captionPreview';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from '../core/overlays';
 import {
   createStyleRenderer,
@@ -24,19 +26,18 @@ export { livePreviewGeometry, previewFidelity, previewRenderSize } from './previ
 
 type Size = { width: number; height: number };
 
+const look = (s: PreviewSettings) =>
+  JSON.stringify([s.transform, s.fit, s.captions, s.overlays, s.output, s.style, s.fps, s.colors]);
+
 function looksDifferent(a: PreviewSettings, b: PreviewSettings): boolean {
-  return (
-    a.enabled !== b.enabled ||
-    a.assets?.image !== b.assets?.image ||
-    JSON.stringify([a.transform, a.fit, a.overlays, a.output, a.style, a.fps, a.colors]) !==
-      JSON.stringify([b.transform, b.fit, b.overlays, b.output, b.style, b.fps, b.colors])
-  );
+  return a.enabled !== b.enabled || a.assets?.image !== b.assets?.image || look(a) !== look(b);
 }
 
 interface PreviewSettings {
   transform: Settings['transform'];
   fit?: Settings['fit'];
   overlays: Settings['overlays'];
+  captions?: Settings['captions'];
   style: StyleSettings | undefined;
   output: Size;
   /** Output and source frame rates; a lower output rate holds frames to show the stepping. */
@@ -72,6 +73,7 @@ export function mountLivePreview(
   styleLabel.setAttribute('aria-hidden', 'true');
   styleLabel.hidden = true;
   frame.append(video, styleCanvas, fitCanvas, overlay, paletteCanvas, styleLabel);
+  const captionsView = mountCaptionPreview(video, frame);
   stage.append(frame);
   const bar = el('div', 'live-preview-bar');
   const controls = el('div', 'scrub');
@@ -412,9 +414,11 @@ export function mountLivePreview(
         !!geometry?.crop ||
         (settings.fit?.aspect !== undefined && settings.fit.aspect !== 'off') ||
         processed ||
+        hasCaptions(settings.captions) ||
         (!!settings.overlays && hasOverlays(settings.overlays)));
     if (!edited) showingOriginal = false;
     active = edited && !showingOriginal;
+    captionsView.update(active ? settings.captions : undefined, settings.output);
     original.hidden = !edited;
     original.setAttribute('aria-pressed', String(showingOriginal));
     styleLabel.hidden = !settings.enabled || !hasStyleEffects(settings.style);
@@ -500,6 +504,7 @@ export function mountLivePreview(
     },
     destroy() {
       destroyed = true;
+      captionsView.destroy();
       version++;
       observer.disconnect();
       stopStyle();

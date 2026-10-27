@@ -1,5 +1,6 @@
 import { CanvasSink, type Input } from 'mediabunny';
 import { scaleToLongEdge } from './autoSettings';
+import { createCaptionRenderer, hasCaptions, normalizeCaptions } from './captions';
 import { keptDuration, normalizeCuts, outputToSource, type Cut } from './cuts';
 import { fitGeometry, paintFit, type FitSettings } from './fit';
 import { renderOverlayLayer, type OverlayAssets } from './overlays';
@@ -225,6 +226,7 @@ export async function exportGif(
   assets: OverlayAssets = {},
   style?: Settings['style'],
   fit?: FitSettings,
+  captions?: Settings['captions'],
 ): Promise<{ bytes: Uint8Array; styleDropped: boolean }> {
   const video = source.video;
   const track = await input.getPrimaryVideoTrack();
@@ -245,6 +247,9 @@ export async function exportGif(
   );
   if (budget) throw new Error(budget);
   const overlayLayer = await renderOverlayLayer(width, height, overlays, assets);
+  const captionLayerAt = hasCaptions(captions)
+    ? createCaptionRenderer(width, height, normalizeCaptions(captions))
+    : undefined;
   const { timestamps, delaysMs } = gifFramePlan(
     settings.trim,
     settings.fps,
@@ -361,6 +366,8 @@ export async function exportGif(
       if (fitted && fittedContext) paintFit(fittedContext, context.canvas, fitted, fit!);
       const outputContext = fittedContext ?? context;
       if (overlayLayer) outputContext.drawImage(overlayLayer, 0, 0);
+      const captionLayer = await captionLayerAt?.(timestamps[i]!);
+      if (captionLayer) outputContext.drawImage(captionLayer, 0, 0);
       // Copy pixels before the iterator can reuse its pooled canvas.
       const rgba = outputContext.getImageData(0, 0, width, height).data;
       await send(
