@@ -2,6 +2,17 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.27.1] - 2026-10-28
+
+### Fixed
+
+- The preview no longer flashes the removed footage between a fade out and the fade in; it stays black until playback skips past the cut.
+- Setting a cut's Start past its End, or End before its Start, now moves the cut at its current length instead of showing a validation error.
+
+### Changed
+
+- Tidied the Cut sections layout: Add cut sits beside the heading, each cut's Start, End and Remove line up in columns, and the transition controls share one compact row.
+
 ## [0.27.0] - 2026-10-28
 
 ### Added

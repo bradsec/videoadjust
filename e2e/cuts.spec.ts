@@ -130,10 +130,34 @@ test('Cut sections update the kept duration and Reset all clears them', async ({
       page.locator('.live-preview-fade').evaluate((node) => getComputedStyle(node).opacity),
     )
     .toBe('0.6');
+  // Inside the cut, before playback skips past it, the picture stays black.
+  await page.locator('video').evaluate(async (video: HTMLVideoElement) => {
+    video.currentTime = 1.5;
+    await new Promise((resolve) => video.addEventListener('seeked', resolve, { once: true }));
+  });
+  await expect
+    .poll(() =>
+      page.locator('.live-preview-fade').evaluate((node) => getComputedStyle(node).opacity),
+    )
+    .toBe('1');
 
   await page.getByRole('button', { name: 'Reset all' }).first().click();
   await page.getByRole('button', { name: 'Confirm reset' }).click();
   await expect(section.getByLabel('Cut 1 start', { exact: true })).toHaveCount(0);
   await expect(kept).toHaveText(fullKept!);
   await expect(section.getByLabel('Cut transition')).toBeHidden();
+});
+
+test('setting a new cut Start past its End carries the cut along', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  const section = page.getByRole('region', { name: 'Cut sections' });
+  await section.getByRole('button', { name: 'Add cut' }).click();
+  const start = section.getByLabel('Cut 1 start', { exact: true });
+  await start.fill('0:02');
+  await start.press('Enter');
+  await expect(start).toHaveValue('0:02.0');
+  await expect(section.getByLabel('Cut 1 end', { exact: true })).toHaveValue('0:03.0');
+  await expect(start).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(section.locator('.trim-error')).toBeHidden();
 });

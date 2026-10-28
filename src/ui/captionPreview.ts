@@ -85,7 +85,12 @@ export function mountCaptionPreview(video: HTMLVideoElement, frame: HTMLElement)
         fadeKey = nextFade;
         const at = nextFade ? createJoinFade(cut!.trim, cut!.cuts, fade) : null;
         // Inside a cut, before playback skips past it, the picture stays black.
-        levelAt = at && ((time) => at(sourceToOutput(time, cut!.trim, cut!.cuts) ?? 0));
+        levelAt =
+          at &&
+          ((time) => {
+            const output = sourceToOutput(time, cut!.trim, cut!.cuts);
+            return output === null ? 0 : at(output);
+          });
         drawShade();
       }
       const next = hasCaptions(value) ? normalizeCaptions(value) : null;

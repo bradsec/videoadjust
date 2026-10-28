@@ -69,7 +69,9 @@ export function mountCutControls(
   fadeLength.addEventListener('change', () =>
     onSettings?.({ cuts, fade: Number(fadeLength.value) }),
   );
-  section.append(heading, help, list, add, transitionRow);
+  const head = el('div', 'cut-head');
+  head.append(heading, add);
+  section.append(head, help, list, transitionRow);
 
   function render() {
     marks.replaceChildren(
@@ -84,20 +86,27 @@ export function mountCutControls(
     cuts.forEach((cut, index) => {
       const row = el('div', 'cut-row');
       row.append(el('span', 'cut-row-label', `Cut ${index + 1}`));
+      const error = el(
+        'span',
+        'setting-reason trim-error',
+        'Enter a time inside the trim, keeping this cut at least 0.1 seconds.',
+      );
+      error.hidden = true;
       for (const side of ['start', 'end'] as const) {
         const input = el('input', 'trim-input num') as HTMLInputElement;
         input.type = 'text';
         input.inputMode = 'text';
         input.value = formatDuration(cut[side], { tenths: true });
         input.setAttribute('aria-label', `Cut ${index + 1} ${side}`);
-        const error = el(
-          'span',
-          'setting-reason trim-error',
-          'Enter a time inside the trim, keeping this cut at least 0.1 seconds.',
-        );
-        error.hidden = true;
         const commit = (time: number | null) => {
           const next = { ...cut, [side]: time };
+          // Moving one edge past the other carries the cut along at its current length, so
+          // setting Start first on a new cut does not fail against its default End.
+          const length = cut.end - cut.start;
+          if (time !== null && side === 'start' && time > cut.end - 0.1)
+            next.end = Math.min(trim.end, time + length);
+          if (time !== null && side === 'end' && time < cut.start + 0.1)
+            next.start = Math.max(trim.start, time - length);
           if (
             time === null ||
             time < trim.start ||
@@ -139,13 +148,15 @@ export function mountCutControls(
         set.title = `Set cut ${index + 1} ${side} to playhead`;
         set.setAttribute('aria-label', set.title);
         set.addEventListener('click', () => commit(video.currentTime));
-        row.append(el('span', 'trim-label', side === 'start' ? 'Start' : 'End'), input, set, error);
+        const group = el('span', `cut-time cut-time-${side}`);
+        group.append(el('span', 'trim-label', side === 'start' ? 'Start' : 'End'), input, set);
+        row.append(group);
       }
-      const remove = el('button', 'btn btn-cue', 'Remove');
+      const remove = el('button', 'btn btn-cue cut-remove', 'Remove');
       remove.type = 'button';
       remove.setAttribute('aria-label', `Remove cut ${index + 1}`);
       remove.addEventListener('click', () => onChange?.(cuts.filter((_, at) => at !== index)));
-      row.append(remove);
+      row.append(remove, error);
       list.append(row);
     });
     add.disabled = !onChange || cuts.length >= 20 || trim.end - trim.start < 0.2;
