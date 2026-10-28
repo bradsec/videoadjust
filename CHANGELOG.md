@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.26.3] - 2026-10-28
+
+### Changed
+
+- Style Intensity and Film grain's Grain size sliders now start in the centre. The centre renders the same strength as before, and the full range stays available.
+
 ## [0.26.2] - 2026-10-28
 
 ### Changed

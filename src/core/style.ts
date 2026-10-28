@@ -27,7 +27,7 @@ export const STYLE_PRESETS = [
     detailMin: 0,
     detailMax: 1,
     detailStep: 0.01,
-    defaultDetail: 0.4,
+    defaultDetail: 0.5,
   },
   {
     id: 'vhs',
@@ -166,7 +166,7 @@ export interface StyleSettings {
 
 const DEFAULT_STYLE: StyleSettings = {
   id: 'none',
-  intensity: 0.7,
+  intensity: 0.5,
   detail: 0.5,
   colorA: '#172448',
   colorB: '#f5bd69',
@@ -218,11 +218,19 @@ function rgb(hex: string): [number, number, number] {
   ];
 }
 
+/**
+ * Sliders start in the centre; this maps 0, 0.5 and 1 to 0, the tuned default and 1, so the
+ * centre renders the strength each look was tuned at while both ends stay reachable.
+ */
+function centred(value: number, mid: number): number {
+  return value <= 0.5 ? value * 2 * mid : mid + (value - 0.5) * 2 * (1 - mid);
+}
+
 export function styleUniforms(value: StyleSettings) {
   const style = normalizeStyle(value);
   return {
     kind: hasStyle(style) ? STYLE_PRESETS.findIndex((item) => item.id === style.id) : 0,
-    intensity: style.intensity,
+    intensity: centred(style.intensity, 0.7),
     detail: style.detail,
     colorA: rgb(style.colorA),
     colorB: rgb(style.colorB),
@@ -236,7 +244,7 @@ export function styleUniforms(value: StyleSettings) {
 }
 
 export function grainCellSize(detail: number, height: number): number {
-  return Math.max(1, ((3 + 6 * detail) * height) / 1080);
+  return Math.max(1, ((3 + 6 * centred(detail, 0.4)) * height) / 1080);
 }
 
 const GLOW_LEVELS = 5;

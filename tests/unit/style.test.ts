@@ -85,6 +85,16 @@ describe('video styles', () => {
     expect(renderer).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
   });
+  it('starts style sliders in the centre while rendering the tuned strength', () => {
+    const defaults = normalizeStyle({ id: 'grain' });
+    expect(defaults.intensity).toBe(0.5);
+    expect(defaults.detail).toBe(0.5);
+    expect(styleUniforms(defaults).intensity).toBeCloseTo(0.7, 6);
+    expect(styleUniforms({ ...defaults, intensity: 1 }).intensity).toBe(1);
+    expect(styleUniforms({ ...defaults, intensity: 0.25 }).intensity).toBeCloseTo(0.35, 6);
+    expect(grainCellSize(0.5, 1080)).toBeCloseTo(5.4, 6);
+    for (const preset of STYLE_PRESETS) expect(preset.defaultDetail).toBe(0.5);
+  });
   it('makes large grain clearly coarser at preview and export resolutions', () => {
     for (const height of [360, 1080]) {
       const fine = grainCellSize(0, height);
@@ -231,7 +241,8 @@ describe('video styles', () => {
     });
     expect(styleUniforms(style)).toEqual({
       kind: STYLE_PRESETS.findIndex((preset) => preset.id === 'duotone'),
-      intensity: 0.6,
+      // Above the centre, 0.6 maps to 0.7 + 0.1 * 0.6.
+      intensity: 0.76,
       detail: 0.3,
       colorA: [0, 0, 128 / 255],
       colorB: [1, 128 / 255, 64 / 255],
