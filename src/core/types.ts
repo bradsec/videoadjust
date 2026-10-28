@@ -60,6 +60,8 @@ export interface Settings {
   targetRetryScale?: number;
   trim: { start: number; end: number };
   cuts?: Cut[];
+  /** Fade through black at each cut, in seconds; 0 or absent for a hard cut. */
+  cutFade?: number;
   captions?: CaptionSettings;
   trimPrecision?: 'fast' | 'exact';
   keyFrameInterval?: 1 | 2 | null;

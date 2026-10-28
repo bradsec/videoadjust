@@ -1,20 +1,22 @@
-import { keptDuration, normalizeCuts, type Cut } from '../core/cuts';
+import { keptDuration, normalizeCuts, type Cut, type CutSettings } from '../core/cuts';
 import { el } from './dom';
 import { formatDuration } from './format';
 import { parseTimecode } from './timelineTicks';
 import type { Trim } from './trimBar';
 
-export type { Cut };
+export type { Cut, CutSettings };
 
 export function mountCutControls(
   video: HTMLVideoElement,
   duration: number,
   initialTrim: Trim,
-  initialCuts: Cut[],
-  onChange?: (cuts: Cut[]) => void,
+  initial: CutSettings = { cuts: [], fade: 0 },
+  onSettings?: (value: CutSettings) => void,
 ) {
   let trim = initialTrim;
-  let cuts = initialCuts;
+  let cuts = initial.cuts;
+  let fade = initial.fade;
+  const onChange = onSettings && ((next: Cut[]) => onSettings({ cuts: next, fade }));
   const section = el('section', 'cut-sections');
   section.setAttribute('aria-label', 'Cut sections');
   const heading = el('h3', undefined, 'Cut sections');
@@ -34,7 +36,40 @@ export function mountCutControls(
     const start = Math.min(Math.max(video.currentTime, trim.start), trim.end - 0.1);
     onChange(normalizeCuts([...cuts, { start, end: Math.min(trim.end, start + 1) }], trim));
   });
-  section.append(heading, help, list, add);
+  const transition = el('select', 'setting-select');
+  transition.setAttribute('aria-label', 'Cut transition');
+  const fadeLength = el('select', 'setting-select');
+  fadeLength.setAttribute('aria-label', 'Fade duration');
+  for (const [node, options] of [
+    [
+      transition,
+      [
+        ['none', 'Hard cut'],
+        ['fade', 'Fade through black'],
+      ],
+    ],
+    [fadeLength, [0.25, 0.5, 0.75, 1].map((seconds) => [String(seconds), `${seconds} s`])],
+  ] as const)
+    for (const [value, text] of options) {
+      const option = el('option', undefined, text);
+      option.value = value;
+      node.append(option);
+    }
+  const transitionLabel = el('label', 'setting-label', 'Transition');
+  transitionLabel.title = 'Fade the picture and sound through black at each cut';
+  transitionLabel.append(transition);
+  const fadeLabel = el('label', 'setting-label', 'Fade duration');
+  fadeLabel.title = 'Total length of each fade: half out before the cut, half in after it';
+  fadeLabel.append(fadeLength);
+  const transitionRow = el('div', 'cut-transition');
+  transitionRow.append(transitionLabel, fadeLabel);
+  transition.addEventListener('change', () =>
+    onSettings?.({ cuts, fade: transition.value === 'fade' ? Number(fadeLength.value) || 0.5 : 0 }),
+  );
+  fadeLength.addEventListener('change', () =>
+    onSettings?.({ cuts, fade: Number(fadeLength.value) }),
+  );
+  section.append(heading, help, list, add, transitionRow);
 
   function render() {
     marks.replaceChildren(
@@ -114,6 +149,10 @@ export function mountCutControls(
       list.append(row);
     });
     add.disabled = !onChange || cuts.length >= 20 || trim.end - trim.start < 0.2;
+    transitionRow.hidden = !cuts.length;
+    transition.value = fade > 0 ? 'fade' : 'none';
+    fadeLength.value = String(fade > 0 ? fade : 0.5);
+    fadeLabel.hidden = fade <= 0;
   }
   render();
   return {
@@ -121,10 +160,12 @@ export function mountCutControls(
     marks,
     cuts: () => cuts,
     kept: () => keptDuration(trim, cuts),
-    update(nextTrim: Trim, nextCuts: Cut[] = cuts) {
-      if (JSON.stringify([trim, cuts]) === JSON.stringify([nextTrim, nextCuts])) return;
+    update(nextTrim: Trim, next: CutSettings = { cuts, fade }) {
+      if (JSON.stringify([trim, cuts, fade]) === JSON.stringify([nextTrim, next.cuts, next.fade]))
+        return;
       trim = nextTrim;
-      cuts = nextCuts;
+      cuts = next.cuts;
+      fade = next.fade;
       render();
     },
   };

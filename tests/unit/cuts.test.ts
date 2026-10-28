@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createJoinFade,
   keptDuration,
   keptRanges,
+  normalizeCutFade,
   normalizeCuts,
   outputToSource,
   sourceToOutput,
@@ -61,5 +63,37 @@ describe('cut sections', () => {
     expect(outputToSource(5, trim, cuts)).toBe(14);
     expect(outputToSource(21, trim, cuts)).toBe(32);
     expect(outputToSource(29, trim, cuts)).toBe(40);
+  });
+});
+
+describe('join fades', () => {
+  const trim = { start: 0, end: 10 };
+  const cuts = [{ start: 4, end: 6 }];
+
+  it('dips to zero at each join and back over the fade duration', () => {
+    const at = createJoinFade(trim, cuts, 1);
+    expect(at(4)).toBe(0);
+    expect(at(3.75)).toBeCloseTo(0.5, 6);
+    expect(at(4.25)).toBeCloseTo(0.5, 6);
+    expect(at(3.5)).toBe(1);
+    expect(at(1)).toBe(1);
+  });
+
+  it('is constant without cuts or fade, and shortens the fade to fit short parts', () => {
+    expect(createJoinFade(trim, [], 1)(5)).toBe(1);
+    expect(createJoinFade(trim, cuts, 0)(4)).toBe(1);
+    // Kept parts of 0.4 s and 9.4 s: half a fade is at most 0.2 s.
+    const short = createJoinFade(trim, [{ start: 0.4, end: 1 }], 1);
+    expect(short(0.2)).toBe(1);
+    expect(short(0.3)).toBeCloseTo(0.5, 6);
+  });
+
+  it('normalizes fade durations to 0 or 0.1 to 1 second', () => {
+    expect(normalizeCutFade(undefined)).toBe(0);
+    expect(normalizeCutFade(Number.NaN)).toBe(0);
+    expect(normalizeCutFade(-1)).toBe(0);
+    expect(normalizeCutFade(0.05)).toBe(0.1);
+    expect(normalizeCutFade(0.5)).toBe(0.5);
+    expect(normalizeCutFade(3)).toBe(1);
   });
 });

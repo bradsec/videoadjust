@@ -1,6 +1,6 @@
 import { normalizeAudioMix } from '../core/audioMix';
 import { normalizeAudioProcessing } from '../core/audioProcess';
-import { keptDuration, normalizeCuts, type Cut } from '../core/cuts';
+import { keptDuration, normalizeCuts, type CutSettings } from '../core/cuts';
 import type { Settings } from '../core/types';
 import type { AppState } from './controllerTypes';
 import { validateSettings } from './controllerSettings';
@@ -8,8 +8,8 @@ import { validateSettings } from './controllerSettings';
 export const keptSeconds = (state: { settings: Pick<Settings, 'trim' | 'cuts'> }) =>
   keptDuration(state.settings.trim, state.settings.cuts);
 
-export function withCuts(state: Extract<AppState, { kind: 'prepare' }>, value: Cut[]) {
-  const cuts = normalizeCuts(value, state.settings.trim);
+export function withCuts(state: Extract<AppState, { kind: 'prepare' }>, value: CutSettings) {
+  const cuts = normalizeCuts(value.cuts, state.settings.trim);
   const seconds = keptDuration(state.settings.trim, cuts);
   return {
     ...state,
@@ -19,6 +19,7 @@ export function withCuts(state: Extract<AppState, { kind: 'prepare' }>, value: C
       {
         ...state.settings,
         cuts,
+        cutFade: value.fade,
         passthrough: cuts.length ? false : state.settings.passthrough,
         targetRetryScale: undefined,
       },

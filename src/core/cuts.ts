@@ -64,3 +64,39 @@ export function outputToSource(time: number, trim: Trim, cuts?: readonly Cut[]):
   }
   return time === elapsed && elapsed > 0 ? trim.end : null;
 }
+
+/** What the cut controls edit: the removed ranges and the fade through black at each join. */
+export type CutSettings = { cuts: Cut[]; fade: number };
+
+/** Fade length in seconds: 0 for a hard cut, otherwise 0.1 to 1. */
+export function normalizeCutFade(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return 0;
+  return Math.min(1, Math.max(0.1, value));
+}
+
+/**
+ * Returns the picture or sound level at an output time: 0 at each join, rising linearly to 1
+ * over half the fade on either side. Half a fade never exceeds half the shortest kept part,
+ * so neighbouring fades cannot overlap.
+ */
+export function createJoinFade(
+  trim: Trim,
+  cuts: readonly Cut[] | undefined,
+  fade: number,
+): (outputTime: number) => number {
+  const ranges = keptRanges(trim, cuts);
+  if (ranges.length < 2 || fade <= 0) return () => 1;
+  const half = Math.min(fade / 2, ...ranges.map((range) => (range.end - range.start) / 2));
+  const joins: number[] = [];
+  let elapsed = 0;
+  for (const range of ranges.slice(0, -1)) joins.push((elapsed += range.end - range.start));
+  return (time) => {
+    let level = 1;
+    for (const join of joins) level = Math.min(level, Math.abs(time - join) / half);
+    return level;
+  };
+}
+
+export function cutSettings(value: { cuts?: Cut[]; cutFade?: number }): CutSettings {
+  return { cuts: value.cuts ?? [], fade: normalizeCutFade(value.cutFade) };
+}

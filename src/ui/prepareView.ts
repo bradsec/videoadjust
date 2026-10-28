@@ -1,5 +1,5 @@
 import { audioChangeCount } from '../core/audioMix';
-import { keptDuration } from '../core/cuts';
+import { cutSettings, keptDuration } from '../core/cuts';
 import { exportCurrentFrame } from '../core/frameExport';
 import { gifDimensions } from '../core/gifExport';
 import { openImageSink, type GifSink } from '../core/sink';
@@ -181,7 +181,7 @@ export function renderPrepare(
       ? state.source.video.displayWidth / state.source.video.displayHeight
       : 16 / 9,
     value: state.settings.trim,
-    cuts: state.settings.cuts,
+    cuts: cutSettings(state.settings),
     video,
     thumbnails: thumbnailsForSource,
     previewPlayable,
@@ -387,7 +387,7 @@ export function renderPrepare(
   title.focus();
   function update(value: AppState): void {
     if (value.kind !== 'prepare') return;
-    trim.update(value.settings.trim, value.settings.cuts ?? []);
+    trim.update(value.settings.trim, cutSettings(value.settings));
     current = value;
     fitPanel.update(value.settings.fit, value.tool !== 'audio' && !!value.source.video);
     captionPanel.update(value.settings.captions, value.tool !== 'audio' && !!value.source.video);
@@ -437,6 +437,11 @@ export function renderPrepare(
         style: value.settings.style,
         overlays: value.settings.overlays,
         captions: value.settings.captions,
+        cutFade: {
+          trim: value.settings.trim,
+          cuts: value.settings.cuts,
+          fade: value.settings.cutFade,
+        },
         assets: value.overlayAssets,
         output: previewOutput ?? {
           width: value.source.video.displayWidth,

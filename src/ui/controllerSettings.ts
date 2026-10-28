@@ -25,7 +25,7 @@ import type {
 } from '../core/types';
 import { formatBitrate } from './format';
 import { clampTrim } from './trimBar';
-import { keptDuration, normalizeCuts } from '../core/cuts';
+import { keptDuration, normalizeCutFade, normalizeCuts } from '../core/cuts';
 import type { AppState, Loaded } from './controllerTypes';
 
 const CODEC_LABELS: Record<string, string> = {
@@ -344,6 +344,7 @@ export function validateSettings(
       style,
       fit,
       cuts,
+      ...(normalizeCutFade(value.cutFade) ? { cutFade: normalizeCutFade(value.cutFade) } : {}),
       ...(value.captions ? { captions: normalizeCaptions(value.captions) } : {}),
       ...(mix ? { mix } : {}),
       ...(value.audioProcessing
@@ -405,6 +406,7 @@ function editChangeCount(current: Settings, auto: AutoResult): number {
         current.trim.end !== auto.settings.trim.end,
     ) +
     Number(!!current.cuts?.length) +
+    Number(!!current.cuts?.length && normalizeCutFade(current.cutFade) > 0) +
     Number(hasCaptions(current.captions)) +
     Number(!!current.overlays?.text.enabled) +
     Number(!!current.overlays?.image.enabled) +

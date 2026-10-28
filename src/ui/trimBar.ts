@@ -1,7 +1,7 @@
 import { el, icon } from './dom';
 import { formatDuration } from './format';
 import { formatTimelineLabel, parseTimecode, pickTickStep } from './timelineTicks';
-import { mountCutControls, previewSkip, type Cut } from './cutControls';
+import { mountCutControls, previewSkip, type CutSettings } from './cutControls';
 
 export const MIN_TRIM_SPAN = 0.1;
 export type Trim = { start: number; end: number };
@@ -53,7 +53,7 @@ export interface TrimBarOptions {
   fps?: number;
   aspect: number;
   value: Trim;
-  cuts?: Cut[];
+  cuts?: CutSettings;
   video: HTMLVideoElement;
   thumbnails: (
     count: number,
@@ -63,7 +63,7 @@ export interface TrimBarOptions {
   ) => Promise<HTMLCanvasElement[]>;
   previewPlayable?: boolean;
   onChange: (t: Trim) => void;
-  onCutsChange?: (cuts: Cut[]) => void;
+  onCutsChange?: (value: CutSettings) => void;
 }
 
 export function mountTrimBar(
@@ -71,7 +71,7 @@ export function mountTrimBar(
   opts: TrimBarOptions,
 ): {
   waveformSlot: HTMLElement;
-  update(value: Trim, cuts?: Cut[]): void;
+  update(value: Trim, cuts?: CutSettings): void;
   setPreviewPlayable(value: boolean): void;
   destroy(): void;
 } {
@@ -241,7 +241,7 @@ export function mountTrimBar(
     playheadButtons.push(button);
   }
   readouts.append(frameGroup);
-  const cutControls = mountCutControls(video, duration, value, opts.cuts ?? [], opts.onCutsChange);
+  const cutControls = mountCutControls(video, duration, value, opts.cuts, opts.onCutsChange);
   strip.insertBefore(cutControls.marks, handles[0]!);
   // Audio lanes sit directly under the filmstrip so they share its timeline.
   const waveformSlot = el('div', 'trim-lanes');
@@ -437,7 +437,7 @@ export function mountTrimBar(
   ): void {
     node.style[property] = `${duration > 0 ? (seconds / duration) * 100 : 0}%`;
   }
-  function update(next: Trim, nextCuts?: Cut[]): void {
+  function update(next: Trim, nextCuts?: CutSettings): void {
     value = next;
     cutControls.update(next, nextCuts);
     reset.hidden = next.start <= 0 && next.end >= duration;

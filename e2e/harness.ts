@@ -69,12 +69,13 @@ const centrePoints: PixelPoint[] = [
 async function sampleVideoPixels(
   blob: Blob,
   points = centrePoints,
+  at?: number,
 ): Promise<[number, number, number][]> {
   const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
   try {
     const track = await input.getPrimaryVideoTrack();
     if (!track) throw new Error('Exported video has no video track');
-    const frame = await new CanvasSink(track).getCanvas(await track.getFirstTimestamp());
+    const frame = await new CanvasSink(track).getCanvas(at ?? (await track.getFirstTimestamp()));
     if (!frame) throw new Error('Exported video did not decode');
     const canvas = frame.canvas;
     const context = canvas.getContext('2d') as
@@ -238,6 +239,7 @@ const harness = {
     cancelAt: CancelAt = 'never',
     samplePixels = false,
     points = centrePoints,
+    sampleAt?: number,
   ): Promise<ConvertResult> {
     try {
       const { input, info: source } = await readSource(selectedFile());
@@ -267,7 +269,9 @@ const harness = {
       const blob = await sink.finish();
       if (!blob) throw new Error('Memory sink returned no blob');
       const { info } = await readSource(new File([blob], 'out', { type: mime }));
-      const pixelSamples = samplePixels ? await sampleVideoPixels(blob, points) : undefined;
+      const pixelSamples = samplePixels
+        ? await sampleVideoPixels(blob, points, sampleAt)
+        : undefined;
       return {
         ok: true,
         output: info,

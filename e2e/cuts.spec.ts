@@ -38,6 +38,32 @@ test.describe('cut export', () => {
     expect(r.output.audio).not.toBeNull();
   });
 
+  test('Fade through black darkens the picture at the join only', async ({ page }) => {
+    const canAvc = await page.evaluate(() => window.vrHarness.canEncodeVideo('avc', 640, 360));
+    test.skip(!canAvc, 'This browser build has no H.264 WebCodecs encoder');
+    const settings: Settings = {
+      container: 'mp4',
+      passthrough: false,
+      trim: { start: 0, end: 3 },
+      cuts: [{ start: 1, end: 2 }],
+      cutFade: 1,
+      video: { codec: 'avc', width: 640, height: 360, fps: 30, bitrate: 1_000_000 },
+      audio: { codec: 'aac', bitrate: 128_000, channels: 2, copy: false },
+    };
+    const brightness = async (at: number) => {
+      const r = ok(
+        await page.evaluate(
+          ([s, t]) => window.vrHarness.convertToMemory(s, 'never', true, undefined, t),
+          [settings, at] as const,
+        ),
+      );
+      expect(Math.abs(r.output.durationSec - 2)).toBeLessThanOrEqual(0.1);
+      return Math.max(...r.pixelSamples!.flat());
+    };
+    expect(await brightness(0.2)).toBeGreaterThan(120);
+    expect(await brightness(1.0)).toBeLessThan(40);
+  });
+
   test('Extract audio exports only the kept duration', async ({ page }) => {
     const settings: AudioExtractSettings = {
       format: 'wav',
@@ -90,8 +116,24 @@ test('Cut sections update the kept duration and Reset all clears them', async ({
   await expect(kept).toHaveText(/^0:02\.0 of 0:03\.0 kept$/);
   await expect(page.locator('.trim-cut-mark')).toHaveCount(1);
 
+  await section.getByLabel('Cut transition').selectOption('fade');
+  await expect(section.getByLabel('Fade duration')).toHaveValue('0.5');
+  await expect(kept).toHaveText(/^0:02\.0 of 0:03\.0 kept$/);
+  await page.locator('video').evaluate(async (video: HTMLVideoElement) => {
+    video.pause();
+    video.currentTime = 0.9;
+    await new Promise((resolve) => video.addEventListener('seeked', resolve, { once: true }));
+  });
+  // Half of the 0.5 s fade ends at the 1 s join, so 0.9 s is 60% dark.
+  await expect
+    .poll(() =>
+      page.locator('.live-preview-fade').evaluate((node) => getComputedStyle(node).opacity),
+    )
+    .toBe('0.6');
+
   await page.getByRole('button', { name: 'Reset all' }).first().click();
   await page.getByRole('button', { name: 'Confirm reset' }).click();
   await expect(section.getByLabel('Cut 1 start', { exact: true })).toHaveCount(0);
   await expect(kept).toHaveText(fullKept!);
+  await expect(section.getByLabel('Cut transition')).toBeHidden();
 });

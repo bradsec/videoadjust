@@ -20,7 +20,7 @@ import {
   type TrackType,
 } from 'mediabunny';
 import type { AudioExtractSettings, AudioFormat } from './audioExtract';
-import { keptRanges, normalizeCuts, type Cut } from './cuts';
+import { createJoinFade, keptRanges, normalizeCutFade, normalizeCuts, type Cut } from './cuts';
 import { processedAudioOptions, hasAudioProcessing, type AudioProcessing } from './audioProcess';
 import {
   createMixProcessor,
@@ -86,6 +86,7 @@ function mixedAudioJob(
   processing: Partial<AudioProcessing> | undefined,
   added: AddedAudio | undefined,
   cuts?: readonly Cut[],
+  cutFade = 0,
 ): Pick<ConversionJob, 'customAudio' | 'prepare'> {
   let processor: ReturnType<typeof createMixProcessor>;
   return {
@@ -94,7 +95,17 @@ function mixedAudioJob(
       samples: (_input, signal) => processor.samples(signal),
     },
     async prepare(input, signal, progress) {
-      processor = createMixProcessor(input, added, mix, trim, channels, 48000, processing, cuts);
+      processor = createMixProcessor(
+        input,
+        added,
+        mix,
+        trim,
+        channels,
+        48000,
+        processing,
+        cuts,
+        cutFade,
+      );
       await processor.prepare(signal, progress);
     },
   };
@@ -110,6 +121,8 @@ export function shrinkJob(
   const a = s.audio;
   const cuts = normalizeCuts(s.cuts, s.trim);
   const ranges = cuts.length ? keptRanges(s.trim, cuts) : [];
+  const cutFade = normalizeCutFade(s.cutFade);
+  const fadeAt = createJoinFade(s.trim, cuts, cutFade);
   const keepsAudio = !!a && mixHasAudio(s.mix, true);
   const mixed =
     keepsAudio && (hasAudioMix(s.mix) || !!added || cuts.length > 0)
@@ -121,6 +134,7 @@ export function shrinkJob(
           s.audioProcessing,
           added,
           cuts,
+          cutFade,
         )
       : undefined;
   const audioProcessor =
@@ -206,7 +220,8 @@ export function shrinkJob(
                       ? cutVideoFrameTiming(sourceTime, sample.duration, ranges)
                       : null;
                     if (cuts.length && !timing) return null;
-                    if (!decorated) {
+                    const level = timing ? fadeAt(timing.timestamp) : 1;
+                    if (!decorated && level === 1) {
                       // Mediabunny closes the input sample itself, so retime it in place.
                       sample.setTimestamp(timing!.timestamp);
                       sample.setDuration(timing!.duration);
@@ -247,6 +262,11 @@ export function shrinkJob(
                       if (!fittedContext) throw new Error('Canvas is unavailable for Fit export.');
                       paintFit(fittedContext, canvas, fit, s.fit!);
                       target = fittedContext;
+                    }
+                    // Fade the picture through black at cuts; overlays and captions stay on top.
+                    if (level < 1) {
+                      target.fillStyle = `rgba(0, 0, 0, ${1 - level})`;
+                      target.fillRect(0, 0, target.canvas.width, target.canvas.height);
                     }
                     if (overlayLayer) target.drawImage(overlayLayer, 0, 0);
                     const captionLayer = await captionLayerAt?.(sourceTime);
@@ -310,6 +330,7 @@ export function audioExtractJob(s: AudioExtractSettings, added?: AddedAudio): Co
           s.audioProcessing,
           added,
           cuts,
+          normalizeCutFade(s.cutFade),
         )
       : undefined;
   const audio: ConversionAudioOptions =

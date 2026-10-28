@@ -12,6 +12,7 @@ export interface AudioExtractSettings {
   format: AudioFormat;
   trim: { start: number; end: number };
   cuts?: Cut[];
+  cutFade?: number;
   bitrate: number;
   channels: 1 | 2;
   copy: boolean;

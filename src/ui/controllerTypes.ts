@@ -10,6 +10,7 @@ import type { startConversion as startConversionFn } from '../core/convert';
 import type { AudioProcessing } from '../core/audioProcess';
 import type { AddedAudio, AudioMix } from '../core/audioMix';
 import { readAddedAudio } from '../core/addedAudio';
+import type { CutSettings } from '../core/cuts';
 
 /** Above this the app warns before reading the file (decimal, matching formatBytes). */
 export const LARGE_FILE_BYTES = 2e9;
@@ -89,7 +90,7 @@ export type AppAction =
       caps: Capabilities;
     }
   | { type: 'setTrim'; value: Settings['trim'] }
-  | { type: 'setCuts'; value: NonNullable<Settings['cuts']> }
+  | { type: 'setCuts'; value: CutSettings }
   | { type: 'setSettings'; value: Settings }
   | { type: 'setMix'; value: AudioMix }
   | { type: 'setAudioProcessing'; value: AudioProcessing }

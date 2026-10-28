@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.27.0] - 2026-10-28
+
+### Added
+
+- Added a Fade through black transition for Cut sections, with a 0.25 to 1 second duration, in preview, Shrink, Extract audio, and GIF.
+
 ## [0.26.3] - 2026-10-28
 
 ### Changed

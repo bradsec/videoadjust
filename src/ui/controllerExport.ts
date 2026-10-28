@@ -292,6 +292,7 @@ export function createExportFlow(
         base.settings.style,
         base.settings.fit,
         base.settings.captions,
+        base.settings.cutFade,
       );
       if (token !== exportToken) return;
       const blob = await sink.finish(bytes);
@@ -391,7 +392,7 @@ export function createExportFlow(
       outputName,
       mime,
       estimate: estimateAudioBytes(a, audioMixSource(prep.source, prep.addedAudio)),
-      job: audioExtractJob(a, prep.addedAudio),
+      job: audioExtractJob({ ...a, cutFade: prep.settings.cutFade }, prep.addedAudio),
       format: (sinkKind) => createAudioOutputFormat(a.format, sinkKind),
       async preflight() {
         if (a.format !== 'mp3') return undefined;

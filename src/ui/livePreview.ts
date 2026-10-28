@@ -1,7 +1,7 @@
 import { drawPreparedFrame, preparedFrameMatrix } from '../core/frameExport';
 import { paintFit } from '../core/fit';
 import { hasCaptions } from '../core/captions';
-import { mountCaptionPreview } from './captionPreview';
+import { mountCaptionPreview, type CutFadeTarget } from './captionPreview';
 import { hasOverlays, renderOverlayLayer, type OverlayAssets } from '../core/overlays';
 import {
   createStyleRenderer,
@@ -38,6 +38,7 @@ interface PreviewSettings {
   fit?: Settings['fit'];
   overlays: Settings['overlays'];
   captions?: Settings['captions'];
+  cutFade?: CutFadeTarget;
   style: StyleSettings | undefined;
   output: Size;
   /** Output and source frame rates; a lower output rate holds frames to show the stepping. */
@@ -418,7 +419,11 @@ export function mountLivePreview(
         (!!settings.overlays && hasOverlays(settings.overlays)));
     if (!edited) showingOriginal = false;
     active = edited && !showingOriginal;
-    captionsView.update(active ? settings.captions : undefined, settings.output);
+    captionsView.update(
+      active ? settings.captions : undefined,
+      settings.output,
+      settings.enabled ? settings.cutFade : undefined,
+    );
     original.hidden = !edited;
     original.setAttribute('aria-pressed', String(showingOriginal));
     styleLabel.hidden = !settings.enabled || !hasStyleEffects(settings.style);

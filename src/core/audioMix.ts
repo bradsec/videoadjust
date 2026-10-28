@@ -7,7 +7,7 @@ import {
   SAMPLE_CEILING,
   type AudioProcessing,
 } from './audioProcess';
-import { keptDuration, keptRanges, type Cut } from './cuts';
+import { createJoinFade, keptDuration, keptRanges, type Cut } from './cuts';
 
 export interface AudioMix {
   original: { include: boolean; volumeDb: number };
@@ -208,6 +208,7 @@ export function createMixProcessor(
   rate = 48000,
   processing: Partial<AudioProcessing> = {},
   cuts?: readonly Cut[],
+  cutFade = 0,
 ) {
   const ranges = keptRanges(trim, cuts);
   const duration = keptDuration(trim, cuts);
@@ -215,15 +216,14 @@ export function createMixProcessor(
     ...range,
     outputStart: ranges.slice(0, index).reduce((sum, part) => sum + part.end - part.start, 0),
   }));
-  const joins = segments.slice(1).map((segment) => segment.outputStart);
   const sourceTime = (time: number): number | null => {
     for (const segment of segments)
       if (time >= segment.outputStart && time < segment.outputStart + segment.end - segment.start)
         return segment.start + time - segment.outputStart;
     return null;
   };
-  const joinGain = (time: number) =>
-    joins.reduce((gain, join) => Math.min(gain, Math.abs(time - join) / 0.01), 1);
+  // A hard cut still ramps over 20 ms so the join does not click.
+  const joinGain = createJoinFade(trim, cuts, Math.max(0.02, cutFade));
   const mix = normalizeAudioMix(value, duration);
   const master = normalizeAudioProcessing(processing, duration);
   let normalizationDb = 0;
@@ -261,7 +261,7 @@ export function createMixProcessor(
           rate,
           dbGain(mix.original.volumeDb),
           sourceTime,
-          joins.length ? joinGain : undefined,
+          segments.length > 1 ? joinGain : undefined,
         );
         if (music && mix.added && added) {
           const settings = mix.added;

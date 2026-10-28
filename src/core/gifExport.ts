@@ -1,7 +1,15 @@
 import { CanvasSink, type Input } from 'mediabunny';
 import { scaleToLongEdge } from './autoSettings';
 import { createCaptionRenderer, hasCaptions, normalizeCaptions } from './captions';
-import { keptDuration, normalizeCuts, outputToSource, type Cut } from './cuts';
+import {
+  createJoinFade,
+  keptDuration,
+  normalizeCutFade,
+  normalizeCuts,
+  outputToSource,
+  sourceToOutput,
+  type Cut,
+} from './cuts';
 import { fitGeometry, paintFit, type FitSettings } from './fit';
 import { renderOverlayLayer, type OverlayAssets } from './overlays';
 import { createStyleRenderer, hasStyleEffects } from './style';
@@ -227,6 +235,7 @@ export async function exportGif(
   style?: Settings['style'],
   fit?: FitSettings,
   captions?: Settings['captions'],
+  cutFade?: number,
 ): Promise<{ bytes: Uint8Array; styleDropped: boolean }> {
   const video = source.video;
   const track = await input.getPrimaryVideoTrack();
@@ -247,6 +256,7 @@ export async function exportGif(
   );
   if (budget) throw new Error(budget);
   const overlayLayer = await renderOverlayLayer(width, height, overlays, assets);
+  const fadeAt = createJoinFade(settings.trim, settings.cuts, normalizeCutFade(cutFade));
   const captionLayerAt = hasCaptions(captions)
     ? createCaptionRenderer(width, height, normalizeCaptions(captions))
     : undefined;
@@ -365,6 +375,11 @@ export async function exportGif(
       }
       if (fitted && fittedContext) paintFit(fittedContext, context.canvas, fitted, fit!);
       const outputContext = fittedContext ?? context;
+      const level = fadeAt(sourceToOutput(timestamps[i]!, settings.trim, settings.cuts) ?? 0);
+      if (level < 1) {
+        outputContext.fillStyle = `rgba(0, 0, 0, ${1 - level})`;
+        outputContext.fillRect(0, 0, width, height);
+      }
       if (overlayLayer) outputContext.drawImage(overlayLayer, 0, 0);
       const captionLayer = await captionLayerAt?.(timestamps[i]!);
       if (captionLayer) outputContext.drawImage(captionLayer, 0, 0);

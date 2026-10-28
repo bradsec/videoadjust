@@ -1,5 +1,11 @@
 import type { Input } from 'mediabunny';
-import { keptDuration, sourceToOutput, type Cut } from '../core/cuts';
+import {
+  createJoinFade,
+  keptDuration,
+  normalizeCutFade,
+  sourceToOutput,
+  type Cut,
+} from '../core/cuts';
 import {
   createMixProcessor,
   hasAudioMix,
@@ -23,10 +29,19 @@ export type PreviewAudioTarget = {
   added?: AddedAudio;
   trim: { start: number; end: number };
   cuts?: Cut[];
+  cutFade?: number;
   channels: number;
 } | null;
 
 /** Linear gain the preview applies at source time `time`, matching export processing. */
+/** Original-audio level for the cut fade at a source time; silent inside a fading cut. */
+export function previewCutLevel(target: NonNullable<PreviewAudioTarget>, time: number): number {
+  const fade = normalizeCutFade(target.cutFade);
+  const output = sourceToOutput(time, target.trim, target.cuts);
+  if (output === null) return fade ? 0 : 1;
+  return createJoinFade(target.trim, target.cuts, fade)(output);
+}
+
 export function previewGain(
   target: PreviewAudioTarget,
   normalizationDb: number,
@@ -137,7 +152,11 @@ export function mountPreviewAudio(
       else if (!active && ceiling.curve) ceiling.curve = null;
     }
     const tracks = previewTrackGains(target);
-    originalGain.gain.setTargetAtTime(tracks.original, context.currentTime, 0.01);
+    originalGain.gain.setTargetAtTime(
+      tracks.original * (target ? previewCutLevel(target, video.currentTime) : 1),
+      context.currentTime,
+      0.01,
+    );
     // The buffer bypasses the element, so apply the player's volume and mute to it here.
     const player = video.muted ? 0 : video.volume;
     addedGain.gain.setTargetAtTime(
@@ -301,7 +320,7 @@ export function mountPreviewAudio(
     const normalize = target ? normalizeAudioProcessing(target.processing, 1).normalize : null;
     const key =
       target && normalize !== null
-        ? `${normalize}|${target.trim.start}|${target.trim.end}|${JSON.stringify(target.cuts)}|${target.channels}|${JSON.stringify(target.mix)}`
+        ? `${normalize}|${target.trim.start}|${target.trim.end}|${JSON.stringify(target.cuts)}|${target.cutFade ?? 0}|${target.channels}|${JSON.stringify(target.mix)}`
         : '';
     const addedInput = target?.added?.input;
     if (key === analysisKey && addedInput === analysisInput) return;
@@ -313,7 +332,7 @@ export function mountPreviewAudio(
     normalizationDb = 0;
     onNormalization(0);
     if (!key || !target) return;
-    const { processing, trim, cuts, channels, mix, added } = target;
+    const { processing, trim, cuts, cutFade, channels, mix, added } = target;
     analysisTimer = setTimeout(() => {
       const controller = new AbortController();
       analysis = controller;
@@ -329,6 +348,7 @@ export function mountPreviewAudio(
             48000,
             processing,
             cuts,
+            normalizeCutFade(cutFade),
           );
           await processor.prepare(controller.signal, () => {});
           return processor.normalizationDb();

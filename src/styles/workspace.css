@@ -120,6 +120,12 @@
 .live-preview-palette {
   pointer-events: none;
 }
+.live-preview-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+}
 .live-preview-overlay,
 .live-preview-captions {
   position: absolute;
