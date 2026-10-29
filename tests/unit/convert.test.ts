@@ -70,6 +70,15 @@ describe('conversion jobs', () => {
       audioExtractJob({ ...audio, cuts: [{ start: 0.8, end: 1.1 }] }).customAudio,
     ).toBeDefined();
   });
+  it('ignores stored cuts outside the trim in both export jobs', () => {
+    const cuts = [{ start: 3, end: 4 }];
+    const video = shrinkJob({ ...base, passthrough: true, cuts });
+    expect(video.copiesVideo).toBe(true);
+    expect(video.customAudio).toBeUndefined();
+    expect(
+      audioExtractJob({ ...audio, format: 'm4a', copy: true, cuts }).customAudio,
+    ).toBeUndefined();
+  });
   it('re-encodes Fit at the foreground size and emits the fitted frame size', () => {
     const source = {
       video: { displayWidth: 1920, displayHeight: 1080 },

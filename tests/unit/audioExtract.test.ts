@@ -60,6 +60,19 @@ describe('audio extract rules', () => {
     expect(estimateAudioBytes(cut, src).mid).toBeCloseTo(((96000 * 54) / 8) * 1.01);
     expect(audioExtractChangeCount(cut, base, src, caps())).toBe(1);
   });
+  it('keeps cuts outside the trim without counting them or disabling copy', () => {
+    const src = source({ bitrate: 96000 });
+    const base = { ...auto(src), format: 'm4a' as const, copy: true };
+    const selected = {
+      ...base,
+      trim: { start: 0, end: 5 },
+      cuts: [{ start: 10, end: 12 }],
+    };
+    const validated = validateAudioExtract(selected, base, src, caps());
+    expect(validated.cuts).toEqual(selected.cuts);
+    expect(validated.copy).toBe(true);
+    expect(audioExtractChangeCount(selected, base, src, caps())).toBe(1);
+  });
   it('normalizes mix settings and preserves copy eligibility only for a neutral mix', () => {
     const src = source({ bitrate: 96000 });
     const automatic = auto(src);
@@ -86,7 +99,7 @@ describe('audio extract rules', () => {
     expect(mixed.copy).toBe(false);
     expect(mixed.mix).toEqual({
       original: { include: false, volumeDb: -20 },
-      added: { volumeDb: 20, offset: 3, loop: true },
+      added: { volumeDb: 20, offset: src.durationSec, loop: true },
     });
   });
 

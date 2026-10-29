@@ -68,6 +68,27 @@ function seconds(value: string): number | null {
   return Number(h ?? 0) * 3600 + Number(m) * 60 + Number(s) + Number(ms!.padEnd(3, '0')) / 1000;
 }
 
+// WebVTT cue text must escape & < >; files also carry nbsp, direction marks and numeric refs.
+const ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: '\u00a0',
+  lrm: '\u200e',
+  rlm: '\u200f',
+};
+
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (match, name: string) => {
+    if (name[0] !== '#') return ENTITIES[name.toLowerCase()] ?? match;
+    const code =
+      name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : Number(name.slice(1));
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+  });
+}
+
 /** Reads SRT or WebVTT text. Styling tags are removed; cue settings and notes are ignored. */
 export function parseSubtitles(text: string): Caption[] {
   const cues: Caption[] = [];
@@ -84,10 +105,10 @@ export function parseSubtitles(text: string): Caption[] {
     const body = lines
       .slice(at + 1)
       .join('\n')
-      .replace(/<[^>]*>/g, '')
-      .trim();
-    if (start !== null && end !== null && end > start && body)
-      cues.push({ start, end, text: body });
+      .replace(/<[^>]*>/g, '');
+    const cueText = decodeEntities(body).trim();
+    if (start !== null && end !== null && end > start && cueText)
+      cues.push({ start, end, text: cueText });
   }
   return cues;
 }

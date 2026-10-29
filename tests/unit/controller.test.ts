@@ -311,6 +311,38 @@ describe('trim changes', () => {
   });
 });
 
+describe('trim and cuts', () => {
+  it('keeps a cut when a trim handle is dragged past it and back', async () => {
+    const { ctl, pending } = setup();
+    ctl.dispatch({ type: 'pick', file: fakeFile('a.mp4') });
+    await flush();
+    pending[0]!.resolve();
+    await flush();
+    ctl.dispatch({ type: 'setCuts', value: { cuts: [{ start: 1.5, end: 2 }], fade: 0 } });
+    // A drag dispatches every pointer move: across the cut, then back out.
+    ctl.dispatch({ type: 'setTrim', value: { start: 0, end: 1 } });
+    ctl.dispatch({ type: 'setTrim', value: { start: 0, end: 3 } });
+    expect(ctl.getState()).toMatchObject({
+      kind: 'prepare',
+      settings: { cuts: [{ start: 1.5, end: 2 }] },
+    });
+  });
+  it('keeps master fade when trim shrinks and widens', async () => {
+    const { ctl, pending } = setup();
+    ctl.dispatch({ type: 'pick', file: fakeFile('a.mp4') });
+    await flush();
+    pending[0]!.resolve();
+    await flush();
+    ctl.dispatch({
+      type: 'setAudioProcessing',
+      value: { gainDb: 0, fadeIn: 0, fadeOut: 2, normalize: null },
+    });
+    ctl.dispatch({ type: 'setTrim', value: { start: 0, end: 1 } });
+    ctl.dispatch({ type: 'setTrim', value: { start: 0, end: 3 } });
+    expect(ctl.getState()).toMatchObject({ settings: { audioProcessing: { fadeOut: 2 } } });
+  });
+});
+
 describe('prepare settings', () => {
   it('carries trimmed-copy mode through the export action', () => {
     const { ctl } = setup();

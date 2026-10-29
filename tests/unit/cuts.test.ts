@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  boundCuts,
   createJoinFade,
   keptDuration,
   keptRanges,
@@ -16,6 +17,21 @@ const cuts = [
 ];
 
 describe('cut sections', () => {
+  it('bounds stored cuts to the source without trimming them', () => {
+    expect(
+      boundCuts(
+        [
+          { start: -2, end: 2 },
+          { start: 8, end: 12 },
+          { start: NaN, end: 5 },
+        ],
+        10,
+      ),
+    ).toEqual([
+      { start: 0, end: 2 },
+      { start: 8, end: 10 },
+    ]);
+  });
   it('sorts, clamps, merges touching ranges, and drops short or invalid cuts', () => {
     expect(
       normalizeCuts(

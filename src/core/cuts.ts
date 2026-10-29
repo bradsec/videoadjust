@@ -4,6 +4,15 @@ export type Trim = { start: number; end: number };
 const MIN_CUT = 0.1;
 const MAX_CUTS = 20;
 
+export function boundCuts(cuts: readonly Cut[] | undefined, duration: number): Cut[] {
+  return (cuts ?? [])
+    .filter((cut) => Number.isFinite(cut.start) && Number.isFinite(cut.end))
+    .map((cut) => ({
+      start: Math.max(0, Math.min(duration, cut.start)),
+      end: Math.max(0, Math.min(duration, cut.end)),
+    }));
+}
+
 export function normalizeCuts(cuts: readonly Cut[] | undefined, trim: Trim): Cut[] {
   if (!cuts?.length || !Number.isFinite(trim.start) || !Number.isFinite(trim.end)) return [];
   const sorted = cuts

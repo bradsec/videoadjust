@@ -25,7 +25,7 @@ import type {
 } from '../core/types';
 import { formatBitrate } from './format';
 import { clampTrim } from './trimBar';
-import { keptDuration, normalizeCutFade, normalizeCuts } from '../core/cuts';
+import { boundCuts, normalizeCutFade, normalizeCuts } from '../core/cuts';
 import type { AppState, Loaded } from './controllerTypes';
 
 const CODEC_LABELS: Record<string, string> = {
@@ -236,9 +236,9 @@ export function validateSettings(
 ): Settings {
   const fallback = auto.settings;
   const trim = clampTrim(value.trim, source.durationSec, 'end');
-  const cuts = normalizeCuts(value.cuts, trim);
-  const seconds = keptDuration(trim, cuts);
-  const mix = value.mix ? normalizeAudioMix(value.mix, seconds) : undefined;
+  const cuts = boundCuts(value.cuts, source.durationSec);
+  const activeCuts = normalizeCuts(cuts, trim);
+  const mix = value.mix ? normalizeAudioMix(value.mix, source.durationSec) : undefined;
   const overlays = normalizeOverlays(value.overlays);
   const style = normalizeStyle(value.style);
   const fit = normalizeFit(value.fit);
@@ -312,7 +312,7 @@ export function validateSettings(
     const requested = requestedAudio.bitrate;
     const bitrate = allowed.includes(requested) ? requested : Math.min(requested, max);
     const copy =
-      !cuts.length &&
+      !activeCuts.length &&
       !hasAudioProcessing(value.audioProcessing) &&
       !hasAudioMix(mix) &&
       container === fallback.container &&
@@ -349,7 +349,7 @@ export function validateSettings(
       ...(mix ? { mix } : {}),
       ...(value.audioProcessing
         ? {
-            audioProcessing: normalizeAudioProcessing(value.audioProcessing, seconds),
+            audioProcessing: normalizeAudioProcessing(value.audioProcessing, source.durationSec),
           }
         : {}),
       targetSizeMB,
@@ -365,7 +365,7 @@ export function validateSettings(
           effectiveRect ||
           value.keyFrameInterval ||
           value.trimPrecision === 'exact' ||
-          cuts.length ||
+          activeCuts.length ||
           hasOverlays(overlays) ||
           hasCaptions(value.captions) ||
           hasStyleEffects(style) ||
@@ -400,13 +400,14 @@ export function validateSettings(
 /** Compare the effective values shown by the controls, after applying the same limits to both sides. */
 // Trim and the edit sections (audio, colour, style, overlays) count in their own places.
 function editChangeCount(current: Settings, auto: AutoResult): number {
+  const hasCuts = normalizeCuts(current.cuts, current.trim).length > 0;
   return (
     Number(
       current.trim.start !== auto.settings.trim.start ||
         current.trim.end !== auto.settings.trim.end,
     ) +
-    Number(!!current.cuts?.length) +
-    Number(!!current.cuts?.length && normalizeCutFade(current.cutFade) > 0) +
+    Number(hasCuts) +
+    Number(hasCuts && normalizeCutFade(current.cutFade) > 0) +
     Number(hasCaptions(current.captions)) +
     Number(!!current.overlays?.text.enabled) +
     Number(!!current.overlays?.image.enabled) +

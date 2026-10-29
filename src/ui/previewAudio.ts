@@ -3,6 +3,7 @@ import {
   createJoinFade,
   keptDuration,
   normalizeCutFade,
+  normalizeCuts,
   sourceToOutput,
   type Cut,
 } from '../core/cuts';
@@ -338,7 +339,7 @@ export function mountPreviewAudio(
       analysis = controller;
       onAnalysing(true);
       const measure = async () => {
-        if (hasAudioMix(mix) || cuts?.length) {
+        if (hasAudioMix(mix) || normalizeCuts(cuts, trim).length) {
           const processor = createMixProcessor(
             input,
             added,
