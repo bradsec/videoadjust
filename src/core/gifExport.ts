@@ -2,10 +2,10 @@ import { CanvasSink, type Input } from 'mediabunny';
 import { scaleToLongEdge } from './autoSettings';
 import { createCaptionRenderer, hasCaptions, normalizeCaptions } from './captions';
 import {
+  boundCuts,
   createJoinFade,
   keptDuration,
   normalizeCutFade,
-  normalizeCuts,
   outputToSource,
   sourceToOutput,
   type Cut,
@@ -99,7 +99,7 @@ export function validateGifSettings(
       : auto.fps;
   return {
     trim: value.trim,
-    ...(value.cuts ? { cuts: normalizeCuts(value.cuts, value.trim) } : {}),
+    ...(value.cuts ? { cuts: boundCuts(value.cuts, source.durationSec) } : {}),
     size: longEdge(Math.min(size, Math.max(frame.width, frame.height))),
     fps: Math.min(fps, sourceFps),
     loop: value.loop === 'once' || value.loop === 'boomerang' ? value.loop : 'forever',

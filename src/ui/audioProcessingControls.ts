@@ -17,7 +17,7 @@ export function mountAudioProcessing(
   duration: number,
   onChange: (value: AudioProcessing) => void,
 ) {
-  let settings = normalizeAudioProcessing(value, duration);
+  let settings = normalizeAudioProcessing(value, Number.MAX_VALUE);
   const section = el('div', 'setting audio-processing-setting');
   const head = el('div', 'setting-head');
   const reset = el('button', 'setting-reset', 'Reset audio processing');
@@ -46,9 +46,7 @@ export function mountAudioProcessing(
     input.max = String(max);
     input.step = String(step);
     input.setAttribute('aria-label', name);
-    input.addEventListener('input', () =>
-      onChange(normalizeAudioProcessing({ ...settings, [key]: input.valueAsNumber }, duration)),
-    );
+    input.addEventListener('input', () => onChange({ ...settings, [key]: input.valueAsNumber }));
     label.append(output, input);
     section.append(label);
     fields.set(key, { input, output });
@@ -67,12 +65,7 @@ export function mountAudioProcessing(
     normalize.append(option);
   }
   normalize.addEventListener('change', () =>
-    onChange(
-      normalizeAudioProcessing(
-        { ...settings, normalize: Number(normalize.value) as AudioProcessing['normalize'] },
-        duration,
-      ),
-    ),
+    onChange({ ...settings, normalize: Number(normalize.value) as AudioProcessing['normalize'] }),
   );
   const field = el('span', 'field');
   field.append(normalize, icon('i-chev'));
@@ -88,12 +81,13 @@ export function mountAudioProcessing(
   host.append(section);
   function update(value: Partial<AudioProcessing> | undefined, span: number): void {
     duration = span;
-    settings = normalizeAudioProcessing(value, duration);
+    settings = normalizeAudioProcessing(value, Number.MAX_VALUE);
+    const active = normalizeAudioProcessing(settings, duration);
     for (const [key, { input, output }] of fields) {
       if (key !== 'gainDb') input.max = String(fadeMax(duration));
-      input.value = String(settings[key]);
-      input.setAttribute('aria-valuetext', format(key, settings[key]));
-      output.textContent = format(key, settings[key]);
+      input.value = String(active[key]);
+      input.setAttribute('aria-valuetext', format(key, active[key]));
+      output.textContent = format(key, active[key]);
     }
     normalize.value = String(settings.normalize ?? 'off');
     reset.hidden = !hasAudioProcessing(settings);

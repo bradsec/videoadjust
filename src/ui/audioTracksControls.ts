@@ -26,7 +26,7 @@ export function mountAudioTracks(
   },
 ) {
   let value: AudioTracksValue = opts;
-  let mix = normalizeAudioMix(value.mix, value.duration);
+  let mix = normalizeAudioMix(value.mix, Number.MAX_VALUE);
   // The Audio section's summary is the visible heading; the region label stays for assistive tech.
   const section = el('section', 'audio-tracks');
   section.setAttribute('aria-label', 'Audio tracks');
@@ -137,7 +137,7 @@ export function mountAudioTracks(
 
   function update(next: AudioTracksValue): void {
     value = next;
-    mix = normalizeAudioMix(value.mix, value.duration);
+    mix = normalizeAudioMix(value.mix, Number.MAX_VALUE);
     include.checked = value.sourceHasAudio && mix.original.include;
     include.disabled = !value.sourceHasAudio;
     reset.hidden = mix.original.volumeDb === 0 && mix.original.include;
@@ -158,8 +158,9 @@ export function mountAudioTracks(
     const range = addedOffsetRange(value.added?.duration ?? 0, value.duration);
     offset.input.min = String(range.min);
     offset.input.max = String(range.max);
-    offset.update(mix.added?.offset ?? 0);
-    const offsetText = describeAddedOffset(mix.added?.offset ?? 0);
+    const activeOffset = normalizeAudioMix(value.mix, value.duration).added?.offset ?? 0;
+    offset.update(activeOffset);
+    const offsetText = describeAddedOffset(activeOffset);
     offset.input.setAttribute('aria-valuetext', offsetText);
     offsetOutput.textContent = offsetText;
     loop.checked = mix.added?.loop ?? false;

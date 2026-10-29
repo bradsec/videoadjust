@@ -105,3 +105,10 @@ describe('captionAt and overlays', () => {
     expect(portrait.text.fontSize * 1920).toBeCloseTo(landscape.text.fontSize * 1080, 6);
   });
 });
+
+describe('subtitle character references', () => {
+  it('decodes WebVTT escapes in cue text', () => {
+    const vtt = 'WEBVTT\n\n00:00.000 --> 00:01.000\nTom &amp; Jerry &lt;3\n';
+    expect(parseSubtitles(vtt)[0]!.text).toBe('Tom & Jerry <3');
+  });
+});

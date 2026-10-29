@@ -1,16 +1,10 @@
-import { normalizeAudioMix } from '../core/audioMix';
-import { normalizeAudioProcessing } from '../core/audioProcess';
-import { keptDuration, normalizeCuts, type CutSettings } from '../core/cuts';
-import type { Settings } from '../core/types';
+import { boundCuts, normalizeCuts, type CutSettings } from '../core/cuts';
 import type { AppState } from './controllerTypes';
 import { validateSettings } from './controllerSettings';
 
-export const keptSeconds = (state: { settings: Pick<Settings, 'trim' | 'cuts'> }) =>
-  keptDuration(state.settings.trim, state.settings.cuts);
-
 export function withCuts(state: Extract<AppState, { kind: 'prepare' }>, value: CutSettings) {
-  const cuts = normalizeCuts(value.cuts, state.settings.trim);
-  const seconds = keptDuration(state.settings.trim, cuts);
+  const cuts = boundCuts(value.cuts, state.source.durationSec);
+  const activeCuts = normalizeCuts(cuts, state.settings.trim);
   return {
     ...state,
     notice: state.notice?.confirm === 'memory' ? undefined : state.notice,
@@ -20,7 +14,7 @@ export function withCuts(state: Extract<AppState, { kind: 'prepare' }>, value: C
         ...state.settings,
         cuts,
         cutFade: value.fade,
-        passthrough: cuts.length ? false : state.settings.passthrough,
+        passthrough: activeCuts.length ? false : state.settings.passthrough,
         targetRetryScale: undefined,
       },
       state.auto,
@@ -30,15 +24,7 @@ export function withCuts(state: Extract<AppState, { kind: 'prepare' }>, value: C
     audioSettings: state.audioSettings && {
       ...state.audioSettings,
       cuts,
-      copy: cuts.length ? false : state.audioSettings.copy,
-      ...(state.audioSettings.mix
-        ? { mix: normalizeAudioMix(state.audioSettings.mix, seconds) }
-        : {}),
-      ...(state.audioSettings.audioProcessing
-        ? {
-            audioProcessing: normalizeAudioProcessing(state.audioSettings.audioProcessing, seconds),
-          }
-        : {}),
+      copy: activeCuts.length ? false : state.audioSettings.copy,
     },
     gifSettings: state.gifSettings && { ...state.gifSettings, cuts },
   };

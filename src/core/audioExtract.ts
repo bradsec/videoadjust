@@ -2,7 +2,7 @@ import { AUDIO_MONO_BPS, AUDIO_STEREO_BPS } from './autoSettings';
 import { hasAudioProcessing, normalizeAudioProcessing, type AudioProcessing } from './audioProcess';
 import { hasAudioMix, normalizeAudioMix, type AudioMix } from './audioMix';
 import type { Capabilities, SourceInfo } from './types';
-import { keptDuration, normalizeCuts, type Cut } from './cuts';
+import { boundCuts, keptDuration, normalizeCuts, type Cut } from './cuts';
 
 export type AudioFormat = 'mp3' | 'm4a' | 'wav';
 
@@ -66,7 +66,7 @@ export function validateAudioExtract(
     value.copy &&
     !hasAudioProcessing(value.audioProcessing) &&
     !hasAudioMix(value.mix) &&
-    !value.cuts?.length &&
+    !normalizeCuts(value.cuts, value.trim).length &&
     format === 'm4a' &&
     src.audio?.codec === 'aac' &&
     src.audio.bitrate !== null &&
@@ -75,16 +75,11 @@ export function validateAudioExtract(
 
   return {
     format,
-    ...(value.cuts ? { cuts: normalizeCuts(value.cuts, value.trim) } : {}),
-    ...(value.mix
-      ? { mix: normalizeAudioMix(value.mix, keptDuration(value.trim, value.cuts)) }
-      : {}),
+    ...(value.cuts ? { cuts: boundCuts(value.cuts, src.durationSec) } : {}),
+    ...(value.mix ? { mix: normalizeAudioMix(value.mix, src.durationSec) } : {}),
     ...(value.audioProcessing
       ? {
-          audioProcessing: normalizeAudioProcessing(
-            value.audioProcessing,
-            keptDuration(value.trim, value.cuts),
-          ),
+          audioProcessing: normalizeAudioProcessing(value.audioProcessing, src.durationSec),
         }
       : {}),
     trim: value.trim,
@@ -107,7 +102,7 @@ export function audioExtractChangeCount(
   const settings = validateAudioExtract(value, auto, src, caps);
   return (
     Number(settings.trim.start !== auto.trim.start || settings.trim.end !== auto.trim.end) +
-    Number(!!settings.cuts?.length) +
+    Number(!!normalizeCuts(settings.cuts, settings.trim).length) +
     Number(settings.format !== auto.format) +
     Number(settings.format !== 'wav' && settings.bitrate !== auto.bitrate) +
     Number(settings.channels !== auto.channels) +
@@ -142,7 +137,9 @@ export function estimateAudioBytes(
   const seconds = keptDuration(s.trim, s.cuts);
   if (s.format === 'wav') {
     const mid =
-      (hasAudioMix(s.mix) || s.cuts?.length ? 48000 : (src.audio?.sampleRate ?? 0)) *
+      (hasAudioMix(s.mix) || normalizeCuts(s.cuts, s.trim).length
+        ? 48000
+        : (src.audio?.sampleRate ?? 0)) *
         s.channels *
         2 *
         seconds +

@@ -2,6 +2,7 @@ import type { Input } from 'mediabunny';
 import {
   addedOffsetRange,
   describeAddedOffset,
+  normalizeAudioMix,
   type AddedAudio,
   type AudioMix,
 } from '../core/audioMix';
@@ -14,7 +15,7 @@ import {
 } from '../core/audioProcess';
 import { el } from './dom';
 import type { Trim } from './trimBar';
-import { keptDuration, sourceToOutput, type Cut } from '../core/cuts';
+import { keptDuration, normalizeCuts, sourceToOutput, type Cut } from '../core/cuts';
 import { computePeaks } from './waveform';
 import '../styles/audioMix.css';
 
@@ -121,7 +122,11 @@ export function mountMixWaveform(
   let drag: { pointer: number; x: number; offset: number } | null = null;
   addedCanvas.addEventListener('pointerdown', (event) => {
     if (!value.mix?.added || !onAddedOffset) return;
-    drag = { pointer: event.pointerId, x: event.clientX, offset: value.mix.added.offset };
+    drag = {
+      pointer: event.pointerId,
+      x: event.clientX,
+      offset: normalizeAudioMix(value.mix, keptDuration(value.trim, value.cuts)).added!.offset,
+    };
     addedCanvas.setPointerCapture(event.pointerId);
     addedCanvas.classList.add('is-dragging');
   });
@@ -138,7 +143,7 @@ export function mountMixWaveform(
   addedCanvas.addEventListener('pointerup', endDrag);
   addedCanvas.addEventListener('pointercancel', endDrag);
   addedCanvas.addEventListener('keydown', (event) => {
-    const offset = value.mix?.added?.offset;
+    const offset = normalizeAudioMix(value.mix, keptDuration(value.trim, value.cuts)).added?.offset;
     if (offset === undefined) return;
     const step = event.shiftKey ? 1 : 0.1;
     const { min, max } = offsetRange();
@@ -183,8 +188,9 @@ export function mountMixWaveform(
     const span = keptDuration(trim, value.cuts);
     const master = normalizeAudioProcessing(value.processing, span);
     const normalizationDb = value.normalizationDb ?? 0;
-    const original = value.mix?.original ?? { include: true, volumeDb: 0 };
-    const added = value.mix?.added;
+    const mix = normalizeAudioMix(value.mix, span);
+    const original = mix.original;
+    const added = mix.added;
     section.hidden = !sourceHasAudio && !value.added;
     const theme = getComputedStyle(section);
     const accent = theme.getPropertyValue('--accent').trim();
@@ -300,7 +306,7 @@ export function mountMixWaveform(
         }
       }
       context.globalAlpha = 1;
-      for (const cut of value.cuts ?? []) {
+      for (const cut of normalizeCuts(value.cuts, trim)) {
         const left = (cut.start / sourceDuration) * width;
         const span = ((cut.end - cut.start) / sourceDuration) * width;
         context.fillStyle = 'rgba(0, 0, 0, 0.42)';

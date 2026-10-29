@@ -2,8 +2,8 @@ import { autoAudioExtract, validateAudioExtract } from '../core/audioExtract';
 import { retryTargetSize } from '../core/targetSize';
 import { autoGifSettings, validateGifSettings } from '../core/gifExport';
 import { clampTrim } from './trimBar';
-import { keptSeconds, withCuts } from './controllerCuts';
-import { keptDuration, normalizeCuts } from '../core/cuts';
+import { withCuts } from './controllerCuts';
+import { boundCuts } from '../core/cuts';
 import { normalizeAudioProcessing } from '../core/audioProcess';
 import { normalizeAudioMix, type AddedAudio, type AudioMix } from '../core/audioMix';
 import { readAddedAudio } from '../core/addedAudio';
@@ -145,7 +145,7 @@ export function createController(
         if (state.kind === 'prepare' && !state.exporting) {
           addedToken++;
           addedRead?.abort();
-          const mix = normalizeAudioMix(state.settings.mix, keptSeconds(state));
+          const mix = normalizeAudioMix(state.settings.mix, state.source.durationSec);
           delete mix.added;
           applyMix({ ...state, addingAudio: undefined }, mix, undefined);
         }
@@ -153,7 +153,7 @@ export function createController(
       case 'setMix':
         if (state.kind === 'prepare' && !state.exporting) {
           supersedePending();
-          const mix = normalizeAudioMix(action.value, keptSeconds(state));
+          const mix = normalizeAudioMix(action.value, state.source.durationSec);
           if (!state.addedAudio) delete mix.added;
           applyMix(state, mix, state.addedAudio);
         }
@@ -161,7 +161,7 @@ export function createController(
       case 'setAudioProcessing':
         if (state.kind === 'prepare') {
           supersedePending();
-          const audioProcessing = normalizeAudioProcessing(action.value, keptSeconds(state));
+          const audioProcessing = normalizeAudioProcessing(action.value, state.source.durationSec);
           setState({
             ...state,
             exporting: undefined,
@@ -237,8 +237,7 @@ export function createController(
           supersedePending();
           const moved = action.value.start !== state.settings.trim.start ? 'start' : 'end';
           const trim = clampTrim(action.value, state.source.durationSec, moved);
-          const cuts = normalizeCuts(state.settings.cuts, trim);
-          const seconds = keptDuration(trim, cuts);
+          const cuts = boundCuts(state.settings.cuts, state.source.durationSec);
           setState({
             ...state,
             notice: unlessMemoryConfirm(state.notice),
@@ -254,33 +253,11 @@ export function createController(
                   ...state.settings,
                   trim,
                   cuts,
-                  ...(state.settings.mix
-                    ? { mix: normalizeAudioMix(state.settings.mix, seconds) }
-                    : {}),
-                  ...(state.settings.audioProcessing
-                    ? {
-                        audioProcessing: normalizeAudioProcessing(
-                          state.settings.audioProcessing,
-                          seconds,
-                        ),
-                      }
-                    : {}),
                 },
             audioSettings: state.audioSettings && {
               ...state.audioSettings,
               trim,
               cuts,
-              ...(state.audioSettings.mix
-                ? { mix: normalizeAudioMix(state.audioSettings.mix, seconds) }
-                : {}),
-              ...(state.audioSettings.audioProcessing
-                ? {
-                    audioProcessing: normalizeAudioProcessing(
-                      state.audioSettings.audioProcessing,
-                      seconds,
-                    ),
-                  }
-                : {}),
             },
             gifSettings: state.gifSettings && { ...state.gifSettings, trim, cuts },
           });
@@ -490,7 +467,7 @@ export function createController(
         added.input.dispose();
         return;
       }
-      const mix = normalizeAudioMix(state.settings.mix, keptSeconds(state));
+      const mix = normalizeAudioMix(state.settings.mix, state.source.durationSec);
       mix.added = { volumeDb: 0, offset: 0, loop: false };
       applyMix({ ...state, addingAudio: undefined }, mix, added);
     } catch (error) {

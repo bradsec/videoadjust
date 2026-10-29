@@ -5,7 +5,13 @@ import {
   normalizeCaptions,
   type CaptionSettings,
 } from '../core/captions';
-import { createJoinFade, normalizeCutFade, sourceToOutput, type Cut } from '../core/cuts';
+import {
+  createJoinFade,
+  normalizeCutFade,
+  normalizeCuts,
+  sourceToOutput,
+  type Cut,
+} from '../core/cuts';
 import { el } from './dom';
 
 type Size = { width: number; height: number };
@@ -80,7 +86,8 @@ export function mountCaptionPreview(video: HTMLVideoElement, frame: HTMLElement)
   return {
     update(value: CaptionSettings | undefined, output: Size, cut?: CutFadeTarget) {
       const fade = normalizeCutFade(cut?.fade);
-      const nextFade = cut && fade && cut.cuts?.length ? JSON.stringify([cut, fade]) : '';
+      const nextFade =
+        cut && fade && normalizeCuts(cut.cuts, cut.trim).length ? JSON.stringify([cut, fade]) : '';
       if (nextFade !== fadeKey) {
         fadeKey = nextFade;
         const at = nextFade ? createJoinFade(cut!.trim, cut!.cuts, fade) : null;
