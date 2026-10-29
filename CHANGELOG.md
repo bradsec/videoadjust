@@ -2,6 +2,13 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.27.2] - 2026-10-30
+
+### Fixed
+
+- Dragging a trim handle past a cut and back no longer deletes the cut, and master fades and the added-audio offset no longer shrink for good. Cuts outside the trim are kept and return when the trim widens.
+- WebVTT character references such as `&amp;` and `&lt;` now show as `&` and `<` in captions instead of the escape text.
+
 ## [0.27.1] - 2026-10-28
 
 ### Fixed
