@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Regenerates public/ icons from scripts/icons/*.svg. Needs inkscape and ImageMagick.
-# icon.svg is the bold-outline mark for small sizes; icon-app.svg the framed mark for app
-# icons. The va glyphs are Inter Bold outlines. Maskable art keeps the mark inside the
-# central 80% safe zone on a full-bleed background.
+# icon.svg and icon-app.svg match the in-app #i-logo symbol in index.html. The va glyphs
+# are Inter Bold outlines. Maskable art scales the same mark into the central 80% safe
+# zone on a full-bleed background.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 png() { inkscape "$1" --export-type=png --export-filename="$3" -w "$2" -h "$2" >/dev/null 2>&1; }

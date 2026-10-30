@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.27.3] - 2026-10-31
+
+### Changed
+
+- Home screen and installed app icons now use the same va monogram as the logo in the app header.
+
 ## [0.27.2] - 2026-10-30
 
 ### Fixed
