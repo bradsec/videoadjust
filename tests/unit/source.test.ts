@@ -37,6 +37,7 @@ describe('readSource', () => {
     const frameMetrics = vi.fn(async () => ({ underlyingFrameRate: null }));
     mock.video = {
       getCodec: async () => 'avc',
+      getCodecParameterString: async () => 'avc1.640028',
       canDecode: async () => true,
       getDisplayWidth: async () => 1920,
       getDisplayHeight: async () => 1080,
@@ -51,7 +52,11 @@ describe('readSource', () => {
     };
     const result = await readSource(new File([], 'clip.mp4'));
     expect(frameMetrics).toHaveBeenCalledWith({ targetPacketCount: 256 });
-    expect(result.info.video).toMatchObject({ variableFrameRate: true, hdr: true });
+    expect(result.info.video).toMatchObject({
+      codecString: 'avc1.640028',
+      variableFrameRate: true,
+      hdr: true,
+    });
     expect(deriveVideoDiagnostics({ underlyingFrameRate: 30 }, 256, false)).toEqual({
       variableFrameRate: false,
       hdr: false,
@@ -65,6 +70,7 @@ describe('readSource', () => {
   it('keeps source loading when diagnostics are unavailable', async () => {
     mock.video = {
       getCodec: async () => 'avc',
+      getCodecParameterString: async () => 'avc1.640028',
       canDecode: async () => true,
       getDisplayWidth: async () => 1920,
       getDisplayHeight: async () => 1080,
@@ -87,6 +93,7 @@ describe('readSource', () => {
   it('rejects an undecodable primary video even when audio decodes', async () => {
     mock.video = {
       getCodec: async () => 'hevc',
+      getCodecParameterString: async () => 'hvc1.1.6.L93.B0',
       canDecode: async () => false,
       getDisplayWidth: async () => 1920,
       getDisplayHeight: async () => 1080,

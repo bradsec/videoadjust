@@ -20,6 +20,7 @@ export interface SourceInfo {
   containerMime: string;
   video: null | {
     codec: string | null; // Mediabunny codec id, null if unknown
+    codecString?: string | null; // e.g. av01.0.12M.10.0.110.09.16.09.0, for canPlayType
     decodable: boolean;
     displayWidth: number; // after rotation
     displayHeight: number;

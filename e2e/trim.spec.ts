@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const fixture = new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname;
 const longFixture = new URL('../tests/fixtures/long-31s.mp4', import.meta.url).pathname;
+const eac3Fixture = new URL('../tests/fixtures/h264-eac3.mp4', import.meta.url).pathname;
 
 test('thumbnail density follows strip geometry and grows in Theater mode', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -104,6 +105,20 @@ test('unplayable preview keeps trim handles and disables playhead buttons', asyn
   await expect(page.getByRole('button', { name: 'Next frame' })).toBeDisabled();
   await expect(page.getByRole('slider', { name: 'Start' })).toBeEnabled();
   await expect(page.locator('.trim-thumbs canvas').first()).toBeVisible();
+});
+
+test('a source whose audio the browser cannot play still gets a video preview', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.setInputFiles('#file', eac3Fixture);
+  await expect
+    .poll(() =>
+      page.locator('.preview-video').evaluate((video: HTMLVideoElement) => video.videoWidth),
+    )
+    .toBe(640);
+  await expect(page.locator('.preview-note')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Set start to playhead' })).toBeEnabled();
 });
 
 test.describe('with a video loaded', () => {

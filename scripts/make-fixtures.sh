@@ -48,3 +48,8 @@ ff -f lavfi -i "color=c=green:s=640x360:r=30:d=1,drawbox=x=0:y=0:w=140:h=360:col
 # 31 s, past the GIF length limit, so the GIF tab shows its blocked-export warning.
 ff -f lavfi -i "color=c=gray:s=320x180:r=10:d=31" \
   -an -c:v libx264 -preset veryfast -crf 30 -pix_fmt yuv420p "$out/long-31s.mp4"
+
+# H.264 with E-AC-3 audio: Chromium on desktop Linux plays the video but not the audio.
+ff -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 \
+  -t 2 -c:v libx264 -preset veryfast -b:v 200k -pix_fmt yuv420p -c:a eac3 -b:a 96k -ac 2 \
+  "$out/h264-eac3.mp4"

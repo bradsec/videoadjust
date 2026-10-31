@@ -55,21 +55,32 @@ async function describe(file: File, input: Input): Promise<SourceInfo> {
 
   const video = videoTrack
     ? await (async () => {
-        const [codec, decodable, displayWidth, displayHeight, rotation, stats, metrics, hdr] =
-          await Promise.all([
-            videoTrack.getCodec(),
-            videoTrack.canDecode(),
-            videoTrack.getDisplayWidth(),
-            videoTrack.getDisplayHeight(),
-            videoTrack.getRotation(),
-            videoTrack.computePacketStats(),
-            videoTrack
-              .computeFrameRateMetrics({ targetPacketCount: SAMPLE_PACKET_COUNT })
-              .catch(() => null),
-            videoTrack.hasHighDynamicRange().catch(() => null),
-          ]);
+        const [
+          codec,
+          codecString,
+          decodable,
+          displayWidth,
+          displayHeight,
+          rotation,
+          stats,
+          metrics,
+          hdr,
+        ] = await Promise.all([
+          videoTrack.getCodec(),
+          videoTrack.getCodecParameterString(),
+          videoTrack.canDecode(),
+          videoTrack.getDisplayWidth(),
+          videoTrack.getDisplayHeight(),
+          videoTrack.getRotation(),
+          videoTrack.computePacketStats(),
+          videoTrack
+            .computeFrameRateMetrics({ targetPacketCount: SAMPLE_PACKET_COUNT })
+            .catch(() => null),
+          videoTrack.hasHighDynamicRange().catch(() => null),
+        ]);
         return {
           codec,
+          codecString,
           decodable,
           displayWidth,
           displayHeight,

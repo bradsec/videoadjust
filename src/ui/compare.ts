@@ -9,8 +9,19 @@ export function needsResync(masterT: number, slaveT: number): boolean {
   return Math.abs(masterT - slaveT) > DRIFT_SEC;
 }
 
-export function canPlaySource(video: HTMLVideoElement, mime: string): boolean {
-  const playbackMime = mime.replace(/^video\/quicktime(?=\s*(?:;|$))/i, 'video/mp4');
+/**
+ * Checks only the video codec when it is known: Chromium plays the video of a file whose audio
+ * codec it lacks (E-AC-3 on desktop Linux), but answers '' for the MIME type that lists both.
+ */
+export function canPlaySource(
+  video: HTMLVideoElement,
+  source: { containerMime: string; video: { codecString?: string | null } | null },
+): boolean {
+  const mime = source.containerMime.replace(/^video\/quicktime(?=\s*(?:;|$))/i, 'video/mp4');
+  const videoCodec = source.video?.codecString;
+  const playbackMime = videoCodec
+    ? `${mime.split(';', 1)[0]!.trim()}; codecs="${videoCodec}"`
+    : mime;
   return video.canPlayType(playbackMime) !== '';
 }
 
@@ -271,7 +282,7 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
 
   // The MIME type carries the codecs, so an empty answer catches e.g. HEVC on Chromium before
   // any bytes load; the error listener catches the rest.
-  if (!canPlaySource(original, opts.originalInfo.containerMime)) showOriginalUnplayable();
+  if (!canPlaySource(original, opts.originalInfo)) showOriginalUnplayable();
   else original.src = opts.original;
   output.src = opts.output;
   setPosition(50);

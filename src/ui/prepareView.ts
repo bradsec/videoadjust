@@ -168,7 +168,7 @@ export function renderPrepare(
   let panel: PreparePanel['panel'] | undefined;
   const thumbnailsForSource = (count: number, width: number, height: number, signal: AbortSignal) =>
     thumbnails(state, count, width, height, signal);
-  let previewPlayable = canPlaySource(video, state.source.containerMime);
+  let previewPlayable = canPlaySource(video, state.source);
   let cropEditor: ReturnType<typeof mountCropEditor> | undefined;
   let overlayEditor: ReturnType<typeof mountOverlayEditor> | undefined;
   let livePreview: ReturnType<typeof mountLivePreview> | undefined;

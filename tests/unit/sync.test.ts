@@ -22,12 +22,33 @@ describe('canPlaySource', () => {
         return mime.startsWith('video/mp4') ? 'probably' : '';
       },
     } as HTMLVideoElement;
-    expect(canPlaySource(video, 'video/quicktime; codecs="avc1.640028"')).toBe(true);
+    expect(
+      canPlaySource(video, { containerMime: 'video/quicktime; codecs="avc1.640028"', video: null }),
+    ).toBe(true);
     expect(checks).toEqual(['video/mp4; codecs="avc1.640028"']);
+  });
+
+  it('checks only the video codec, so unplayable audio does not block the preview', () => {
+    const checks: string[] = [];
+    const video = {
+      canPlayType(mime: string) {
+        checks.push(mime);
+        return mime.includes('ec-3') ? '' : 'probably';
+      },
+    } as HTMLVideoElement;
+    expect(
+      canPlaySource(video, {
+        containerMime: 'video/x-matroska; codecs="av01.0.12M.10, ec-3"',
+        video: { codecString: 'av01.0.12M.10' },
+      }),
+    ).toBe(true);
+    expect(checks).toEqual(['video/x-matroska; codecs="av01.0.12M.10"']);
   });
 
   it('rejects an unsupported codec', () => {
     const video = { canPlayType: () => '' } as unknown as HTMLVideoElement;
-    expect(canPlaySource(video, 'video/quicktime; codecs="hvc1"')).toBe(false);
+    expect(
+      canPlaySource(video, { containerMime: 'video/quicktime; codecs="hvc1"', video: null }),
+    ).toBe(false);
   });
 });
