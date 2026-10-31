@@ -2,7 +2,7 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
-## [Unreleased]
+## [0.28.0] - 2026-11-01
 
 ### Added
 
@@ -16,6 +16,8 @@ Newest releases appear first. Version numbers match `package.json`.
 
 - A source whose audio the browser cannot decode now exports its video without audio, matching the Audio tracks section, instead of failing with "audio track: undecodable_source_codec".
 - An export that cannot convert with the chosen settings now fails before the save picker opens, so it no longer leaves a partial file behind.
+- A video whose audio codec the browser cannot play, such as E-AC-3 or DTS, now shows its preview without sound instead of "This browser cannot play the preview".
+- Adding music to a video whose own audio cannot be decoded, such as DTS or TrueHD, now exports the music instead of failing after the save picker opens.
 
 ## [0.27.3] - 2026-10-31
 
