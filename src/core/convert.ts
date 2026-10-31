@@ -116,7 +116,7 @@ export function shrinkJob(
   const ranges = cuts.length ? keptRanges(s.trim, cuts) : [];
   const cutFade = normalizeCutFade(s.cutFade);
   const fadeAt = createJoinFade(s.trim, cuts, cutFade);
-  const keepsAudio = !!a && mixHasAudio(s.mix, true);
+  const keepsAudio = !!a && mixHasAudio(s.mix, source?.audio?.decodable ?? true);
   const mixed =
     keepsAudio && (hasAudioMix(s.mix) || !!added || cuts.length > 0)
       ? mixedAudioJob(
@@ -307,11 +307,16 @@ export function toConversionOptions(
   return shrinkJob(s, source, assets).options;
 }
 
-export function audioExtractJob(s: AudioExtractSettings, added?: AddedAudio): ConversionJob {
+export function audioExtractJob(
+  s: AudioExtractSettings,
+  added?: AddedAudio,
+  source?: SourceInfo,
+): ConversionJob {
   const active = hasAudioProcessing(s.audioProcessing);
   const cuts = normalizeCuts(s.cuts, s.trim);
+  const sourceHasAudio = source?.audio?.decodable ?? true;
   const mixed =
-    (hasAudioMix(s.mix) || !!added || cuts.length > 0) && mixHasAudio(s.mix, true)
+    (hasAudioMix(s.mix) || !!added || cuts.length > 0) && mixHasAudio(s.mix, sourceHasAudio)
       ? mixedAudioJob(
           {
             codec: s.format === 'wav' ? 'pcm-s16' : s.format === 'mp3' ? 'mp3' : 'aac',
@@ -346,7 +351,10 @@ export function audioExtractJob(s: AudioExtractSettings, added?: AddedAudio): Co
       // Extracted audio never carries source tags (location, device, dates); there is no keep option.
       tags: {},
       video: { discard: true },
-      audio: mixed || !mixHasAudio(s.mix, true) ? { discard: true } : (processor?.audio ?? audio),
+      audio:
+        mixed || !mixHasAudio(s.mix, sourceHasAudio)
+          ? { discard: true }
+          : (processor?.audio ?? audio),
     },
     keeps: { video: false, audio: true },
     ...(processor ? { prepare: processor.prepare } : {}),

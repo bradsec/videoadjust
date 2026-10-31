@@ -233,10 +233,9 @@ export function createMixProcessor(
   ): AsyncGenerator<{ planes: Float32Array[]; timestamp: number }> {
     signal.throwIfAborted();
     if (mix.added && !added) throw new Error('Choose an added audio file before exporting.');
-    const originalTrack = mix.original.include ? await input.getPrimaryAudioTrack() : null;
+    const sourceTrack = mix.original.include ? await input.getPrimaryAudioTrack() : null;
+    const originalTrack = sourceTrack && (await sourceTrack.canDecode()) ? sourceTrack : null;
     const addedTrack = mix.added && added ? await added.input.getPrimaryAudioTrack() : null;
-    if (originalTrack && !(await originalTrack.canDecode()))
-      throw new Error('The original audio cannot be decoded for mixing.');
     if (mix.added && (!addedTrack || !(await addedTrack.canDecode())))
       throw new Error('The added file has no decodable audio.');
     const original = originalTrack

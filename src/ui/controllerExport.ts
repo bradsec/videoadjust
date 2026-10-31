@@ -406,7 +406,7 @@ export function createExportFlow(
       outputName,
       mime,
       estimate: estimateAudioBytes(a, audioMixSource(prep.source, prep.addedAudio)),
-      job: audioExtractJob({ ...a, cutFade: prep.settings.cutFade }, prep.addedAudio),
+      job: audioExtractJob({ ...a, cutFade: prep.settings.cutFade }, prep.addedAudio, prep.source),
       format: (sinkKind) => createAudioOutputFormat(a.format, sinkKind),
       async preflight() {
         if (a.format !== 'mp3') return undefined;

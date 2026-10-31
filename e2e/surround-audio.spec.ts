@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { Capabilities, Settings } from '../src/core/types';
+import { openSection } from './sections';
 
 const fixture = (name: string) => new URL(`../tests/fixtures/${name}`, import.meta.url).pathname;
 
@@ -42,22 +43,16 @@ test.describe('surround and Dolby audio sources', () => {
     expect(Math.abs(result.output.durationSec - 1)).toBeLessThanOrEqual(0.1);
   });
 
-  test('the pre-save check rejects an AAC re-encode of undecodable DTS audio', async ({ page }) => {
+  test('the pre-save check discards undecodable DTS audio', async ({ page }) => {
     await page.setInputFiles('#file', fixture('h264-dts.mkv'));
     const read = await page.evaluate(() => window.vrHarness.readSource());
     if (!read.ok) throw new Error(read.error.message);
     expect(read.info.audio).toMatchObject({ codec: 'dts', decodable: false });
-    const invalid = await page.evaluate(
+    const checked = await page.evaluate(
       (s) => window.vrHarness.checkConversion(s),
       small(aacStereo),
     );
-    expect(invalid).toMatchObject({
-      ok: false,
-      error: {
-        name: 'ConversionInvalidError',
-        message: expect.stringContaining('audio track: undecodable_source_codec'),
-      },
-    });
+    expect(checked).toEqual({ ok: true });
     const videoOnly = await page.evaluate((s) => window.vrHarness.checkConversion(s), small(null));
     expect(videoOnly).toEqual({ ok: true });
   });
@@ -112,6 +107,18 @@ test.describe('exporting sources with Dolby or undecodable audio', () => {
     await expect(
       page.getByText('This browser cannot decode the audio in this video').first(),
     ).toBeVisible();
+    await exportButton(page).click();
+    await expect(page.locator('.verdict')).toBeVisible({ timeout: 60_000 });
+    expect(await pickerCalls(page)).toBe(1);
+  });
+
+  test('added music over undecodable DTS audio exports the music', async ({ page }) => {
+    await open(page, 'h264-dts.mkv');
+    await openSection(page, 'audio');
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Add music or audio', exact: true }).click();
+    await (await chooser).setFiles(fixture('mono-aac.mp4'));
+    await expect(page.getByText('Added audio: mono-aac.mp4', { exact: true })).toBeVisible();
     await exportButton(page).click();
     await expect(page.locator('.verdict')).toBeVisible({ timeout: 60_000 });
     expect(await pickerCalls(page)).toBe(1);

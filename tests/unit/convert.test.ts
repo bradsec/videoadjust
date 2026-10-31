@@ -114,6 +114,14 @@ describe('conversion jobs', () => {
     expect(removed.keeps.audio).toBe(false);
   });
 
+  it('discards an undecodable original in both export modes', () => {
+    const source = { audio: { decodable: false } } as Parameters<typeof shrinkJob>[1];
+    const video = shrinkJob(base, source);
+    expect(video.options.audio).toEqual({ discard: true });
+    expect(video.keeps.audio).toBe(false);
+    expect(audioExtractJob(audio, undefined, source).options.audio).toEqual({ discard: true });
+  });
+
   it('uses one custom audio source for mixes while preserving video copy', () => {
     const mix = {
       original: { include: false, volumeDb: 0 },

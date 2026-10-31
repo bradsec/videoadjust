@@ -234,3 +234,57 @@ it.each([true, false])(
     }
   },
 );
+
+it('mixes added audio over a source whose own audio cannot be decoded (DTS)', async () => {
+  const input = new Input({
+    source: new BufferSource(readFileSync(new URL('../fixtures/h264-dts.mkv', import.meta.url))),
+    formats: ALL_FORMATS,
+  });
+  const music = await toneInput(0.2);
+  const target = new BufferTarget();
+  let result: Input | undefined;
+  try {
+    expect(await (await input.getPrimaryAudioTrack())?.canDecode()).toBe(false);
+    await startConversion({
+      input,
+      job: audioExtractJob(
+        {
+          format: 'wav',
+          trim: { start: 0, end: 0.5 },
+          channels: 1,
+          bitrate: 128000,
+          copy: false,
+          // Adding music builds this mix; the disabled Original audio switch cannot clear include.
+          mix: {
+            original: { include: true, volumeDb: 0 },
+            added: { volumeDb: 0, offset: 0, loop: false },
+          },
+        },
+        {
+          input: music,
+          file: new File([], 'tone.wav'),
+          duration: 1,
+          channels: 1,
+          sampleRate: 8000,
+        },
+        { audio: { decodable: false } } as Parameters<typeof audioExtractJob>[2],
+      ),
+      format: new WavOutputFormat(),
+      target,
+      onProgress: () => {},
+    }).done;
+    result = new Input({ source: new BufferSource(target.buffer!), formats: ALL_FORMATS });
+    const track = await result.getPrimaryAudioTrack();
+    expect(await track?.computeDuration()).toBeCloseTo(0.5);
+    const first = await new AudioSampleSink(track!).getSample(0.1);
+    const plane = new Float32Array(first!.numberOfFrames);
+    first!.copyTo(plane, { planeIndex: 0, format: 'f32-planar' });
+    // Only the added tone: the undecodable original contributes nothing.
+    expect(plane[0]).toBeCloseTo(0.2, 3);
+    first!.close();
+  } finally {
+    result?.dispose();
+    input.dispose();
+    music.dispose();
+  }
+});

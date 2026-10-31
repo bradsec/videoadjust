@@ -234,3 +234,17 @@ The decoder sits in its own chunk: `registerAc3Decoder` appears only in `mediabu
 - The full UI flow with the 303 MB and 339 MB files. The harness converted them, and the UI export was run only with the small fixtures.
 - The user's own browser build. The preview still has no sound for E-AC-3 sources, by design of bug B's fix.
 - Offline export with an E-AC-3 source. `sw.js` lists the chunk, but I did not test this.
+
+## C1: added music with undecodable source audio
+
+The reviewer confirmed F2 in the normal Add music flow. With DTS source audio, the mix retains
+`original.include: true`, while the Original audio control is disabled. Before the fix, the new
+unit test failed with `The original audio cannot be decoded for mixing.` The Chromium UI test
+showed `The export failed` after the save picker opened.
+
+`createMixProcessor` now omits an original track when its `canDecode()` check fails. This is the
+runtime boundary shared by shrink and audio extraction, so the added track still renders even
+when source metadata is absent or stale. Both job builders also use `source.audio.decodable` when
+deciding whether original audio can contribute; the audio export caller now supplies that source.
+The regression tests cover a WAV extraction whose samples equal the added tone, the Chromium
+shrink flow with the save picker, and both job builders' discard decisions.
