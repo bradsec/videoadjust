@@ -1,5 +1,11 @@
+import type { AudioCodec } from 'mediabunny';
 import { describe, expect, test, vi } from 'vitest';
-import { ensureMp3Encoder, probeCapabilities, type ProbeDeps } from '../../src/core/capabilities';
+import {
+  canDecodeAudioTrack,
+  ensureMp3Encoder,
+  probeCapabilities,
+  type ProbeDeps,
+} from '../../src/core/capabilities';
 
 function deps(
   overrides: {
@@ -159,5 +165,57 @@ describe('ensureMp3Encoder', () => {
   test('a fallback reporting false rejects', async () => {
     const register = vi.fn(async () => false);
     await expect(ensureMp3Encoder({ register })).rejects.toThrow(/MP3/);
+  });
+});
+
+const { registerAc3Decoder } = vi.hoisted(() => ({ registerAc3Decoder: vi.fn() }));
+vi.mock('@mediabunny/ac3', () => ({ registerAc3Decoder }));
+
+describe('registerAc3Fallback', () => {
+  test('registers the decoder once per page', async () => {
+    const { registerAc3Fallback } = await import('../../src/core/capabilities');
+    expect(await registerAc3Fallback()).toBe(true);
+    expect(await registerAc3Fallback()).toBe(true);
+    expect(registerAc3Decoder).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('canDecodeAudioTrack', () => {
+  const track = (codec: AudioCodec, decodes: boolean[]) => {
+    const canDecode = vi.fn<() => Promise<boolean>>();
+    for (const d of decodes) canDecode.mockResolvedValueOnce(d);
+    return { getCodec: vi.fn(async () => codec), canDecode };
+  };
+
+  test('uses the browser decoder without loading the fallback', async () => {
+    const register = vi.fn(async () => true);
+    expect(await canDecodeAudioTrack(track('eac3', [true]), register)).toBe(true);
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  test('loads the AC-3 decoder for undecodable AC-3 and E-AC-3, then checks again', async () => {
+    for (const codec of ['ac3', 'eac3'] as const) {
+      const register = vi.fn(async () => true);
+      const t = track(codec, [false, true]);
+      expect(await canDecodeAudioTrack(t, register)).toBe(true);
+      expect(register).toHaveBeenCalledTimes(1);
+      expect(t.canDecode).toHaveBeenCalledTimes(2);
+    }
+  });
+
+  test('does not load the fallback for other undecodable codecs', async () => {
+    const register = vi.fn(async () => true);
+    expect(await canDecodeAudioTrack(track('dts', [false]), register)).toBe(false);
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  test('reports the track undecodable when the decoder chunk fails to load', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const register = vi.fn(async () => {
+      throw new Error('chunk failed');
+    });
+    expect(await canDecodeAudioTrack(track('eac3', [false]), register)).toBe(false);
+    expect(warn).toHaveBeenCalledWith('AC-3 decoder failed to load', expect.any(Error));
+    warn.mockRestore();
   });
 });

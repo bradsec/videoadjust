@@ -14,6 +14,7 @@ import { autoSettings } from '../src/core/autoSettings';
 import { ensureMp3Encoder, probeCapabilities, registerAacFallback } from '../src/core/capabilities';
 import {
   audioExtractJob,
+  checkConversion,
   createAudioOutputFormat,
   createOutputFormat,
   shrinkJob,
@@ -203,6 +204,26 @@ const harness = {
         lastProgress,
         pixelSamples: await sampleGifPixels(blob, points),
       };
+    } catch (err) {
+      return failure(err);
+    } finally {
+      input?.dispose();
+    }
+  },
+  // Runs the export's pre-save conversion check on the selected file, without any output.
+  async checkConversion(settings: Settings): Promise<{ ok: true } | ReturnType<typeof failure>> {
+    let input: Input | undefined;
+    try {
+      const read = await readSource(selectedFile());
+      input = read.input;
+      // The app registers any encoder fallback before its pre-save check, as convertToMemory does.
+      await ensureAudioEncoder(settings);
+      await checkConversion(
+        input,
+        shrinkJob(settings, read.info),
+        createOutputFormat(settings.container, 'memory'),
+      );
+      return { ok: true };
     } catch (err) {
       return failure(err);
     } finally {

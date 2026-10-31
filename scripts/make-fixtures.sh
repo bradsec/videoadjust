@@ -53,3 +53,13 @@ ff -f lavfi -i "color=c=gray:s=320x180:r=10:d=31" \
 ff -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 \
   -t 2 -c:v libx264 -preset veryfast -b:v 200k -pix_fmt yuv420p -c:a eac3 -b:a 96k -ac 2 \
   "$out/h264-eac3.mp4"
+
+# H.264 with 5.1 E-AC-3 audio: needs the @mediabunny/ac3 decoder in browsers without one.
+ff -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 \
+  -t 2 -c:v libx264 -preset veryfast -b:v 200k -pix_fmt yuv420p -c:a eac3 -b:a 192k -ac 6 \
+  "$out/h264-eac3-51.mp4"
+
+# H.264 with DTS audio: no browser decodes DTS and the app bundles no DTS decoder.
+ff -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 \
+  -t 1 -c:v libx264 -preset veryfast -b:v 200k -pix_fmt yuv420p -c:a dca -strict -2 -ac 2 \
+  "$out/h264-dts.mkv"

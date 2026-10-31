@@ -17,6 +17,8 @@ export const JS_URL_ALLOWLIST = new Set([
   'https://www.w3.org/TR/webcodecs-vorbis-codec-registration/', // Mediabunny comment: spec link
   'https://www.webmproject.org/vp9/mp4/', // Mediabunny comment: VP9 in MP4 spec link
   'https://rolldown.rs/in-depth/bundling-cjs#require-external-modules', // bundler message text
+  // FFmpeg log message text in the @mediabunny/ac3 WASM data ("upload a sample of this file to").
+  'https://streams.videolan.org/upload/',
 ]);
 
 // The footer and About dialog link to the repo, the author, the libraries and a support page. A link the user

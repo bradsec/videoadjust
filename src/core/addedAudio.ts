@@ -1,5 +1,6 @@
 import { ALL_FORMATS, AudioSampleSink, BlobSource, Input } from 'mediabunny';
 import type { AddedAudio } from './audioMix';
+import { canDecodeAudioTrack } from './capabilities';
 
 export async function readAddedAudio(file: File, signal: AbortSignal): Promise<AddedAudio> {
   signal.throwIfAborted();
@@ -8,7 +9,8 @@ export async function readAddedAudio(file: File, signal: AbortSignal): Promise<A
   signal.addEventListener('abort', stop, { once: true });
   try {
     const track = await input.getPrimaryAudioTrack();
-    if (!track || !(await track.canDecode())) throw new Error('This file has no decodable audio.');
+    if (!track || !(await canDecodeAudioTrack(track)))
+      throw new Error('This file has no decodable audio.');
     const samples = new AudioSampleSink(track).samples();
     try {
       const first = await samples.next();

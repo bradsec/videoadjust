@@ -6,7 +6,10 @@ import type { OverlayAssets } from '../core/overlays';
 import type { openSink as openSinkFn, SinkPlan } from '../core/sink';
 import type { readSource as readSourceFn } from '../core/source';
 import type { AutoResult, Capabilities, Settings, SourceInfo } from '../core/types';
-import type { startConversion as startConversionFn } from '../core/convert';
+import type {
+  checkConversion as checkConversionFn,
+  startConversion as startConversionFn,
+} from '../core/convert';
 import type { AudioProcessing } from '../core/audioProcess';
 import type { AddedAudio, AudioMix } from '../core/audioMix';
 import { readAddedAudio } from '../core/addedAudio';
@@ -113,6 +116,8 @@ export interface AppDeps {
   canEncodeVideo: typeof canEncodeVideo;
   readSource: typeof readSourceFn;
   startConversion: typeof startConversionFn;
+  /** Runs the conversion's track checks with no output, before the save picker opens. */
+  checkConversion: typeof checkConversionFn;
   openSink: typeof openSinkFn;
   ensureMp3Encoder: () => Promise<void>;
   /** navigator.deviceMemory where the browser reports it. */

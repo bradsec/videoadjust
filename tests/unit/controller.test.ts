@@ -69,6 +69,7 @@ function setup(probe: AppDeps['probeCapabilities'] = () => Promise.resolve(caps)
     canEncodeVideo: vi.fn(async () => true),
     readSource,
     startConversion: vi.fn(),
+    checkConversion: vi.fn(async () => {}),
     openSink: vi.fn(() => new Promise(() => {})),
     ensureMp3Encoder: vi.fn(async () => {}),
   } as unknown as AppDeps;
@@ -457,6 +458,7 @@ describe('export flow', () => {
       outputBytes?: number;
       openSink?: AppDeps['openSink'];
       ensureMp3Encoder?: AppDeps['ensureMp3Encoder'];
+      checkConversion?: AppDeps['checkConversion'];
       name?: string;
     } = {},
   ) {
@@ -490,11 +492,13 @@ describe('export flow', () => {
     }));
     const canEncodeVideo = vi.fn(async () => true);
     const ensureMp3Encoder = vi.fn(opts.ensureMp3Encoder ?? (async () => {}));
+    const checkConversion = vi.fn(opts.checkConversion ?? (async () => {}));
     const deps = {
       probeCapabilities: () => Promise.resolve(capabilities),
       canEncodeVideo,
       readSource,
       startConversion,
+      checkConversion,
       openSink,
       ensureMp3Encoder,
       deviceMemoryGB: opts.deviceMemoryGB,
@@ -515,6 +519,7 @@ describe('export flow', () => {
       job,
       openSink,
       startConversion,
+      checkConversion,
       canEncodeVideo,
       ensureMp3Encoder,
       readSource,
@@ -767,6 +772,58 @@ describe('export flow', () => {
       kind: 'prepare',
       notice: { message: expect.stringContaining('partial file may remain') },
     });
+  });
+
+  it('checks the conversion before opening the save picker', async () => {
+    const t = exportSetup({ fileStreamSave: true });
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    expect(t.checkConversion).toHaveBeenCalledTimes(1);
+    expect(t.checkConversion.mock.invocationCallOrder[0]!).toBeLessThan(
+      (t.openSink as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!,
+    );
+    const [input, job] = t.checkConversion.mock.calls[0]! as unknown as [unknown, unknown];
+    const args = t.startConversion.mock.calls[0]![0] as Parameters<AppDeps['startConversion']>[0];
+    expect(input).toBe(args.input);
+    expect(job).toBe(args.job);
+  });
+
+  it('an invalid conversion stops before the save picker opens and names no partial file', async () => {
+    const t = exportSetup({
+      fileStreamSave: true,
+      checkConversion: async () => {
+        throw new ConversionInvalidError([{ track: 'audio', reason: 'undecodable_source_codec' }]);
+      },
+    });
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    await flush();
+    expect(t.openSink).not.toHaveBeenCalled();
+    expect(t.startConversion).not.toHaveBeenCalled();
+    const notice = (t.ctl.getState() as { notice?: { message: string } }).notice;
+    expect(t.ctl.getState()).toMatchObject({
+      kind: 'prepare',
+      notice: {
+        tone: 'error',
+        title: 'This video cannot be exported with these settings',
+        message: expect.stringContaining('audio track: undecodable_source_codec'),
+      },
+    });
+    expect(notice?.message).not.toContain('partial file');
+  });
+
+  it('an unexpected conversion-check failure still runs the export', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const t = exportSetup({
+      checkConversion: async () => {
+        throw new Error('probe broke');
+      },
+    });
+    t.ctl.dispatch({ type: 'export' });
+    await flush();
+    expect(warn).toHaveBeenCalledWith('export conversion check failed', expect.any(Error));
+    expect(t.openSink).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it('aborts a file-stream sink when the conversion is invalid', async () => {

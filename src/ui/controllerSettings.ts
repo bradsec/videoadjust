@@ -297,9 +297,10 @@ export function validateSettings(
       channels: 2,
       copy: false,
     };
+  const sourceAudio = !!source.audio?.decodable;
   const includesAudio = mix
-    ? !!mix.added || (mix.original.include && !!source.audio)
-    : !!source.audio && !!value.audio;
+    ? !!mix.added || (mix.original.include && sourceAudio)
+    : sourceAudio && !!value.audio;
   if (includesAudio) {
     const codec =
       container === 'webm'

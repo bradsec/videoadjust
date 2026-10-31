@@ -8,7 +8,7 @@ import './styles/result.css';
 import './styles/responsive.css';
 import { canEncodeVideo } from 'mediabunny';
 import { ensureMp3Encoder, probeCapabilities } from './core/capabilities';
-import { startConversion } from './core/convert';
+import { checkConversion, startConversion } from './core/convert';
 import { openSink } from './core/sink';
 import { readSource } from './core/source';
 import { createApp } from './ui/app';
@@ -48,6 +48,7 @@ createApp(document.getElementById('app')!, {
   canEncodeVideo,
   readSource,
   startConversion,
+  checkConversion,
   openSink,
   ensureMp3Encoder,
   deviceMemoryGB: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,

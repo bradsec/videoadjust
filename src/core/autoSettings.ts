@@ -67,8 +67,10 @@ export function autoSettings(src: SourceInfo, caps: Capabilities): AutoResult {
   }
 
   let audio: Settings['audio'] = null;
-  let audioOptimal = true;
-  if (src.audio) {
+  // Audio left out is a change, so a source with undecodable audio is never already optimal.
+  let audioOptimal = !src.audio;
+  // Undecodable audio cannot be re-encoded, so the export leaves it out, as the Audio tracks panel shows.
+  if (src.audio?.decodable) {
     const sa = src.audio;
     const acodec: AudioCodecId = caps.audio.aac && container === 'mp4' ? 'aac' : 'opus';
     if (acodec === 'opus' && container === 'mp4') {

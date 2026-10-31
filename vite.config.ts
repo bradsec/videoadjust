@@ -43,8 +43,9 @@ function walk(dir: string): string[] {
 }
 
 // Fills the tokens in dist/sw.js with the cache version and the list of every built file, so
-// offline works for the exact build that was deployed. The AAC and MP3 encoder chunks are included even
-// though they load lazily: a browser that needs one must still be able to export offline.
+// offline works for the exact build that was deployed. The AAC and MP3 encoder chunks and the AC-3
+// decoder chunk are included even though they load lazily: a browser that needs one must still be
+// able to export offline.
 function precacheList(): Plugin {
   let outDir = 'dist';
   return {

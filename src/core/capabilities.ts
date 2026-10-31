@@ -1,4 +1,4 @@
-import { canEncodeAudio, canEncodeVideo } from 'mediabunny';
+import { canEncodeAudio, canEncodeVideo, type InputAudioTrack } from 'mediabunny';
 import type { AudioCodecId, Capabilities, VideoCodecId } from './types';
 
 export type ProbeDeps = {
@@ -49,6 +49,47 @@ export function registerMp3Fallback(): Promise<boolean> {
     },
   );
   return mp3Registration;
+}
+
+// The decoder package embeds FFmpeg's LGPL-2.1+ AC-3 and E-AC-3 decoders as WASM. Chromium on
+// desktop Linux ships no Dolby decoder, so the chunk is fetched only for such a track that the
+// browser cannot decode. It shares the retry rule above.
+let ac3Registration: Promise<boolean> | undefined;
+
+export function registerAc3Fallback(): Promise<boolean> {
+  ac3Registration ??= import('@mediabunny/ac3').then(
+    ({ registerAc3Decoder }) => {
+      registerAc3Decoder();
+      return true;
+    },
+    (err: unknown) => {
+      ac3Registration = undefined;
+      throw err;
+    },
+  );
+  return ac3Registration;
+}
+
+const AC3_CODECS = new Set(['ac3', 'eac3']);
+
+/**
+ * canDecode() for an audio track, loading the bundled AC-3 decoder first when the browser has
+ * none. The registration is page-wide, so later decodes of the track (export, waveform, mixing)
+ * use it too. A failed load leaves the track undecodable.
+ */
+export async function canDecodeAudioTrack(
+  track: Pick<InputAudioTrack, 'canDecode' | 'getCodec'>,
+  register: () => Promise<boolean> = registerAc3Fallback,
+): Promise<boolean> {
+  if (await track.canDecode()) return true;
+  if (!AC3_CODECS.has((await track.getCodec()) ?? '')) return false;
+  try {
+    if (!(await register())) return false;
+  } catch (err) {
+    console.warn('AC-3 decoder failed to load', err);
+    return false;
+  }
+  return track.canDecode();
 }
 
 // The bundled encoder is used even where WebCodecs claims MP3 support: WebKit's native MP3

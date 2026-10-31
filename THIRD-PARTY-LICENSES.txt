@@ -63,6 +63,32 @@ Using your own build: follow the upstream build instructions above to compile FF
   build/aac.js, build the package, then point the @mediabunny/aac-encoder dependency of this
   repository at it (for example with a pnpm override to a local path) and run pnpm build.
 
+## @mediabunny/ac3
+Version: 1.62.0
+Licence: MPL-2.0 (package JavaScript and src/bridge.c, unmodified; full text below)
+Source: https://github.com/Vanilagy/mediabunny/tree/main/packages/ac3
+npm: https://www.npmjs.com/package/@mediabunny/ac3/v/1.62.0
+Embedded: FFmpeg libavcodec + libavutil, AC-3 and E-AC-3 decoders and encoders only, compiled
+  to WASM by the package author. The app registers only the decoder. Licence:
+  LGPL-2.1-or-later (full text below).
+  FFmpeg source: https://github.com/FFmpeg/FFmpeg
+  FFmpeg licence statement: https://github.com/FFmpeg/FFmpeg/blob/master/LICENSE.md
+  FFmpeg version: not recorded by the upstream package; the WASM build is unversioned.
+  Build configuration: "Building and development" in packages/ac3/README.md of the
+  Mediabunny repository. It passes --disable-everything, --disable-autodetect,
+  --enable-decoder=ac3, --enable-decoder=eac3, --enable-encoder=ac3 and --enable-encoder=eac3,
+  and does not pass --enable-gpl, --enable-version3 or --enable-nonfree.
+  AC-3 and E-AC-3 are Dolby codecs. This licence notice covers the software only, not any
+  patent rights in the codecs.
+What ships: the npm package version above, unmodified, bundled by Vite into its own
+  same-origin file (assets/mediabunny-ac3-<hash>.js). The page fetches it on demand, only
+  when a source or added file has AC-3 or E-AC-3 audio that the browser cannot decode. The
+  WASM binary and the decode worker are embedded in that JavaScript file, as the upstream
+  package ships it (Emscripten SINGLE_FILE); Vite re-minifies the JavaScript around them.
+Using your own build: follow the upstream build instructions above to compile FFmpeg and
+  build/ac3.js, build the package, then point the @mediabunny/ac3 dependency of this
+  repository at it (for example with a pnpm override to a local path) and run pnpm build.
+
 ## @mediabunny/mp3-encoder
 Version: 1.62.0
 Licence: MPL-2.0 (package JavaScript and src/lame-bridge.c, unmodified; full text below)

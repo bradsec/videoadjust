@@ -55,6 +55,22 @@ describe('settings validation', () => {
     expect(changed.audio?.copy).toBe(false);
     expect(changed.passthrough).toBe(true);
   });
+  it('never requests audio for an undecodable source track, with or without a mix', () => {
+    const dts: SourceInfo = {
+      ...source,
+      audio: { ...source.audio!, codec: 'dts', decodable: false },
+    };
+    const requested = { codec: 'aac' as const, bitrate: 128_000, channels: 2, copy: false };
+    const plain = validateSettings({ ...auto.settings, audio: requested }, auto, caps, dts);
+    expect(plain.audio).toBeNull();
+    const mixed = validateSettings(
+      { ...auto.settings, audio: requested, mix: { original: { include: true, volumeDb: 0 } } },
+      auto,
+      caps,
+      dts,
+    );
+    expect(mixed.audio).toBeNull();
+  });
   it('ignores stored cuts outside the trim for copy and change counts', () => {
     const settings = validateSettings(
       {

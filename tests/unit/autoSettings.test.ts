@@ -120,6 +120,14 @@ describe('autoSettings', () => {
     expect(r.settings.audio).toMatchObject({ copy: false, bitrate: 96000, channels: 2 });
   });
 
+  it('leaves out audio the browser cannot decode instead of re-encoding it', () => {
+    const src = fakeSource({ aCodec: 'dts' });
+    src.audio!.decodable = false;
+    const r = autoSettings(src, allCaps());
+    expect(r.settings.audio).toBeNull();
+    expect(r.alreadyOptimal).toBe(false);
+  });
+
   it('handles missing video and audio', () => {
     expect(autoSettings(fakeSource({ video: null }), allCaps()).settings.video).toBeNull();
     expect(autoSettings(fakeSource({ audio: null }), allCaps()).settings.audio).toBeNull();

@@ -13,11 +13,9 @@ import {
   type AudioEncodingConfig,
   type AudioSample,
   type ConversionAudioOptions,
-  type DiscardedTrack,
   type Input,
   type OutputFormat,
   type Target,
-  type TrackType,
 } from 'mediabunny';
 import type { AudioExtractSettings, AudioFormat } from './audioExtract';
 import { createJoinFade, keptRanges, normalizeCutFade, normalizeCuts, type Cut } from './cuts';
@@ -37,14 +35,9 @@ import { createStyleRenderer, hasStyleEffects } from './style';
 import type { SinkPlan } from './sink';
 import type { Container, Settings, SourceInfo } from './types';
 import { normalizeCrop, rotatedSize } from './videoGeometry';
+import { assertConversionValid, initConversion } from './conversionCheck';
 
-export class ConversionInvalidError extends Error {
-  constructor(public readonly discarded: { track: TrackType; reason: DiscardedTrack['reason'] }[]) {
-    const list = discarded.map((d) => `${d.track} track: ${d.reason}`).join(', ');
-    super(`This video cannot be converted with these settings (${list || 'no usable tracks'}).`);
-    this.name = 'ConversionInvalidError';
-  }
-}
+export { checkConversion, ConversionInvalidError, discardedPrimaryTracks } from './conversionCheck';
 
 export type ConversionJob = {
   options: Pick<ConversionOptions, 'video' | 'audio' | 'trim' | 'tags'>;
@@ -361,21 +354,6 @@ export function audioExtractJob(s: AudioExtractSettings, added?: AddedAudio): Co
   };
 }
 
-export function discardedPrimaryTracks(
-  keeps: ConversionJob['keeps'],
-  primaryVideo: unknown,
-  primaryAudio: unknown,
-  discarded: readonly { track: unknown; reason: DiscardedTrack['reason'] }[],
-): { track: TrackType; reason: DiscardedTrack['reason'] }[] {
-  const lost: { track: TrackType; reason: DiscardedTrack['reason'] }[] = [];
-  for (const { track, reason } of discarded) {
-    if (reason === 'discarded_by_user') continue;
-    if (keeps.video && track === primaryVideo) lost.push({ track: 'video', reason });
-    if (keeps.audio && track === primaryAudio) lost.push({ track: 'audio', reason });
-  }
-  return lost;
-}
-
 export function createOutputFormat(container: Container, sinkKind: SinkPlan['kind']): OutputFormat {
   if (container === 'webm') return new WebMOutputFormat();
   // A file stream cannot seek back to the start cheaply, so metadata goes at the end there.
@@ -428,37 +406,14 @@ export function startConversion(args: {
       if (canceled) throw new ConversionCanceledError();
       args.onProgress(0, 0, 'encoding');
       const custom = args.job.customAudio;
-      const { tags, ...trackOptions } = args.job.options;
-      const audioSource = custom ? new AudioSampleSource(custom.encoding) : undefined;
-      if (audioSource) output.addAudioTrack(audioSource);
-      conversion = await Conversion.init({
-        input: args.input,
-        output,
-        ...(custom ? trackOptions : args.job.options),
-        showWarnings: false,
-        ...(custom ? { composable: true, tracks: 'primary' } : {}),
-      });
+      const tags = args.job.options.tags;
+      let audioSource: AudioSampleSource | undefined;
+      ({ conversion, audioSource } = await initConversion(args.input, args.job, output));
       if (canceled) {
         await conversion.cancel();
         throw new ConversionCanceledError();
       }
-      const [primaryVideo, primaryAudio] = await Promise.all([
-        args.input.getPrimaryVideoTrack(),
-        args.input.getPrimaryAudioTrack(),
-      ]);
-      const lostPrimary = discardedPrimaryTracks(
-        args.job.keeps,
-        primaryVideo,
-        primaryAudio,
-        conversion.discardedTracks,
-      );
-      if (!conversion.isValid || lostPrimary.length) {
-        throw new ConversionInvalidError(
-          lostPrimary.length
-            ? lostPrimary
-            : conversion.discardedTracks.map((d) => ({ track: d.track.type, reason: d.reason })),
-        );
-      }
+      await assertConversionValid(args.input, args.job, conversion);
       conversion.onProgress = (p) => args.onProgress(p, bytesWritten, 'encoding');
       if (custom && audioSource) {
         const inputTags = await args.input.getMetadataTags();

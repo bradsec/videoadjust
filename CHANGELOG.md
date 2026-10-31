@@ -2,6 +2,17 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [Unreleased]
+
+### Added
+
+- AC-3 and E-AC-3 (Dolby Digital and Dolby Digital Plus) audio, including 5.1 surround, now decodes in browsers without a native decoder, such as Chrome on Linux. The decoder from `@mediabunny/ac3` loads only when a file needs it, so such files export with stereo AAC audio instead of failing.
+
+### Fixed
+
+- A source whose audio the browser cannot decode now exports its video without audio, matching the Audio tracks section, instead of failing with "audio track: undecodable_source_codec".
+- An export that cannot convert with the chosen settings now fails before the save picker opens, so it no longer leaves a partial file behind.
+
 ## [0.27.3] - 2026-10-31
 
 ### Changed

@@ -16,6 +16,7 @@ A private video editor that runs in your browser. Trim, crop, resize and rotate,
 - Pick a video, trim it, choose a tool and its settings, then export. Video output defaults to MP4 with H.264 video and AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and the frame rate is never raised. No ffmpeg.wasm.
 - On the prepare screen, choose Shrink video, Extract audio or GIF from the workspace tabs. The file name and details come first, then the preview, an Edit section (Crop and rotate, and Position overlay once an overlay is set) and Trim. The video and trim controls form the canvas; the summary, action, Reset all and the settings sections form the inspector. Settings sit in collapsible sections (Output, Audio, Colour correction, Style, Overlay) that open one at a time, each header showing its change count. The preview reflects the output resolution and frame rate, so a lower resolution looks softer and a lower frame rate steps. GIF preview also shows the selected colour limit. Short confirmations, such as a saved frame or a reset, appear as toast notifications that float over the page without moving it; errors stay until dismissed. On desktop they sit side by side, with a sticky inspector that scrolls long settings independently. Theater mode is available from 1100px except on touch devices with no hover and a coarse pointer; it widens the canvas across the window while keeping the inspector at a fixed width, on Prepare and on the result comparison. The setting is saved in this browser. Scroll back up within the inspector to reach Export. On narrower screens they stack; on phones, the preview stays pinned through Trim and the settings, with the summary and action fixed at the bottom. On tablets, the summary and action stay sticky within the inspector.
 - Extract audio is unavailable until the source or an added file has usable audio. GIF is unavailable when the source has no decodable video.
+- AC-3 and E-AC-3 (Dolby Digital and Dolby Digital Plus) audio, including 5.1, decodes in every browser through a bundled decoder, so it can be re-encoded, mixed and extracted like any other audio. Surround audio is mixed down to stereo. When a browser cannot decode a source's audio in another codec (for example DTS), the Audio tracks section shows Original audio as unavailable and Shrink exports the video without audio.
 - Hover a setting or edit control for a short explanation of what it does.
 - All three tools use the same trim. The timeline ruler marks time above the filmstrip. The filmstrip adds thumbnails as it widens, up to 40, and limits them on short clips. Drag the trim handles or use arrow keys to adjust by 0.1 seconds. Hold Shift with an arrow key for 1-second steps. Edit the Start or End time using seconds, m:ss, or h:mm:ss, with optional tenths. Use the adjacent Set button to place that boundary at the preview playhead. The previous and next frame buttons flank the playhead time and pause and step the preview by one source frame. Press comma or period for the same steps when focus is outside a text field. The kept duration appears in the Trim header and updates with the summary as you trim. Reset trim appears when a boundary changes and restores the full source duration in all three tools.
 - Under Trim, Cut sections removes up to 20 ranges inside the trim. Add cut starts a one-second cut at the playhead. Each row accepts Start and End timecodes or a Set button to use the playhead; setting Start past End, or End before Start, moves the cut and keeps its length. Remove deletes the row. Cuts appear on the filmstrip and audio lanes, and playback skips them. Export joins the kept ranges for Shrink, Extract audio and GIF. Cuts force exact video and audio encoding, so Fast copy and already-small copies are unavailable. The estimate and Target size use the joined duration. Master fades run at the joined output's start and end; original audio gets a short fade at each join to prevent clicks. Transition sets Hard cut (the default) or Fade through black, with Fade duration 0.25, 0.5, 0.75 or 1 s: half fades out before each join and half fades in after it, so the joined duration does not change. The fade dims the picture and the original audio; overlays, captions and added audio stay as they are. Each fade is shortened so it never takes more than half of a kept part. Preview and export both show the fade. Added-audio offset and Loop follow output time, so added audio continues through joins. Cuts outside the trim are kept and return when the trim widens. Reset all clears cuts.
@@ -168,7 +169,10 @@ repository (Playwright's bundled Chromium and WebKit engines, 1280x720 probe):
 
 Firefox and Chrome on Linux have no native WebCodecs AAC encoder, so the app lazy-loads the
 `@mediabunny/aac-encoder` chunk (about 1 MB) the first time it needs AAC. The service worker caches
-that chunk too, so export still works offline there. Firefox, Safari on real iPhone and iPad
+that chunk too, so export still works offline there. Playwright's Chromium, and Chrome and Brave
+on Linux, decode no AC-3 or E-AC-3 through WebCodecs, so the app lazy-loads the `@mediabunny/ac3`
+decoder chunk (about 1.1 MB) the first time a source or added file has such a track that the
+browser cannot decode; the service worker caches it too. Firefox, Safari on real iPhone and iPad
 hardware, and other browsers are not covered by the automated tests; see "Manual device check".
 
 ## Support
@@ -186,6 +190,7 @@ Shipped libraries, icons and related type packages:
 | mediabunny                        | MPL-2.0 (unmodified)                                                    | https://github.com/Vanilagy/mediabunny                                                          |
 | @mediabunny/aac-encoder           | MPL-2.0 (unmodified), embeds FFmpeg AAC encoder under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder                           |
 | @mediabunny/mp3-encoder           | MPL-2.0 (unmodified), embeds LAME 3.100 under LGPL-2.0-or-later         | https://github.com/Vanilagy/mediabunny/tree/main/packages/mp3-encoder                           |
+| @mediabunny/ac3                   | MPL-2.0 (unmodified), embeds FFmpeg AC-3/E-AC-3 under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/ac3                                   |
 | gifenc                            | MIT                                                                     | https://github.com/mattdesl/gifenc                                                              |
 | Lucide Icons 1.61.0               | ISC; some icons derive from Feather under MIT                           | https://lucide.dev/                                                                             |
 | @types/dom-webcodecs              | MIT (type declarations only, not shipped)                               | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs              |
@@ -215,8 +220,8 @@ Licence audit (version 1.62.0, 2026-10-22):
 
 The npm metadata reports MPL-2.0, so the embedded LGPL code is not visible to `pnpm licenses`.
 `scripts/check-licenses.mjs` keeps explicit per-package exceptions (`LGPL_WASM_EXCEPTIONS`):
-LGPL is accepted for `@mediabunny/aac-encoder` and `@mediabunny/mp3-encoder` only. Both
-dependencies are pinned to the audited version; re-run the audit before upgrading either.
+LGPL is accepted for `@mediabunny/aac-encoder`, `@mediabunny/ac3` and `@mediabunny/mp3-encoder`
+only. All three are pinned to the audited version; re-run the audit before upgrading any of them.
 
 ### MP3 fallback encoder
 
@@ -233,9 +238,37 @@ Licence audit (version 1.62.0, 2026-10-22):
   Library General Public License version 2 or any later version (LGPL-2.0-or-later).
 - The build uses `--disable-decoder --disable-frontend`, so LAME's GPL mpglib decoder is absent.
 - `scripts/check-licenses.mjs` lists `@mediabunny/mp3-encoder` in `LGPL_WASM_EXCEPTIONS`, so
-  LGPL is accepted for it and for `@mediabunny/aac-encoder` only. Re-run the audit before upgrading.
+  LGPL is accepted for it, `@mediabunny/aac-encoder` and `@mediabunny/ac3` only. Re-run the audit
+  before upgrading.
 - LAME asks for acknowledgement and a link to https://lame.sourceforge.io/, given here and in
   `THIRD-PARTY-LICENSES.txt`.
+
+### AC-3 and E-AC-3 decoder
+
+Chromium's default build configuration enables its AC-3 and E-AC-3 decoders only for Cast devices
+and tvOS (`enable_platform_ac3_eac3_audio` in `media/media_options.gni`), and Chrome on Linux
+reports neither as supported. The app registers the decoder from `@mediabunny/ac3` with its
+documented `registerAc3Decoder()` call, and never registers its encoder. It loads the package with
+a dynamic `import()` only when a source or added file has AC-3 or E-AC-3 audio and the track's
+`canDecode()` returns false, so it ships as a separate same-origin chunk that other files never
+fetch. The WASM and the decode worker (a `blob:` worker, allowed by the CSP) are embedded in that
+chunk. The browser still cannot play such audio in the preview's `<video>` element, so the preview
+plays the video without sound.
+
+Licence audit (version 1.62.0, 2026-11-01):
+
+- The npm package declares MPL-2.0 and its `LICENSE` is the MPL-2.0 text. Its WASM is FFmpeg
+  (libavcodec and libavutil) linked with an MPL-2.0 bridge (`src/bridge.c`).
+- The FFmpeg build flags in the package README are `--disable-everything --disable-autodetect
+--enable-avcodec --enable-decoder=ac3 --enable-decoder=eac3 --enable-encoder=ac3
+--enable-encoder=eac3`. No `--enable-gpl`, `--enable-version3` or `--enable-nonfree`, so the
+  build is LGPL-2.1-or-later. The 1.62.0 package applies no FFmpeg patch.
+- `scripts/check-licenses.mjs` lists `@mediabunny/ac3` in `LGPL_WASM_EXCEPTIONS`. Re-run the audit
+  before upgrading: later upstream versions patch FFmpeg's AC-3 encoder before building.
+- AC-3 and E-AC-3 are Dolby codecs. This audit covers the software licences only, not patent
+  rights in the codecs.
+- The FFmpeg log text embedded in the WASM contains `https://streams.videolan.org/upload/`;
+  `scripts/check-no-remote.mjs` allowlists it because nothing loads it.
 
 ## License
 

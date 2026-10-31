@@ -113,6 +113,20 @@ export function createExportFlow(
       toPrepare(base, blocked);
       return;
     }
+    // Mediabunny validates the tracks only once a conversion is set up, so run that check on an
+    // unstarted output first: a conversion that cannot work never opens the save picker.
+    try {
+      await deps.checkConversion(base.input, spec.job, spec.format(plan.kind));
+    } catch (err) {
+      if (token !== exportToken) return;
+      if (err instanceof ConversionInvalidError) {
+        toPrepare(base, { tone: 'error', title: spec.invalidTitle, message: err.message });
+        return;
+      }
+      // The real conversion reports its own failure, so an unexpected probe error does not block it.
+      console.warn('export conversion check failed', err);
+    }
+    if (token !== exportToken) return;
 
     let sink: OpenSink;
     try {

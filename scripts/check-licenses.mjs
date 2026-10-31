@@ -23,8 +23,14 @@ export const ALLOWED = new Set([
 // FFmpeg's native AAC encoder (libavcodec + libavutil, LGPL-2.1-or-later); the app
 // loads it only through a dynamic import(). @mediabunny/mp3-encoder declares MPL-2.0
 // but embeds LAME 3.100 (LGPL-2.0-or-later, decoder disabled), also loaded only through
+// a dynamic import(). @mediabunny/ac3 declares MPL-2.0 but embeds FFmpeg's AC-3 and E-AC-3
+// coders (libavcodec + libavutil, LGPL-2.1-or-later); the app imports only its decoder, through
 // a dynamic import(). See README "Licences".
-export const LGPL_WASM_EXCEPTIONS = new Set(['@mediabunny/aac-encoder', '@mediabunny/mp3-encoder']);
+export const LGPL_WASM_EXCEPTIONS = new Set([
+  '@mediabunny/aac-encoder',
+  '@mediabunny/ac3',
+  '@mediabunny/mp3-encoder',
+]);
 const LGPL_IDS = new Set(['LGPL-2.1-or-later', 'LGPL-2.1+', 'LGPL-2.0-or-later', 'LGPL-2.0+']);
 
 // An SPDX expression passes when every AND term has at least one allowed OR choice.

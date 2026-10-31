@@ -1,4 +1,5 @@
 import { ALL_FORMATS, BlobSource, Input, type FrameRateMetrics } from 'mediabunny';
+import { canDecodeAudioTrack } from './capabilities';
 import type { SourceInfo } from './types';
 
 const SAMPLE_PACKET_COUNT = 256;
@@ -96,7 +97,7 @@ async function describe(file: File, input: Input): Promise<SourceInfo> {
     ? await (async () => {
         const [codec, decodable, channels, sampleRate, stats] = await Promise.all([
           audioTrack.getCodec(),
-          audioTrack.canDecode(),
+          canDecodeAudioTrack(audioTrack),
           audioTrack.getNumberOfChannels(),
           audioTrack.getSampleRate(),
           audioTrack.computePacketStats(),
