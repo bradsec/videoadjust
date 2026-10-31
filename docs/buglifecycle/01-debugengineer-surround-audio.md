@@ -53,11 +53,11 @@ matches the report.
 
 A scratch page ran `AudioDecoder.isConfigSupported` (48 kHz) and mediabunny's `canDecode()` on each clip:
 
-| Browser | ec-3 6ch | ec-3 2ch | ac-3 6ch | ac-3 2ch | mp4a.40.2 6ch | opus 6ch |
-| --- | --- | --- | --- | --- | --- | --- |
-| Playwright Chromium 156.0.8078.4 | false | false | false | false | true | true |
-| Google Chrome 156 | false | false | false | false | true | true |
-| Brave 156 | false | false | false | false | true | true |
+| Browser                          | ec-3 6ch | ec-3 2ch | ac-3 6ch | ac-3 2ch | mp4a.40.2 6ch | opus 6ch |
+| -------------------------------- | -------- | -------- | -------- | -------- | ------------- | -------- |
+| Playwright Chromium 156.0.8078.4 | false    | false    | false    | false    | true          | true     |
+| Google Chrome 156                | false    | false    | false    | false    | true          | true     |
+| Brave 156                        | false    | false    | false    | false    | true          | true     |
 
 `canDecode()` returned false for every AC-3 and E-AC-3 clip (MP4 and MKV, 2ch and 6ch) and true for
 every AAC and Opus clip (2ch and 6ch). `MediaSource.isTypeSupported('audio/mp4; codecs="ec-3"')` was
@@ -69,14 +69,14 @@ The e2e suite was not run in full. Only the temporary repro spec was run.
 
 ## 2. Hypotheses
 
-| ID | Hypothesis | Evidence for | Evidence against | Test / result |
-| --- | --- | --- | --- | --- |
-| H1 | The browser's WebCodecs `AudioDecoder` has no AC-3/E-AC-3 decoder | mediabunny `canDecode()` defers to `AudioDecoder.isConfigSupported` (node_modules/mediabunny/dist/modules/src/input-track.js:791-811) | none | CONFIRMED: `isConfigSupported` false for ec-3/ac-3 at 2ch and 6ch in all three browsers; Chromium source gates it off on desktop Linux (section 3) |
-| H2 | 5.1 channel count or downmix handling is broken | the file is 5.1 | AAC 5.1 and Opus 5.1 decode and export to stereo AAC; E-AC-3 stereo fails the same way | RULED OUT |
-| H3 | The MKV container or demuxer is at fault | the source is MKV | E-AC-3 in MP4 fails the same way; AAC and Opus in MKV succeed; mediabunny reads the codec and channel count correctly | RULED OUT |
-| H4 | The app requests an audio transcode for a source whose audio it already knows is undecodable | `autoSettings` and `validateSettings` gate on `!!source.audio`, not `.decodable`; repro shows `autoSettings(...).audio` is AAC for an undecodable source | none | CONFIRMED as the in-app link that turns H1 into a failed export (section 3) |
-| H5 | Bug B (4K AV1 10-bit HDR video) causes the audio error | same file | the error names only the audio track; the 320x240 H.264 repro shows the same error | RULED OUT for the audio error |
-| H6 | A newer mediabunny fixes E-AC-3 decode | the repo pins 1.62.0, latest is 1.65.0 | mediabunny's own AC-3 extension README states browsers have no AC-3/E-AC-3 in WebCodecs; core `canDecode` has no built-in AC-3 path | RULED OUT for core; an upgrade alone does not help (release notes for 1.63-1.65 not read in full: coordinator report only) |
+| ID  | Hypothesis                                                                                   | Evidence for                                                                                                                                             | Evidence against                                                                                                                    | Test / result                                                                                                                                      |
+| --- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| H1  | The browser's WebCodecs `AudioDecoder` has no AC-3/E-AC-3 decoder                            | mediabunny `canDecode()` defers to `AudioDecoder.isConfigSupported` (node_modules/mediabunny/dist/modules/src/input-track.js:791-811)                    | none                                                                                                                                | CONFIRMED: `isConfigSupported` false for ec-3/ac-3 at 2ch and 6ch in all three browsers; Chromium source gates it off on desktop Linux (section 3) |
+| H2  | 5.1 channel count or downmix handling is broken                                              | the file is 5.1                                                                                                                                          | AAC 5.1 and Opus 5.1 decode and export to stereo AAC; E-AC-3 stereo fails the same way                                              | RULED OUT                                                                                                                                          |
+| H3  | The MKV container or demuxer is at fault                                                     | the source is MKV                                                                                                                                        | E-AC-3 in MP4 fails the same way; AAC and Opus in MKV succeed; mediabunny reads the codec and channel count correctly               | RULED OUT                                                                                                                                          |
+| H4  | The app requests an audio transcode for a source whose audio it already knows is undecodable | `autoSettings` and `validateSettings` gate on `!!source.audio`, not `.decodable`; repro shows `autoSettings(...).audio` is AAC for an undecodable source | none                                                                                                                                | CONFIRMED as the in-app link that turns H1 into a failed export (section 3)                                                                        |
+| H5  | Bug B (4K AV1 10-bit HDR video) causes the audio error                                       | same file                                                                                                                                                | the error names only the audio track; the 320x240 H.264 repro shows the same error                                                  | RULED OUT for the audio error                                                                                                                      |
+| H6  | A newer mediabunny fixes E-AC-3 decode                                                       | the repo pins 1.62.0, latest is 1.65.0                                                                                                                   | mediabunny's own AC-3 extension README states browsers have no AC-3/E-AC-3 in WebCodecs; core `canDecode` has no built-in AC-3 path | RULED OUT for core; an upgrade alone does not help (release notes for 1.63-1.65 not read in full: coordinator report only)                         |
 
 ## 3. Root cause chain
 
@@ -94,6 +94,7 @@ The root cause sits outside this codebase (the Chromium build configuration). Th
 patch is links 4-5, but every patch there changes product behaviour (see options).
 
 Primary sources (accessed 2026-10-31):
+
 - Chromium `media/base/supported_types.cc`, main branch, `IsDecoderDolbyAc3Eac3Supported`, `IsAudioCodecProprietary`: https://chromium.googlesource.com/chromium/src/+/refs/heads/main/media/base/supported_types.cc
 - Chromium `media/media_options.gni`, main branch, `enable_platform_ac3_eac3_audio` default: https://chromium.googlesource.com/chromium/src/+/refs/heads/main/media/media_options.gni
 - Mediabunny AC-3 extension guide: https://mediabunny.dev/guide/extensions/ac3
@@ -111,6 +112,7 @@ to become one.
 ### Options for decision
 
 A. Add `@mediabunny/ac3` and call `registerAc3Decoder()` (decoder only), lazy-loaded as a separate chunk.
+
 - Effect: E-AC-3/AC-3 decodes in every browser. The existing 6ch-to-stereo path (`src/core/audioMix.ts:76`) and the AAC encode then run as they do for AAC 5.1 (verified working above for AAC/Opus 5.1). The waveform, Extract audio and audio edits also start working. Preview playback through `<video>` stays silent: the element cannot play E-AC-3 (see the probe), so preview audio would need a decode path through WebAudio. I have not checked how the preview plays audio today.
 - Size: `packages/ac3/build/ac3.js` is 704,862 bytes on GitHub main (decoder and encoder, base64 WASM likely). For comparison, the existing lazy chunks in `dist/assets` are 992,221 bytes (`mediabunny-aac-encoder`) and 311,270 bytes (`mediabunny-mp3-encoder`). It fits well inside `check:size` (`MAX_FILE_BYTES = 26_214_400`). The size of the npm tarball for 1.62.0 is unverified because DNS blocked the npm registry.
 - Licensing: the package declares MPL-2.0 and embeds FFmpeg libavcodec AC-3/E-AC-3 coders under LGPL-2.1-or-later. Its README says the build "enables no GPL, version 3 or nonfree components" (`licenses/ffmpeg/COPYING.LGPLv2.1`). The repo already has this pattern: `scripts/check-licenses.mjs:20-27` accepts LGPL WASM as a dynamically imported chunk, for aac-encoder and mp3-encoder only. Adding ac3 means a new entry in `LGPL_WASM_EXCEPTIONS` and a new THIRD-PARTY-LICENSES.txt section with a source link.
@@ -119,10 +121,12 @@ A. Add `@mediabunny/ac3` and call `registerAc3Decoder()` (decoder only), lazy-lo
 - Effort: small. A lazy `registerAc3Fallback()` next to `registerAacFallback` in `src/core/capabilities.ts`, called before `readSource` probes `canDecode()`, plus licence check and docs updates, plus an e2e fixture with E-AC-3 audio.
 
 B. Treat undecodable source audio as absent in the Shrink settings: gate `src/core/autoSettings.ts:71` and `src/ui/controllerSettings.ts:300-302` on `decodable`.
+
 - Effect: the export succeeds as video-only, which matches what the Audio tracks panel already shows (Original audio disabled). Two lines plus tests, no dependency.
 - Product risk: the app drops the user's audio without saying so at Export time. It needs explicit export-summary wording (for example "Audio will be removed: this browser cannot decode E-AC-3"). This is the "drop audio" behaviour the brief flags as a product decision.
 
 C. Copy the E-AC-3 track unchanged when it is undecodable and no audio edits are set.
+
 - Effect: keeps the 5.1 audio. Verified working: with `passthrough: true`, the harness muxed E-AC-3 into MP4 without decoding (`convert= OK {"codec":"eac3","channels":6,...}`). This needs a new settings rule, because today passthrough applies only to "already optimal" sources (`src/ui/controller.ts:133`) and `audioOptimal` requires AAC (`src/core/autoSettings.ts:89`).
 - Tradeoffs: the output MP4 has E-AC-3 audio, which this same browser cannot play, nor Firefox on Linux. Audio edits, cuts and Extract audio stay unavailable. The output also carries a Dolby bitstream, but the app does not decode it.
 
@@ -139,15 +143,15 @@ Recommendation, for the decision owner: A alone fixes the reported behaviour, if
 
 ## 6. Sibling risks and related findings
 
-| ID | Severity | Location | Problem | Proposed fix |
-| --- | --- | --- | --- | --- |
-| S1 | HIGH | src/core/autoSettings.ts:71 | Auto settings include audio for an undecodable source, which causes the reported export failure | option B, or moot after option A |
-| S2 | HIGH | src/ui/controllerSettings.ts:300-302 | `validateSettings` checks `!!source.audio` while the tracks panel checks `decodable`, so the UI shows audio off but the export keeps it | same as S1 |
-| S3 | MED | src/core/convert.ts:126 | `mixHasAudio(s.mix, true)` hard-codes "source has audio" and relies on its callers to have gated on decodability | pass `source?.audio?.decodable ?? true` once S1/S2 are decided |
-| S4 | MED, SUSPECTED | src/ui/controllerExport.ts (save picker before conversion init) | the conversion validity check runs after the picker, so a predictable failure leaves a partial file | check `canDecode` / `isValid` before opening the picker (option D) |
-| S5 | MED, SUSPECTED | `~/Downloads/...[4K HDR 5.1 384kbps].mp4` (VP9 + E-AC-3) | the same audio failure will hit this file. The E-AC-3 MP4 repro supports this, but I did not run that file | covered by the chosen option |
-| S6 | LOW, SUSPECTED | src/core/audioProcess.ts:316, src/ui/waveform.ts:32 | these paths skip undecodable tracks silently. They look correct, but I have not tested them with this file | none |
-| B1 | Bug B finding | src/core/source.ts:61, 102-106 | the app accepted the 4K AV1 10-bit file (the user reached the export UI), so `videoTrack.canDecode()` returned true for it. The preview failure is downstream of the source check. Not investigated further | handled in the bug B session |
+| ID  | Severity       | Location                                                        | Problem                                                                                                                                                                                                     | Proposed fix                                                       |
+| --- | -------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| S1  | HIGH           | src/core/autoSettings.ts:71                                     | Auto settings include audio for an undecodable source, which causes the reported export failure                                                                                                             | option B, or moot after option A                                   |
+| S2  | HIGH           | src/ui/controllerSettings.ts:300-302                            | `validateSettings` checks `!!source.audio` while the tracks panel checks `decodable`, so the UI shows audio off but the export keeps it                                                                     | same as S1                                                         |
+| S3  | MED            | src/core/convert.ts:126                                         | `mixHasAudio(s.mix, true)` hard-codes "source has audio" and relies on its callers to have gated on decodability                                                                                            | pass `source?.audio?.decodable ?? true` once S1/S2 are decided     |
+| S4  | MED, SUSPECTED | src/ui/controllerExport.ts (save picker before conversion init) | the conversion validity check runs after the picker, so a predictable failure leaves a partial file                                                                                                         | check `canDecode` / `isValid` before opening the picker (option D) |
+| S5  | MED, SUSPECTED | `~/Downloads/...[4K HDR 5.1 384kbps].mp4` (VP9 + E-AC-3)        | the same audio failure will hit this file. The E-AC-3 MP4 repro supports this, but I did not run that file                                                                                                  | covered by the chosen option                                       |
+| S6  | LOW, SUSPECTED | src/core/audioProcess.ts:316, src/ui/waveform.ts:32             | these paths skip undecodable tracks silently. They look correct, but I have not tested them with this file                                                                                                  | none                                                               |
+| B1  | Bug B finding  | src/core/source.ts:61, 102-106                                  | the app accepted the 4K AV1 10-bit file (the user reached the export UI), so `videoTrack.canDecode()` returned true for it. The preview failure is downstream of the source check. Not investigated further | handled in the bug B session                                       |
 
 ## 7. Not verified
 
