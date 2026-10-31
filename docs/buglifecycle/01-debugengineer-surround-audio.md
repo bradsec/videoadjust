@@ -160,3 +160,77 @@ Recommendation, for the decision owner: A alone fixes the reported behaviour, if
 - The full e2e suite. It is long and no code changed.
 - Option A at runtime (installing the package was not authorised), the npm tarball size, and E-AC-3 patent and Dolby licensing status.
 - Chromium source at the exact 156 tag (I read main only). Mediabunny 1.63-1.65 release notes come from the coordinator's report, not my own reading.
+
+## Phase 4: fix (after approval of option A and S4)
+
+The user approved option A and the S4 fix. The fix is commit `2e28677`, on top of bug B's commits
+`9aa29d5` and `b45f7b0`. It leaves `9aa29d5` intact: E-AC-3 sources still preview their video
+without sound, because `<video>` cannot play E-AC-3.
+
+### Regression tests
+
+I wrote each test before its fix and confirmed it failed for the root-cause reason:
+
+- `tests/unit/autoSettings.test.ts` "leaves out audio the browser cannot decode instead of re-encoding it". Before the fix it failed with `expected { codec: 'aac', bitrate: 128000, …(2) } to be null`.
+- `tests/unit/settings.test.ts` "never requests audio for an undecodable source track, with or without a mix". Before the fix it failed with `expected { codec: 'aac', bitrate: 96000, …(2) } to be null`.
+- `tests/unit/capabilities.test.ts` `registerAc3Fallback` and `canDecodeAudioTrack` (5 tests). Before the fix they failed with `is not a function`.
+- `tests/unit/controller.test.ts`, S4 (3 tests): the conversion check runs before `openSink`, an invalid conversion never opens the sink, and an unexpected check error does not block the export. Before the fix they failed with `expected "vi.fn()" to not be called at all, but actually been called 1 times` (openSink).
+- `e2e/surround-audio.spec.ts` (5 tests) uses the new fixtures `tests/fixtures/h264-eac3-51.mp4` (5.1 E-AC-3) and `tests/fixtures/h264-dts.mkv` (DTS). The second fixture reproduces the gating bug now that E-AC-3 decodes. Both come from `scripts/make-fixtures.sh`.
+
+### Changes
+
+- AC-3 decoder: `@mediabunny/ac3` pinned at 1.62.0 (`package.json`, `pnpm-lock.yaml`). `registerAc3Fallback()` in `src/core/capabilities.ts` follows the AAC/MP3 pattern: a dynamic import, registration once per page, and a retry after a failed load. `canDecodeAudioTrack()` asks the browser first. It loads the decoder only for an `ac3`/`eac3` track that the browser reports as undecodable, then checks again. It replaces `canDecode()` in `src/core/source.ts` (source read) and `src/core/addedAudio.ts` (Add music). The registration is page-wide, so the later decode paths (export, waveform, mixing, audio processing) find the decoder already registered. The app registers only the decoder, never the encoder.
+- Gating: `src/core/autoSettings.ts` and `src/ui/controllerSettings.ts` (`validateSettings`) include source audio only when `source.audio.decodable` is true. An undecodable source now exports video only, which matches the Audio tracks panel. Such a source is also never "already optimal", so it does not take the trimmed-copy path.
+- S4: `checkConversion()` (new `src/core/conversionCheck.ts`) runs `Conversion.init` and the existing validity rule against an output with a `NullTarget` that never starts, then cancels it. `startConversion` uses the same `initConversion`/`assertConversionValid` helpers, so the check and the real run share one rule. `src/ui/controllerExport.ts` calls the check after `spec.preflight()` and before `openSink`. A `ConversionInvalidError` shows the invalid-settings notice without the partial-file sentence. Any other check error is logged with `console.warn` and the export continues, because the real conversion reports its own failures. I moved the code into a new module because `convert.ts` would have exceeded the `max-lines` rule. `convert.ts` re-exports `ConversionInvalidError`, `discardedPrimaryTracks` and `checkConversion`.
+- Packaging: the LGPL WASM exception in `scripts/check-licenses.mjs` now covers `@mediabunny/ac3`. `scripts/check-no-remote.mjs` allowlists `https://streams.videolan.org/upload/`, which is FFmpeg log text inside the WASM and is never loaded. The comment in `vite.config.ts` notes that the service worker precaches the AC-3 chunk (`dist/sw.js` lists it).
+- Docs: README (feature bullet, browser notes, credits table, "AC-3 and E-AC-3 decoder" section with a licence audit), THIRD-PARTY-LICENSES.txt (`## @mediabunny/ac3`), and an `[Unreleased]` CHANGELOG entry. I did not bump the version.
+
+Patent question: still open. The README and THIRD-PARTY-LICENSES.txt say the licence notices cover the software only, not Dolby patent rights.
+
+## Phase 5: verification
+
+Before the fix, the user's files failed with `ConversionInvalidError: ... (audio track: undecodable_source_codec)` (section 1). After the fix, a temporary harness spec (removed) converted seconds 20-23 of each file to 1080p30 H.264 with AAC 128 kbps stereo in Playwright Chromium:
+
+```
+mkv read {"v":"av1","a":{"codec":"eac3","decodable":true,"channels":6,"sampleRate":48000,...}}
+mkv convert {"d":3.029333333333333,"v":"avc","a":{"codec":"aac","decodable":true,"channels":2,"sampleRate":48000,...}}
+mp4 read {"v":"vp9","a":{"codec":"eac3","decodable":true,"channels":6,"sampleRate":48000,"bitrate":384000}}
+mp4 convert {"d":3.029333333333333,"v":"avc","a":{"codec":"aac","decodable":true,"channels":2,"sampleRate":48000,...}}
+mkv check {"ok":true}
+mp4 check {"ok":true}
+```
+
+This covers S5: the sibling `[4K HDR 5.1 384kbps].mp4` (VP9 with E-AC-3) also exports.
+
+- Unit tests (`pnpm test`): baseline `Tests 497 passed (497)`. Final `Test Files 42 passed (42)`, `Tests 508 passed (508)` (11 new).
+- Typecheck, `pnpm lint` (`ESLint: No issues found`), and `pnpm format:check` (`All matched files use Prettier code style!`) all pass.
+- Build (`pnpm build`): passes, including `licence check passed` and `check:remote ok: no URL outside the allowlist in 15 built files`. `check:size ok`.
+
+| Build output                                                      | Before                     | After                                                         |
+| ----------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------- |
+| Initial JS (`index-*.js` + modulepreloaded `preload-helper-*.js`) | 858.23 kB (gzip 234.47 kB) | 729.73 + 133.41 = 863.14 kB (gzip 202.10 + 35.72 = 237.82 kB) |
+| `mediabunny-ac3-*.js` (lazy, own chunk)                           | none                       | 1,144.34 kB (gzip 303.68 kB)                                  |
+| `mediabunny-aac-encoder-*.js` / `mediabunny-mp3-encoder-*.js`     | 992.34 / 311.39 kB         | 992.41 / 311.46 kB                                            |
+| `dist/` total                                                     | 2,755,739 bytes            | 3,907,156 bytes                                               |
+
+The decoder sits in its own chunk: `registerAc3Decoder` appears only in `mediabunny-ac3-*.js`. A second lazy chunk now shares Mediabunny code with the AAC chunk, so Rollup split that code into `preload-helper-*.js`. The page preloads that file, so initial JS grows by 4.9 kB raw (3.3 kB gzip). The e2e test "an AAC source never fetches the AC-3 decoder" confirms that an AAC file never requests the chunk. "a 5.1 E-AC-3 source loads the AC-3 decoder and exports" confirms that an E-AC-3 file requests it.
+
+- Chromium e2e project (`pnpm exec playwright test --project=chromium`): `170 passed`, `7 skipped`. All 7 skips are `@mobile` tests. I did not record a Chromium e2e baseline before the change.
+- Instrumentation: the temporary specs `e2e/zz-repro-eac3.spec.ts` and `e2e/zz-real-files.spec.ts` are deleted and do not appear in any commit.
+
+### Findings during the fix
+
+| ID  | Severity       | Location                            | Problem                                                                                                                                                                                                                                                                                                                                           | Proposed fix                                                    |
+| --- | -------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| F1  | MED            | `e2e/harness.ts` `checkConversion`  | Without encoder registration, the pre-save check reported `audio track: no_encodable_target_codec` for the real files while the real conversion succeeded. Mediabunny's check depends on registration order. Fixed in the harness. In the app, `probeCapabilities` registers the AAC fallback at load and the MP3 preflight runs before the check | keep every encoder registration ahead of `checkConversion`      |
+| F2  | MED, SUSPECTED | `src/core/audioMix.ts:238`          | With added music and Original audio on, a source with undecodable audio (for example DTS) still throws "The original audio cannot be decoded for mixing". The include switch is disabled in the UI, but a stored mix can keep `original.include: true`                                                                                            | gate on `source.audio.decodable` in `shrinkJob`/`mixedAudioJob` |
+| F3  | LOW            | `src/core/conversionCheck.ts`       | The check runs `Conversion.init` a second time per export: decoder and encoder config probes, no decoding. Its cost on slow devices is not measured                                                                                                                                                                                               | none unless measured                                            |
+| F4  | LOW            | upgrade to `@mediabunny/ac3` 1.65.0 | Later upstream versions patch FFmpeg's AC-3 encoder before building and ship `licenses/ffmpeg`. Re-run the licence audit and update THIRD-PARTY-LICENSES.txt when upgrading                                                                                                                                                                       | part of the mediabunny upgrade                                  |
+
+### Not verified
+
+- Dolby AC-3/E-AC-3 patent and licensing status, left open as instructed.
+- The WebKit, iPhone and iPad e2e projects. I ran only the Chromium project, so the decoder fallback path is unverified on WebKit, which may decode E-AC-3 natively.
+- The full UI flow with the 303 MB and 339 MB files. The harness converted them, and the UI export was run only with the small fixtures.
+- The user's own browser build. The preview still has no sound for E-AC-3 sources, by design of bug B's fix.
+- Offline export with an E-AC-3 source. `sw.js` lists the chunk, but I did not test this.
