@@ -227,3 +227,55 @@ checks that sample timestamps strictly increase.
 - Sources: mediabunny v1.63.0 release notes (`gh release view v1.63.0 -R Vanilagy/mediabunny`, accessed
   2026-11-01) for the pre-roll and priming changes; mediabunny 1.62.0, 1.63.0 and 1.65.0 source in
   `node_modules` for the code paths. npm shows 1.65.0 as the newest release (2026-10-30).
+
+## 8. Fix and verification continuation, 2026-11-01
+
+The user chose option A. The earlier sections record the pre-fix investigation; this section records the later fix. No commit was made because this workspace cannot write `.git`; the lead will commit the reviewed diff. HEAD remains `5f1e178`.
+
+### Fix and regression proof
+
+- `package.json` and `pnpm-lock.yaml` pin `mediabunny`, `@mediabunny/aac-encoder`, `@mediabunny/mp3-encoder` and `@mediabunny/ac3` to 1.62.1. `pnpm install --frozen-lockfile` returned `ok`. `pnpm view <name>@1.62.1 version` returned `1.62.1` for each of the four packages on 2026-11-01 ([mediabunny](https://www.npmjs.com/package/mediabunny/v/1.62.1), [AAC](https://www.npmjs.com/package/@mediabunny/aac-encoder/v/1.62.1), [MP3](https://www.npmjs.com/package/@mediabunny/mp3-encoder/v/1.62.1), [AC-3](https://www.npmjs.com/package/@mediabunny/ac3/v/1.62.1)).
+- `CHANGELOG.md` adds 0.28.1 and removes only the 1.65.0 priming-compensation entry from 0.28.0. `README.md` and `THIRD-PARTY-LICENSES.txt` describe the 1.62.1 licence audit and remove 1.65.0-specific build provenance and AC-3 patch claims. Commit `2aef11d` added no tests or source comments.
+- Added `tests/fixtures/land-aac-only.m4a`, an audio-only copy of the original fixture's AAC packets. `ffprobe` shows its first packet at `pts_time=-0.021333` with `skip_samples=1024`. Added `e2e/webkit-aac.spec.ts`, which re-encodes this source as M4A without an AVC decoder prerequisite.
+- Before: with only the local `node_modules/mediabunny` link pointing to cached 1.65.0, the new test failed `1 failed` on WebKit with the exact original error: `Got 2.996s, but largest timestamp is 3.017333333333333s.` After restoring the link to 1.62.1, the test returned `3 passed (1.8s)` on WebKit. With two workers and all four projects, three repeats per project returned `12 passed (5.7s)`. The cached-version swap changed no tracked file and was restored before the final checks.
+- The existing full-MP4 repro could not reach export here: its three repeats failed at `e2e/convert.spec.ts:202` with `This browser cannot decode the avc codec used by this video.` Direct `VideoDecoder.isConfigSupported({codec:'avc1.640028',codedWidth:1920,codedHeight:1080})` returned `supported: false`; AAC support returned `supported: true`. This is a distinct local browser capability failure, not the muxer error. Why this local WebKit lacks AVC decoding when the earlier investigation's run reached export is unknown. The new audio-only regression exercises the same AAC packets and muxer without AVC.
+
+### Verification
+
+Baseline before this fix: `pnpm test` reported `Test Files  42 passed (42)` and `Tests  510 passed (510)`. Final `CI=1 pnpm test` reported the same lines:
+
+```text
+ Test Files  42 passed (42)
+      Tests  510 passed (510)
+```
+
+Other final checks:
+
+```text
+pnpm install --frozen-lockfile: ok
+pnpm lint: exit 0
+pnpm typecheck: TypeScript: No errors found
+pnpm format:check: All matched files use Prettier code style!
+pnpm build: licence check passed; ✓ 167 modules transformed.; ✓ built in 256ms; check:remote ok: no URL outside the allowlist in 15 built files
+pnpm check:size: check:size ok: all dist files are at most 26214400 bytes
+```
+
+Chromium's full project returned:
+
+```text
+  7 skipped
+  171 passed (1.3m)
+```
+
+All four projects passed their fixture-free smoke test: `4 passed (3.8s)`. The new AAC regression passed three repeats each on chromium, webkit, iphone and ipad: `12 passed (5.7s)`. Separate project runs returned:
+
+```text
+chromium:   3 passed (2.2s)
+webkit:     3 passed (2.5s)
+iphone:     3 passed (2.6s)
+ipad:       3 passed (2.6s)
+```
+
+The attempted all-project run was stopped after the WebKit cases repeatedly failed at the AVC source-loading gate, including `e2e/appearance.spec.ts:20` and `:91`. Their page snapshots show `land-1080p30-aac.mp4: This browser cannot decode the avc codec used by this video.` Continuing 422 tests with 5-120-second timeouts could not test the AAC export fix. The full webkit, iphone and ipad projects therefore have no completion summaries. CI's Playwright container and real Safari were not run here. Bug A, bug B and C1 paths passed in Chromium's full project, including `e2e/surround-audio.spec.ts:32`, `:46`, `:85`, `:103` and `:115`; their full WebKit paths remain unverified in this local runtime.
+
+Sibling findings F1-F4 above remain open. No temporary instrumentation or version-swap link remains in the final diff. Finite passing trials support the downgrade on the tested browser build but do not prove every source shape or load condition.

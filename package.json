@@ -1,6 +1,6 @@
 {
   "name": "videoadjust",
-  "version": "0.28.0",
+  "version": "0.28.1",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -24,11 +24,11 @@
     "@fontsource/inter": "5.3.0",
     "@fontsource/jetbrains-mono": "5.3.0",
     "@fontsource/merriweather": "5.3.0",
-    "@mediabunny/aac-encoder": "1.65.0",
-    "@mediabunny/ac3": "1.65.0",
-    "@mediabunny/mp3-encoder": "1.65.0",
+    "@mediabunny/aac-encoder": "1.62.1",
+    "@mediabunny/ac3": "1.62.1",
+    "@mediabunny/mp3-encoder": "1.62.1",
     "gifenc": "1.0.3",
-    "mediabunny": "1.65.0"
+    "mediabunny": "1.62.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

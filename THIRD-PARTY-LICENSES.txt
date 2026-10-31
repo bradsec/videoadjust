@@ -35,23 +35,21 @@ Source: https://github.com/fontsource/fontsource
 Copyright 2014 The Caveat Project Authors (https://github.com/googlefonts/caveat)
 
 ## mediabunny
-Version: 1.65.0
+Version: 1.62.1
 Licence: MPL-2.0 (unmodified; bundled as-is)
 Source: https://github.com/Vanilagy/mediabunny
 Licence text: https://www.mozilla.org/MPL/2.0/ (also in node_modules/mediabunny/LICENSE)
 
 ## @mediabunny/aac-encoder
-Version: 1.65.0
+Version: 1.62.1
 Licence: MPL-2.0 (package JavaScript and src/bridge.c, unmodified; full text below)
 Source: https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder
-npm: https://www.npmjs.com/package/@mediabunny/aac-encoder/v/1.65.0
+npm: https://www.npmjs.com/package/@mediabunny/aac-encoder/v/1.62.1
 Embedded: FFmpeg libavcodec + libavutil, native AAC encoder only, compiled to WASM by the
   package author. Licence: LGPL-2.1-or-later (full text below).
   FFmpeg source: https://github.com/FFmpeg/FFmpeg
   FFmpeg licence statement: https://github.com/FFmpeg/FFmpeg/blob/master/LICENSE.md
-  FFmpeg version: commit 60a2818f76dcd1fee3155b1791304af104a0fc1b (n9.1-dev-2902-g60a2818f76d),
-  unmodified, built with Emscripten 4.0.21 (provenance section of the package README;
-  SHA-256 of the WASM: 4123d56ed650255a14535d8438680a78df67ae9324e4874a88becfb37bf18c66).
+  FFmpeg version: not recorded by the upstream package; the WASM build is unversioned.
   Build configuration: "Building and development" in packages/aac-encoder/README.md of the
   Mediabunny repository. It passes --disable-everything, --disable-autodetect and
   --enable-encoder=aac, and does not pass --enable-gpl, --enable-nonfree or
@@ -66,20 +64,16 @@ Using your own build: follow the upstream build instructions above to compile FF
   repository at it (for example with a pnpm override to a local path) and run pnpm build.
 
 ## @mediabunny/ac3
-Version: 1.65.0
+Version: 1.62.1
 Licence: MPL-2.0 (package JavaScript and src/bridge.c, unmodified; full text below)
 Source: https://github.com/Vanilagy/mediabunny/tree/main/packages/ac3
-npm: https://www.npmjs.com/package/@mediabunny/ac3/v/1.65.0
+npm: https://www.npmjs.com/package/@mediabunny/ac3/v/1.62.1
 Embedded: FFmpeg libavcodec + libavutil, AC-3 and E-AC-3 decoders and encoders only, compiled
   to WASM by the package author. The app registers only the decoder. Licence:
   LGPL-2.1-or-later (full text below).
   FFmpeg source: https://github.com/FFmpeg/FFmpeg
   FFmpeg licence statement: https://github.com/FFmpeg/FFmpeg/blob/master/LICENSE.md
-  FFmpeg version: commit 60a2818f76dcd1fee3155b1791304af104a0fc1b (n9.1-dev-2902-g60a2818f76d),
-  built with Emscripten 4.0.21 after applying the package's patches/ffmpeg-ac3-encoder-audio-frame-queue.patch,
-  a 2-line change to FFmpeg's configure that adds audio_frame_queue to the AC-3 encoder's
-  dependencies (a build-system fix; the decoder the app uses is unaffected). The patch is shipped in
-  the npm package (SHA-256 of the WASM: c4624c97393ca14f91f5fcf00c55b44cd63ba10aed63b4ee71b079e70a5e8f67).
+  FFmpeg version: not recorded by the upstream package; the WASM build is unversioned.
   Build configuration: "Building and development" in packages/ac3/README.md of the
   Mediabunny repository. It passes --disable-everything, --disable-autodetect,
   --enable-decoder=ac3, --enable-decoder=eac3, --enable-encoder=ac3 and --enable-encoder=eac3,
@@ -96,10 +90,10 @@ Using your own build: follow the upstream build instructions above to compile FF
   repository at it (for example with a pnpm override to a local path) and run pnpm build.
 
 ## @mediabunny/mp3-encoder
-Version: 1.65.0
+Version: 1.62.1
 Licence: MPL-2.0 (package JavaScript and src/lame-bridge.c, unmodified; full text below)
 Source: https://github.com/Vanilagy/mediabunny/tree/main/packages/mp3-encoder
-npm: https://www.npmjs.com/package/@mediabunny/mp3-encoder/v/1.65.0
+npm: https://www.npmjs.com/package/@mediabunny/mp3-encoder/v/1.62.1
 Embedded: LAME 3.100 (libmp3lame), compiled to WASM by the package author.
   Licence: LGPL-2.0-or-later (source headers: GNU Library General Public License, "either
   version 2 of the License, or (at your option) any later version"; full text below).
@@ -107,8 +101,7 @@ Embedded: LAME 3.100 (libmp3lame), compiled to WASM by the package author.
   LAME source: https://sourceforge.net/projects/lame/files/lame/
   LAME licence statement: https://lame.sourceforge.io/license.txt
   Build configuration: "Building and development" in packages/mp3-encoder/README.md of the
-  Mediabunny repository. LAME 3.100 is unmodified (SHA-256 of the WASM:
-  a680e507e9d91f1a4dcd6f846b9b94ff1fec7e19ff44e803358c218ddbe446a6). It passes --disable-decoder and --disable-frontend, so the GPL
+  Mediabunny repository. It passes --disable-decoder and --disable-frontend, so the GPL
   mpglib decoder that LAME can include is not built.
 What ships: the npm package version above, unmodified, bundled by Vite into its own
   same-origin file (assets/mediabunny-mp3-encoder-<hash>.js). The page fetches it on demand,

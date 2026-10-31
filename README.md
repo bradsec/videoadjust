@@ -204,7 +204,7 @@ its documented `registerAacEncoder()` call. The app loads it with a dynamic `imp
 once per page. The WASM is embedded in that JavaScript chunk, as the upstream package ships it.
 `THIRD-PARTY-LICENSES.txt` explains how to rebuild with your own FFmpeg build.
 
-Licence audit (version 1.65.0, 2026-11-01):
+Licence audit (version 1.62.1, 2026-11-01):
 
 - The npm package declares MPL-2.0 and its `LICENSE` is the MPL-2.0 text. Its WASM is FFmpeg
   (libavcodec and libavutil) linked with an MPL-2.0 bridge (`src/bridge.c`).
@@ -216,8 +216,7 @@ Licence audit (version 1.65.0, 2026-11-01):
 - No fdk-aac and no GPL code, so the package passes the allowlist rule "LGPL-2.1+ only for
   separately loaded, unmodified WASM chunks with source link". The chunk is the unmodified npm
   release, bundled and re-minified by Vite.
-- The package README now records the build: FFmpeg commit `60a2818f76dcd1fee3155b1791304af104a0fc1b`
-  (unmodified) and Emscripten 4.0.21.
+- The upstream package does not record which FFmpeg version it was built from.
 
 The npm metadata reports MPL-2.0, so the embedded LGPL code is not visible to `pnpm licenses`.
 `scripts/check-licenses.mjs` keeps explicit per-package exceptions (`LGPL_WASM_EXCEPTIONS`):
@@ -233,7 +232,7 @@ the end of the audio. The app loads the encoder with a dynamic `import()` on the
 so it ships as a separate same-origin chunk that the capability probe never loads. The WASM and the encode worker
 (a `blob:` worker, allowed by the CSP) are embedded in that chunk.
 
-Licence audit (version 1.65.0, 2026-11-01):
+Licence audit (version 1.62.1, 2026-11-01):
 
 - The npm package declares MPL-2.0. Its WASM is LAME 3.100, whose source headers grant the GNU
   Library General Public License version 2 or any later version (LGPL-2.0-or-later).
@@ -256,20 +255,16 @@ fetch. The WASM and the decode worker (a `blob:` worker, allowed by the CSP) are
 chunk. The browser still cannot play such audio in the preview's `<video>` element, so the preview
 plays the video without sound.
 
-Licence audit (version 1.65.0, 2026-11-01):
+Licence audit (version 1.62.1, 2026-11-01):
 
 - The npm package declares MPL-2.0 and its `LICENSE` is the MPL-2.0 text. Its WASM is FFmpeg
   (libavcodec and libavutil) linked with an MPL-2.0 bridge (`src/bridge.c`).
 - The FFmpeg build flags in the package README are `--disable-everything --disable-autodetect
 --enable-avcodec --enable-decoder=ac3 --enable-decoder=eac3 --enable-encoder=ac3
 --enable-encoder=eac3`. No `--enable-gpl`, `--enable-version3` or `--enable-nonfree`, so the
-  build is LGPL-2.1-or-later. Since 1.63 the package applies one FFmpeg patch before building
-  (`patches/ffmpeg-ac3-encoder-audio-frame-queue.patch`, shipped in the npm package): a 2-line
-  `configure` change that adds `audio_frame_queue` to the AC-3 encoder's dependencies. It changes
-  the build, not the licence, and the decoder the app registers is unaffected. FFmpeg commit
-  `60a2818f76dcd1fee3155b1791304af104a0fc1b`, Emscripten 4.0.21.
+  build is LGPL-2.1-or-later. The 1.62.1 package applies no FFmpeg patch.
 - `scripts/check-licenses.mjs` lists `@mediabunny/ac3` in `LGPL_WASM_EXCEPTIONS`. Re-run the audit
-  before upgrading.
+  before upgrading: later upstream versions patch FFmpeg's AC-3 encoder before building.
 - AC-3 and E-AC-3 are Dolby codecs. This audit covers the software licences only, not patent
   rights in the codecs.
 - The FFmpeg log text embedded in the WASM contains `https://streams.videolan.org/upload/`;

@@ -2,6 +2,16 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.28.1] - 2026-11-01
+
+### Fixed
+
+- Exports in Safari and other WebKit browsers no longer stall and fail when the video has AAC audio. A WebKit audio decoder issue gave the last audio frame an earlier timestamp, so the new file could not be written.
+
+### Changed
+
+- Mediabunny and its AAC, MP3 and AC-3 extension packages are held at 1.62.1 because of a WebKit audio decoder issue.
+
 ## [0.28.0] - 2026-11-01
 
 ### Added
