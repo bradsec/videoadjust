@@ -11,7 +11,7 @@ Date: 2026-11-01. Branch `fix/surround-audio-4k`. Rollback point: 766b283 (`git 
 | @mediabunny/mp3-encoder | 1.62.0 | 1.65.0 | same                                                                                                                  |
 | @mediabunny/ac3         | 1.62.0 | 1.65.0 | same; package README and `patches/` in node_modules                                                                   |
 
-Reason: maintenance, keep extension packages matched. Lockfile truth confirmed (`pnpm-lock.yaml` all four at 1.65.0). No pin outside `package.json` and the lockfile (no CI image, engines or Dockerfile mention mediabunny). Support window: Mediabunny publishes no LTS policy that I found, so none is claimed.
+Reason: maintenance, keep extension packages matched. Lockfile truth confirmed (`pnpm-lock.yaml` all four at 1.65.0). No pin outside `package.json` and the lockfile (no CI image, engines or Dockerfile mention mediabunny). Support window: Support policy was not checked (unverified).
 
 ## 2. Breaking changes and behaviour items
 
@@ -60,7 +60,7 @@ Bundle sizes (bytes, gzip -9 in brackets):
 | mediabunny-mp3-encoder (lazy)     | 311,468 (132,491)   | 473,382 (117,625)   |
 | dist total                        | 3,907,156           | 4,250,421           |
 
-The AC-3 decoder stays in its own lazy chunk. The initial `preload-helper` chunk no longer exists as a separate file; its code merged into `index-*.js`, and a 1,018 byte `__vite-browser-external-*.js` stub appeared (Vite's empty shim for a Node built-in referenced by newer Mediabunny code). Initial JS grows 15 kB (1.7%).
+The AC-3 decoder stays in its own lazy chunk. The initial `preload-helper` chunk no longer exists as a separate file; its code merged into `index-*.js`, and a 1,018 byte `__vite-browser-external-*.js` stub appeared (SUSPECTED: Vite shim for a Node built-in referenced by newer Mediabunny code; not traced). Initial JS grows 15 kB (1.7%).
 
 Harness conversion of the user's MKV (AV1 4K HDR, E-AC-3 5.1; read-only, nothing copied into the repo; temporary spec and harness hook removed). Settings: MP4, H.264 1080p30 4 Mbps, AAC 128 kbps stereo, trims 0 to 30 s and 20 to 50 s. ffprobe, 1.62.0 vs 1.65.0:
 
