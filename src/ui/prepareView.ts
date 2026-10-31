@@ -19,6 +19,7 @@ import { mountMixWaveform } from './mixWaveform';
 import { mountOverlayEditor } from './overlayEditor';
 import { mountOverlayPanel } from './overlayPanel';
 import { mountPreviewAudio } from './previewAudio';
+import { mountPreviewNotices } from './previewNotices';
 import { mountStylePanel, webglStyleReason } from './stylePanel';
 import { toast } from './toast';
 import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
@@ -74,12 +75,8 @@ export function renderPrepare(
   video.loop = true;
   video.preload = 'metadata';
   const url = URL.createObjectURL(state.file);
-  const previewNote = el(
-    'p',
-    'note preview-note',
-    'This browser cannot play the preview. Trimming still works with the handles and thumbnails. The trim Set buttons require a playable preview.',
-  );
-  previewNote.hidden = true;
+  const previewNotices = mountPreviewNotices(video, state.source);
+  const previewNote = previewNotices.fallback;
   const trimHost = el('div');
   const settingsHost = el('aside', 'settings-host inspector');
   const tracksHost = el('div');
@@ -214,6 +211,7 @@ export function renderPrepare(
   const showPreviewUnplayable = () => {
     if (!previewPlayable) return;
     previewPlayable = false;
+    previewNotices.destroy();
     video.pause();
     video.removeAttribute('src');
     video.load();
@@ -344,6 +342,7 @@ export function renderPrepare(
         },
       );
     else previewHost.append(video);
+    previewHost.append(previewNotices.sound, previewNotices.picture);
     video.src = url;
     previewAudio = mountPreviewAudio(
       video,
@@ -503,6 +502,7 @@ export function renderPrepare(
       overlayEditor?.destroy();
       livePreview?.destroy();
       previewAudio?.destroy();
+      previewNotices.destroy();
       video.removeEventListener('error', showPreviewUnplayable);
       video.pause();
       video.removeAttribute('src');

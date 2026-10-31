@@ -119,6 +119,35 @@ test('a source whose audio the browser cannot play still gets a video preview', 
     .toBe(640);
   await expect(page.locator('.preview-note')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Set start to playhead' })).toBeEnabled();
+  await expect(
+    page.getByText('Preview has no sound: this browser cannot play the audio. Export converts it.'),
+  ).toBeVisible();
+});
+
+test('preview warns when playback presents no frames', async ({ page }) => {
+  await page.addInitScript(() => {
+    HTMLVideoElement.prototype.requestVideoFrameCallback = (callback) => {
+      (window as typeof window & { delayedFrame?: VideoFrameRequestCallback }).delayedFrame =
+        callback;
+      return 1;
+    };
+  });
+  await page.goto('/');
+  await page.setInputFiles('#file', longFixture);
+  const video = page.locator('.preview-video');
+  await expect
+    .poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState))
+    .toBeGreaterThanOrEqual(2);
+  await video.evaluate((v: HTMLVideoElement) => v.play());
+  await expect(
+    page.getByText("This browser cannot show this video's picture. Export still works."),
+  ).toBeVisible({ timeout: 10_000 });
+  await page.evaluate(() => {
+    const frame = (window as typeof window & { delayedFrame?: VideoFrameRequestCallback })
+      .delayedFrame;
+    frame?.(performance.now(), {} as VideoFrameCallbackMetadata);
+  });
+  await expect(page.locator('.preview-picture-note')).toBeHidden();
 });
 
 test.describe('with a video loaded', () => {
