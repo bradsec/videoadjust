@@ -130,3 +130,43 @@ page lived only in a scratch build and is not in the diff.
 - Sources other than this MKV and the synthetic fixtures were not tested: MP4 with odd timescales, and true VFR phone footage. Without `frameRate`, the output keeps the source timestamps, so a VFR source now stays VFR rather than being forced to a constant rate.
 - C1: whether the encoded pixels are full range to match the tags was not checked.
 - No web lookup was done. Mediabunny behaviour comes from the local 1.62.1 source in `node_modules/mediabunny/src`.
+
+## 8. Follow-up: WebKit ignores the bitrate without `frameRate` (not fixed)
+
+After the fix, two WebKit tests fail: `e2e/convert.spec.ts:49` (`Expected: <= 360335`,
+`Received: 2327391`) and `e2e/result.spec.ts:106` (`"650.4 kB, not smaller"`). Chromium passes.
+
+Cause, confirmed: with no `frameRate`, Mediabunny 1.62.1 configures `VideoEncoder` with no
+`framerate` (`mediabunny.mjs:36362` reads it from the output track metadata, set only from
+`trackOptions.frameRate` at 41727). WebKit's H.264 encoder then overshoots the bitrate. A direct
+`VideoEncoder` probe in Playwright WebKit (1280x720, 90 frames, 500 kbps target) gave 10030 kbps
+without `framerate` and 452 kbps with `framerate: 30`. Chromium gave the same size either way.
+The Conversion API has no other route to the encoder config (`onEncoderConfig` is internal).
+
+Snapping the rate does not keep every frame. The resampler buckets with
+`Math.floor(t * frameRate)` (`mediabunny.mjs:662`, 36141). Padding repairs one early frame, but
+two early frames in a row lose one. Measured in-browser with 12-bit counter files (Chromium and
+WebKit gave the same counts):
+
+| Source (timebase)   | frameRate unset | exact nominal | nominal x (1 + 1e-9) |
+| ------------------- | --------------- | ------------- | -------------------- |
+| 30 fps MKV (1 ms)   | 0 of 3600 lost  | 17            | 0                    |
+| 25 fps MKV (1 ms)   | 0 of 3000       | 11            | 0                    |
+| 29.97 MKV (1 ms)    | 0 of 3597       | 385           | 360                  |
+| 29.97 MP4 (1/30000) | 0 of 3597       | 66            | 0                    |
+| 23.976 MP4 (1/90k)  | 0 of 2878       | 0             | 0                    |
+
+Exact 30 drops frames at float edges (`0.7 * 30` is `20.999999999999996`). A tiny upward nudge
+fixes those, but /1001 rates on a millisecond grid round two frames early in a row, which no
+multiplicative rate can fix. A replay of the resampler over the user's file pts predicts 17 of
+3768 lost at 30, 0 with the nudge. Mediabunny 1.65.0 has the same `floorToDivisor` bucketing.
+
+No `frameRate` value keeps every frame for all constant-rate sources and also gives WebKit a
+`framerate`. Options for the lead:
+
+1. Nudged nominal snap, used only where measured lossless (integer rates, and /1001 rates outside
+   Matroska/WebM); leave `frameRate` unset for /1001 Matroska, so WebKit overshoots there.
+2. Patch Mediabunny (`pnpm patch`) to bucket with `Math.round` or a half-slot tolerance, then pass
+   the snapped nominal rate. Report upstream.
+3. Wrap `VideoEncoder.prototype.configure` to add `framerate`. Global and racy with the preview
+   copy conversion; not recommended.
