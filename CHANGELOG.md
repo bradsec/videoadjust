@@ -6,7 +6,9 @@ Newest releases appear first. Version numbers match `package.json`.
 
 ### Added
 
-- Local preview copy for HDR, 10-bit and Dolby-audio files.
+- Local preview copy for HDR, 10-bit and Dolby-audio files. Where the browser supports Media Source Extensions, the copy starts playing after about 2 seconds while the rest converts.
+- Preview preparation and buffering status sits in the middle of the preview picture.
+- Results for sources above 1080p, or that needed a preview copy, show the new video alone with a Compare with original button.
 
 ### Fixed
 
