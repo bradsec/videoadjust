@@ -138,6 +138,10 @@
   font-size: var(--fs-14);
   color: var(--text-2);
 }
+.compare-on {
+  justify-self: start;
+  margin-top: var(--s-3);
+}
 .side-tag {
   position: absolute;
   top: var(--s-3);

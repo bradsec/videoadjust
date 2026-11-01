@@ -200,6 +200,29 @@ test('shows the new video alone with a note when the original cannot play here',
   await expect(page.locator('.stats tbody')).toContainText('1920x1080');
 });
 
+test('a 4K source starts with the new video alone until Compare with original', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await forceMemorySink(page);
+  await open(page, 'land-4k60-aac.mp4');
+  await exportButton(page).click();
+  const compareOn = page.getByRole('button', { name: 'Compare with original' });
+  await expect(compareOn).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('.compare-note')).toContainText('Comparison is off');
+  await expect(page.locator('.compare-stage video:visible')).toHaveCount(1);
+  await expect(page.locator('.compare-video').first()).not.toHaveAttribute('src');
+  await expect(page.getByRole('slider', { name: 'Wipe position' })).toBeHidden();
+  await expect(page.locator('.compare-new')).toHaveCSS('clip-path', 'none');
+  await compareOn.click();
+  await expect(compareOn).toBeHidden();
+  await expect(page.locator('.compare-note')).toBeHidden();
+  await expect(page.locator('.compare-stage video:visible')).toHaveCount(2);
+  await expect(page.locator('.compare-video').first()).toHaveAttribute('src', /^blob:/);
+  await expect(page.getByRole('slider', { name: 'Wipe position' })).toBeVisible();
+  await expect(page.locator('.compare-new')).toHaveCSS('clip-path', /inset/);
+});
+
 test('an output that is not smaller says so and offers Make it smaller', async ({ page }) => {
   test.setTimeout(90_000);
   await forceMemorySink(page);

@@ -216,7 +216,13 @@ test('preview proxy plays, survives export for comparison, and is released on St
     .getByRole('button', { name: /^Export/ })
     .click();
   await expect(page.getByRole('button', { name: 'Start over' })).toBeVisible({ timeout: 60_000 });
+  // A preview copy means a heavy original, so the result starts with the new video alone.
+  await expect(page.locator('.compare-stage video:visible')).toHaveCount(1);
+  await expect(page.locator('.compare-video').first()).not.toHaveAttribute('src');
+  await page.getByRole('button', { name: 'Compare with original' }).click();
   await expect(page.locator('.compare-video').first()).toHaveAttribute('src', proxyUrl!);
+  await expect(page.locator('.compare-stage video:visible')).toHaveCount(2);
+  await expect(page.getByRole('slider', { name: 'Wipe position' })).toBeVisible();
   await page.getByRole('button', { name: 'Start over' }).click();
   expect(
     await page.evaluate(

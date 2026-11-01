@@ -1,7 +1,7 @@
 import { AUDIO_FORMATS } from '../core/audioExtract';
 import type { Settings, SourceInfo } from '../core/types';
 import { mountAudioPlayer } from './audioPlayer';
-import { mountCompare } from './compare';
+import { compareByDefault, mountCompare } from './compare';
 import { codecLabel, type AppAction, type AppState } from './controller';
 import { el, icon } from './dom';
 import { formatBitrate, formatBytes, formatDuration } from './format';
@@ -281,6 +281,7 @@ export function renderResult(
       originalInfo: source,
       outputInfo: output.info,
       offsetSec: state.settings.trim.start,
+      compareOff: !compareByDefault(source, !!state.previewProxyUrl),
     });
     canvas.append(host);
   } else if (!output.blob) {

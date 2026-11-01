@@ -1,3 +1,4 @@
+import { LONG_EDGE_CAP } from '../core/autoSettings';
 import type { SourceInfo } from '../core/types';
 import { el, icon } from './dom';
 import { formatDuration } from './format';
@@ -30,6 +31,15 @@ export function canPlaySource(
   return video.canPlayType(playbackMime) !== '';
 }
 
+/**
+ * Two large videos decoding side by side make the new one stutter, so a source above 1080p, or
+ * one that needed a preview copy, starts with the new video alone.
+ */
+export function compareByDefault(source: SourceInfo, previewCopy: boolean): boolean {
+  const v = source.video;
+  return !previewCopy && !(v && Math.max(v.displayWidth, v.displayHeight) > LONG_EDGE_CAP);
+}
+
 export interface CompareOptions {
   /** Object URLs; the caller owns and revokes them. */
   original: string;
@@ -38,6 +48,8 @@ export interface CompareOptions {
   outputInfo: SourceInfo;
   /** Where the output starts in the original (the trim start), in seconds. */
   offsetSec?: number;
+  /** Start with the new video alone and a Compare with original button. */
+  compareOff?: boolean;
 }
 
 const KEY_STEP = 5;
@@ -84,12 +96,11 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   knob.append(icon('i-wipe'));
   stage.append(original, output, tagOriginal, tagNew, line, knob);
 
-  const note = el(
-    'p',
-    'compare-note',
-    'This browser cannot play the original for comparison, so only the new video is shown. The table still compares both.',
-  );
+  const note = el('p', 'compare-note');
   note.hidden = true;
+  const compareOn = el('button', 'btn compare-on', 'Compare with original');
+  compareOn.type = 'button';
+  compareOn.hidden = true;
 
   const bar = el('div', 'compare-bar');
   const seg = el('div', 'seg');
@@ -117,7 +128,7 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   const time = el('span', 'num scrub-time');
   scrub.append(play, prev, range, next, time);
   bar.append(seg, scrub);
-  host.replaceChildren(stage, note, bar);
+  host.replaceChildren(stage, note, compareOn, bar);
 
   let position = 50;
   let originalPlayable = true;
@@ -157,15 +168,35 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   const tagObserver = new ResizeObserver(placeTags);
   tagObserver.observe(stage);
 
-  function showOriginalUnplayable(): void {
-    if (!originalPlayable) return;
+  function hideOriginal(message: string): void {
     originalPlayable = false;
     original.pause();
     original.removeAttribute('src');
     original.load();
     original.hidden = true;
     for (const node of [tagOriginal, line, knob]) node.hidden = true;
+    note.textContent = message;
     note.hidden = false;
+    setPosition(position);
+  }
+
+  function showOriginalUnplayable(): void {
+    if (!originalPlayable) return;
+    hideOriginal(
+      'This browser cannot play the original for comparison, so only the new video is shown. The table still compares both.',
+    );
+  }
+
+  function showOriginal(): void {
+    compareOn.hidden = true;
+    originalPlayable = true;
+    // The MIME type carries the codecs, so an empty answer catches e.g. HEVC on Chromium before
+    // any bytes load; the error listener catches the rest.
+    if (!canPlaySource(original, opts.originalInfo)) return showOriginalUnplayable();
+    original.hidden = false;
+    for (const node of [tagOriginal, line, knob]) node.hidden = false;
+    note.hidden = true;
+    original.src = opts.original;
     setPosition(position);
   }
 
@@ -285,10 +316,11 @@ export function mountCompare(host: HTMLElement, opts: CompareOptions): { destroy
   stage.addEventListener('gotpointercapture', () => stage.classList.add('is-wiping'));
   stage.addEventListener('lostpointercapture', () => stage.classList.remove('is-wiping'));
 
-  // The MIME type carries the codecs, so an empty answer catches e.g. HEVC on Chromium before
-  // any bytes load; the error listener catches the rest.
-  if (!canPlaySource(original, opts.originalInfo)) showOriginalUnplayable();
-  else original.src = opts.original;
+  compareOn.addEventListener('click', showOriginal);
+  if (opts.compareOff) {
+    hideOriginal('Comparison is off for this large video, so the new video plays smoothly.');
+    compareOn.hidden = false;
+  } else showOriginal();
   output.src = opts.output;
   setPosition(50);
   setMode(false);
