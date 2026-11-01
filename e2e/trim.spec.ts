@@ -119,9 +119,13 @@ test('a source whose audio the browser cannot play still gets a video preview', 
     .toBe(640);
   await expect(page.locator('.preview-note')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Set start to playhead' })).toBeEnabled();
+  // Playwright WebKit on Linux reports E-AC-3 as playable, so only browsers that reject it warn.
+  const rejectsAudio = await page
+    .locator('.preview-video')
+    .evaluate((video: HTMLVideoElement) => video.canPlayType('video/mp4; codecs="ec-3"') === '');
   await expect(
     page.getByText('Preview has no sound: this browser cannot play the audio. Export converts it.'),
-  ).toBeVisible();
+  ).toBeVisible({ visible: rejectsAudio });
 });
 
 test('preview warns when playback presents no frames', async ({ page }) => {
