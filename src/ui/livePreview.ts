@@ -1,6 +1,4 @@
 import { drawPreparedFrame, preparedFrameMatrix } from '../core/frameExport';
-import type { Input } from 'mediabunny';
-import { createDecodedPreview } from './decodedPreview';
 import { paintFit } from '../core/fit';
 import { hasCaptions } from '../core/captions';
 import { mountCaptionPreview, type CutFadeTarget } from './captionPreview';
@@ -14,8 +12,8 @@ import {
 } from '../core/style';
 import type { Settings } from '../core/types';
 import { rotatedSize } from '../core/videoGeometry';
-import { el } from './dom';
-import { mountPreviewControls } from './previewControls';
+import { el, icon } from './dom';
+import { formatDuration } from './format';
 import {
   livePreviewGeometry,
   previewFidelity,
@@ -57,18 +55,10 @@ export function mountLivePreview(
   source: Size,
   duration: number,
   onStyleUnavailable: () => void,
-): {
-  update(settings: PreviewSettings): void;
-  togglePlayback(): boolean;
-  useDecodedFrames(input: Input, onReady: () => void): Promise<void>;
-  destroy(): void;
-} {
+): { update(settings: PreviewSettings): void; togglePlayback(): boolean; destroy(): void } {
   const stage = el('div', 'live-preview-stage');
   const frame = el('div', 'live-preview-frame');
   const styleCanvas = el('canvas', 'live-preview-style');
-  const decodedCanvas = el('canvas', 'live-preview-decoded');
-  decodedCanvas.setAttribute('aria-hidden', 'true');
-  decodedCanvas.hidden = true;
   styleCanvas.setAttribute('aria-hidden', 'true');
   styleCanvas.hidden = true;
   const fitCanvas = el('canvas', 'live-preview-fit');
@@ -83,13 +73,22 @@ export function mountLivePreview(
   const styleLabel = el('span', 'live-preview-label');
   styleLabel.setAttribute('aria-hidden', 'true');
   styleLabel.hidden = true;
-  frame.append(video, decodedCanvas, styleCanvas, fitCanvas, overlay, paletteCanvas, styleLabel);
+  frame.append(video, styleCanvas, fitCanvas, overlay, paletteCanvas, styleLabel);
   const captionsView = mountCaptionPreview(video, frame);
   stage.append(frame);
   const bar = el('div', 'live-preview-bar');
-  const status = Object.assign(el('p', 'note'), { role: 'status', hidden: true });
-  const playbackControls = mountPreviewControls(video, status, duration);
-  const { node: controls, play } = playbackControls;
+  const controls = el('div', 'scrub');
+  const play = el('button', 'btn');
+  play.type = 'button';
+  const range = el('input', 'scrub-range');
+  range.type = 'range';
+  range.min = '0';
+  range.max = String(duration);
+  range.step = 'any';
+  range.setAttribute('aria-label', 'Preview position');
+  const time = el('span', 'num scrub-time');
+  controls.append(play, range, time);
+  controls.hidden = true;
   const original = el('button', 'btn edit-tool', 'Show original');
   const originalSwitch = el('span', 'live-preview-switch');
   originalSwitch.setAttribute('aria-hidden', 'true');
@@ -100,6 +99,9 @@ export function mountLivePreview(
     'Show the source without crop, rotation, mirroring or overlays. Changing any of these returns to the edited view';
   original.hidden = true;
   original.setAttribute('aria-pressed', 'false');
+  const status = el('p', 'note');
+  status.setAttribute('role', 'status');
+  status.hidden = true;
   bar.append(controls, original);
   host.classList.add('live-preview');
   host.append(stage, bar, status);
@@ -112,14 +114,6 @@ export function mountLivePreview(
   let active = false;
   let version = 0;
   let destroyed = false;
-  const decoded = createDecodedPreview(
-    video,
-    decodedCanvas,
-    stage,
-    source,
-    () => drawStyle(video.currentTime),
-    () => refresh(),
-  );
   let styleRenderer: ReturnType<typeof createStyleRenderer> | undefined;
   const styleSource = document.createElement('canvas');
   const styleContext = styleSource.getContext('2d');
@@ -172,7 +166,7 @@ export function mountLivePreview(
         paletteFailed = true;
         stopStyle();
         paletteCanvas.hidden = true;
-        if (!decoded.ready) video.style.removeProperty('opacity');
+        video.style.removeProperty('opacity');
         status.textContent = 'GIF colour preview is unavailable.';
         status.hidden = false;
       };
@@ -195,7 +189,7 @@ export function mountLivePreview(
       (paletteFailed && !!settings.colors)
     )
       return;
-    if (!decoded.ready && video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
     if (settings.colors && palettePending) return;
     if (reduced && settings.fps) {
       const index = Math.floor(time * settings.fps + 1e-6);
@@ -213,7 +207,7 @@ export function mountLivePreview(
         // drawing to a 2D canvas then texImage2D(canvas) cost 14-56 ms per frame versus
         // about 2 ms direct, making styled playback stutter (0.22.13).
         styleRenderer.draw(
-          decoded.ready ? decodedCanvas : video,
+          video,
           content.width,
           content.height,
           time,
@@ -225,13 +219,7 @@ export function mountLivePreview(
         if (!styleContext) throw new Error('Canvas is unavailable for Video Style preview.');
         if (styleSource.width !== content.width) styleSource.width = content.width;
         if (styleSource.height !== content.height) styleSource.height = content.height;
-        drawPreparedFrame(
-          styleContext,
-          decoded.ready ? decodedCanvas : video,
-          source,
-          content,
-          settings.transform,
-        );
+        drawPreparedFrame(styleContext, video, source, content, settings.transform);
       }
       if (fitted) {
         if (!fitContext) throw new Error('Canvas is unavailable for Fit preview.');
@@ -267,7 +255,7 @@ export function mountLivePreview(
       styleCanvas.hidden = true;
       fitCanvas.hidden = true;
       paletteCanvas.hidden = true;
-      if (!decoded.ready) video.style.removeProperty('opacity');
+      video.style.removeProperty('opacity');
       onStyleUnavailable();
     }
   }
@@ -319,10 +307,29 @@ export function mountLivePreview(
     stopStyle();
     styleCanvas.hidden = true;
     fitCanvas.hidden = true;
-    if (!decoded.ready) video.style.removeProperty('opacity');
+    video.style.removeProperty('opacity');
     onStyleUnavailable();
   });
 
+  function syncPlayback(): void {
+    const paused = video.paused;
+    play.setAttribute('aria-label', paused ? 'Play' : 'Pause');
+    play.replaceChildren(icon(paused ? 'i-play' : 'i-pause'), paused ? 'Play' : 'Pause');
+    range.value = String(video.currentTime);
+    range.setAttribute('aria-valuetext', formatDuration(video.currentTime, { tenths: true }));
+    time.textContent = `${formatDuration(video.currentTime, { tenths: true })} / ${formatDuration(duration, { tenths: true })}`;
+  }
+  play.addEventListener('click', () => {
+    if (!video.paused) video.pause();
+    else
+      void video.play().catch((error: unknown) => {
+        status.textContent = error instanceof Error ? error.message : 'Could not play preview.';
+        status.hidden = false;
+      });
+  });
+  range.addEventListener('input', () => {
+    video.currentTime = Number(range.value);
+  });
   original.addEventListener('click', () => {
     showingOriginal = !showingOriginal;
     refresh();
@@ -382,9 +389,6 @@ export function mountLivePreview(
     video.style.width = `${showingOriginal ? display.width : geometry.videoWidth}px`;
     video.style.height = `${showingOriginal ? display.height : geometry.videoHeight}px`;
     video.style.transform = showingOriginal ? 'none' : geometry.transform;
-    decodedCanvas.style.width = video.style.width;
-    decodedCanvas.style.height = video.style.height;
-    decodedCanvas.style.transform = video.style.transform;
     styleCanvas.style.width = paletteCanvas.style.width = '100%';
     styleCanvas.style.height = paletteCanvas.style.height = '100%';
     fitCanvas.style.width = fitCanvas.style.height = '100%';
@@ -431,15 +435,15 @@ export function mountLivePreview(
           : STYLE_PRESETS.find((preset) => preset.id === settings!.style?.id)!.label;
     }
     // Showing the original does not replace playback controls.
-    controls.hidden = !edited && !decoded.active;
-    video.controls = !edited && !decoded.active;
+    controls.hidden = !edited;
+    video.controls = !edited;
     frame.classList.toggle('is-framed', edited);
     frame.classList.toggle('is-edited', active);
     if (!active || !processed) stopStyle();
     styleCanvas.hidden = true;
     fitCanvas.hidden = true;
     paletteCanvas.hidden = true;
-    if (!decoded.ready) video.style.removeProperty('opacity');
+    video.style.removeProperty('opacity');
     if (edited) {
       stage.style.aspectRatio =
         settings.fit?.aspect && settings.fit.aspect !== 'off'
@@ -452,8 +456,6 @@ export function mountLivePreview(
         frame.style.removeProperty(property);
       // Editors own display; leave it untouched when switching between live and original.
       for (const property of ['width', 'height', 'transform']) video.style.removeProperty(property);
-      for (const property of ['width', 'height', 'transform'])
-        decodedCanvas.style.removeProperty(property);
       for (const property of ['width', 'height']) styleCanvas.style.removeProperty(property);
       for (const property of ['width', 'height']) paletteCanvas.style.removeProperty(property);
     }
@@ -461,7 +463,7 @@ export function mountLivePreview(
     void drawOverlay();
     drawStyle();
     if (active && processed) scheduleStyle();
-    playbackControls.sync();
+    syncPlayback();
   }
 
   const observer = new ResizeObserver(() => {
@@ -478,6 +480,8 @@ export function mountLivePreview(
     drawStyle();
   });
   observer.observe(stage);
+  const events = ['play', 'pause', 'ended', 'timeupdate', 'seeked', 'loadedmetadata'] as const;
+  for (const event of events) video.addEventListener(event, syncPlayback);
   video.addEventListener('play', scheduleStyle);
   video.addEventListener('pause', stopStyle);
   video.addEventListener('ended', stopStyle);
@@ -490,14 +494,12 @@ export function mountLivePreview(
   video.addEventListener('timeupdate', () => {
     if (typeof video.requestVideoFrameCallback !== 'function' && video.paused) drawStyle();
   });
+  syncPlayback();
   return {
     togglePlayback() {
       if (!active) return false;
       play.click();
       return true;
-    },
-    useDecodedFrames(input, onReady) {
-      return decoded.start(input, onReady);
     },
     update(next) {
       // A change to what the preview shows ends Show original, so the change is visible at once.
@@ -507,7 +509,6 @@ export function mountLivePreview(
     },
     destroy() {
       destroyed = true;
-      decoded.destroy();
       captionsView.destroy();
       version++;
       observer.disconnect();
@@ -518,7 +519,7 @@ export function mountLivePreview(
       video.removeEventListener('play', scheduleStyle);
       video.removeEventListener('pause', stopStyle);
       video.removeEventListener('ended', stopStyle);
-      playbackControls.destroy();
+      for (const event of events) video.removeEventListener(event, syncPlayback);
       phone.removeEventListener('change', placeOriginal);
     },
   };

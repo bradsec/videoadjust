@@ -13,7 +13,7 @@ const MISSING_MARGIN = 32;
 // Presented frames must be this far apart in media time to count as separate positions.
 const POSITION_GAP = 0.5;
 const STRIKES = 2;
-// Ten positions 0.5 s apart cover a dark opening of about 5 s (the reported file fades in).
+// Check up to ten filmstrip positions so a dark opening does not hide a later missing picture.
 const MAX_CHECKS = 10;
 
 /** Brightest RGB channel in RGBA pixels. */
@@ -27,41 +27,31 @@ export function peakLevel(pixels: Uint8ClampedArray): number {
 /**
  * Detects a <video> that presents frames but draws them black. Chrome 156 on Linux with NVIDIA
  * does this for 10-bit video while decoding in software. Each dim presented frame is compared
- * with a frame Mediabunny decodes at the same time, so footage that is dark stays unflagged. One
- * correct-looking frame does not end the check: the same Chrome draws an occasional frame right.
+ * with a previously decoded filmstrip frame at the same time, so dark footage stays unflagged.
+ * One correct-looking frame does not end the check: the same Chrome draws an occasional frame right.
  */
 export function createPictureCheck(opts: {
   sampleVideo: () => Uint8ClampedArray | null;
-  sampleDecoded: (time: number) => Promise<Uint8ClampedArray | null>;
+  sampleReference: (time: number) => Uint8ClampedArray | null;
   onBroken: () => void;
 }) {
   let strikes = 0;
   let checks = 0;
   let lastTime = -Infinity;
-  let busy = false;
   let done = false;
   return {
     get done() {
       return done;
     },
-    async frame(mediaTime: number): Promise<void> {
-      if (done || busy || Math.abs(mediaTime - lastTime) < POSITION_GAP) return;
+    frame(mediaTime: number): void {
+      if (done || Math.abs(mediaTime - lastTime) < POSITION_GAP) return;
+      const reference = opts.sampleReference(mediaTime);
+      if (!reference) return;
       const video = opts.sampleVideo();
       if (!video) return;
       lastTime = mediaTime;
       const level = peakLevel(video);
-      if (level < PICTURE_LEVEL) {
-        busy = true;
-        try {
-          const decoded = await opts.sampleDecoded(mediaTime);
-          if (done) return;
-          if (decoded && peakLevel(decoded) - level >= MISSING_MARGIN) strikes++;
-        } catch (error) {
-          console.warn('Could not decode a frame to check the preview picture', error);
-        } finally {
-          busy = false;
-        }
-      }
+      if (level < PICTURE_LEVEL && peakLevel(reference) - level >= MISSING_MARGIN) strikes++;
       checks++;
       if (strikes >= STRIKES) {
         done = true;
@@ -72,6 +62,13 @@ export function createPictureCheck(opts: {
       done = true;
     },
   };
+}
+
+export function thumbnailAt<T>(frames: T[], duration: number, time: number): T | null {
+  if (!frames.length || duration <= 0) return null;
+  const index = Math.round((time * frames.length) / duration - 0.5);
+  const center = (duration * (index + 0.5)) / frames.length;
+  return Math.abs(time - center) <= 0.1 ? (frames[index] ?? null) : null;
 }
 
 function samplePixels(source: CanvasImageSource): Uint8ClampedArray | null {
@@ -90,18 +87,13 @@ function samplePixels(source: CanvasImageSource): Uint8ClampedArray | null {
 
 /** True when the preview has no sound because the browser cannot play the audio codec. */
 export function previewSoundUnavailable(video: HTMLVideoElement, source: SourceInfo): boolean {
-  return (
-    !!source.audio &&
-    !source.audio.decodable &&
-    video.canPlayType(playbackContainerMime(source.containerMime)) === ''
-  );
+  return !!source.audio && video.canPlayType(playbackContainerMime(source.containerMime)) === '';
 }
 
 export function mountPreviewNotices(
   video: HTMLVideoElement,
   source: SourceInfo,
-  decodedFrameAt: (time: number) => Promise<CanvasImageSource | null>,
-  onBroken: () => void,
+  referenceAt: (time: number) => CanvasImageSource | null,
 ) {
   const fallback = el(
     'p',
@@ -127,14 +119,13 @@ export function mountPreviewNotices(
   };
   const blackCheck = createPictureCheck({
     sampleVideo: () => (video.videoWidth ? samplePixels(video) : null),
-    sampleDecoded: async (time) => {
-      const frame = await decodedFrameAt(time);
+    sampleReference: (time) => {
+      const frame = referenceAt(time);
       return frame ? samplePixels(frame) : null;
     },
     onBroken: () => {
       black = true;
       showPicture();
-      onBroken();
     },
   });
   const supported = typeof video.requestVideoFrameCallback === 'function';
@@ -146,7 +137,7 @@ export function mountPreviewNotices(
       frame = undefined;
       clearTimeout(timer);
       if (!black) picture.hidden = true;
-      void blackCheck.frame(metadata.mediaTime ?? video.currentTime);
+      blackCheck.frame(metadata.mediaTime ?? video.currentTime);
       if (!blackCheck.done && !video.paused) watch();
     });
   };
@@ -163,9 +154,6 @@ export function mountPreviewNotices(
     fallback,
     sound,
     picture,
-    pictureReady() {
-      picture.hidden = true;
-    },
     destroy() {
       clearTimeout(timer);
       blackCheck.stop();

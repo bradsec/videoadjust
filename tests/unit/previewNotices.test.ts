@@ -3,6 +3,7 @@ import {
   createPictureCheck,
   peakLevel,
   previewSoundUnavailable,
+  thumbnailAt,
 } from '../../src/ui/previewNotices';
 import type { SourceInfo } from '../../src/core/types';
 
@@ -12,14 +13,20 @@ const black = pixels(0);
 const transparent = pixels(0, 0);
 const picture = pixels(120);
 
-function check(video: Uint8ClampedArray | null, decoded: Uint8ClampedArray | null) {
+function check(video: Uint8ClampedArray | null, reference: Uint8ClampedArray | null) {
   const onBroken = vi.fn();
-  const sampleDecoded = vi.fn(async () => decoded);
-  const result = createPictureCheck({ sampleVideo: () => video, sampleDecoded, onBroken });
-  return { result, onBroken, sampleDecoded };
+  const sampleReference = vi.fn(() => reference);
+  const result = createPictureCheck({ sampleVideo: () => video, sampleReference, onBroken });
+  return { result, onBroken, sampleReference };
 }
 
 describe('preview picture check', () => {
+  it('uses only a thumbnail at the presented time', () => {
+    const frames = [{} as HTMLCanvasElement, {} as HTMLCanvasElement];
+    expect(thumbnailAt(frames, 4, 1)).toBe(frames[0]);
+    expect(thumbnailAt(frames, 4, 3)).toBe(frames[1]);
+    expect(thumbnailAt(frames, 4, 2)).toBeNull();
+  });
   it('reads the brightest channel', () => {
     expect(peakLevel(new Uint8ClampedArray([1, 200, 3, 255, 9, 9, 9, 255]))).toBe(200);
   });
@@ -55,11 +62,11 @@ describe('preview picture check', () => {
     expect(result.done).toBe(true);
   });
 
-  it('does not decode while the video shows a picture, and never flags it', async () => {
-    const { result, onBroken, sampleDecoded } = check(picture, picture);
+  it('never flags a video that shows a picture', async () => {
+    const { result, onBroken, sampleReference } = check(picture, picture);
     for (let t = 0; t < 12; t++) await result.frame(t);
     expect(onBroken).not.toHaveBeenCalled();
-    expect(sampleDecoded).not.toHaveBeenCalled();
+    expect(sampleReference).toHaveBeenCalledTimes(10);
     expect(result.done).toBe(true);
   });
 
@@ -83,7 +90,7 @@ describe('preview picture check', () => {
     const onBroken = vi.fn();
     const result = createPictureCheck({
       sampleVideo: () => black,
-      sampleDecoded: async () => (call++ < 7 ? black : picture),
+      sampleReference: () => (call++ < 7 ? black : picture),
       onBroken,
     });
     for (let t = 0; t < 9; t++) await result.frame(t * 0.5);
@@ -96,7 +103,7 @@ describe('preview picture check', () => {
     const onBroken = vi.fn();
     const result = createPictureCheck({
       sampleVideo: () => videos[call++] ?? black,
-      sampleDecoded: async () => picture,
+      sampleReference: () => picture,
       onBroken,
     });
     for (let t = 0; t < 4; t++) await result.frame(t);
@@ -116,7 +123,7 @@ describe('preview picture check', () => {
     const onBroken = vi.fn();
     const result = createPictureCheck({
       sampleVideo: () => black,
-      sampleDecoded: async () => decoded[call++] ?? picture,
+      sampleReference: () => decoded[call++] ?? picture,
       onBroken,
     });
     await result.frame(0);
@@ -127,7 +134,7 @@ describe('preview picture check', () => {
   });
 });
 
-it('warns only when neither the element nor Mediabunny can play source audio', () => {
+it('warns when the browser cannot play source audio that export can decode', () => {
   const video = { canPlayType: () => '' } as unknown as HTMLVideoElement;
   const source = {
     containerMime: 'video/mp4',
@@ -135,5 +142,5 @@ it('warns only when neither the element nor Mediabunny can play source audio', (
   } as SourceInfo;
   expect(previewSoundUnavailable(video, source)).toBe(true);
   source.audio!.decodable = true;
-  expect(previewSoundUnavailable(video, source)).toBe(false);
+  expect(previewSoundUnavailable(video, source)).toBe(true);
 });

@@ -8,23 +8,7 @@ import {
   previewGain,
   previewTrackGains,
   previewCeilingCurve,
-  decodedBufferSchedule,
-  needsDecodedAudio,
 } from '../../src/ui/previewAudio';
-
-describe('decoded preview audio', () => {
-  it('uses the decoder only for playable tracks the element cannot sound', () => {
-    expect(needsDecodedAudio({ codec: 'eac3', decodable: true }, false)).toBe(true);
-    expect(needsDecodedAudio({ codec: 'dts', decodable: false }, false)).toBe(false);
-    expect(needsDecodedAudio({ codec: 'aac', decodable: true }, true)).toBe(false);
-  });
-
-  it('schedules a late buffer from the current media position', () => {
-    expect(decodedBufferSchedule(1, 0.8, 0.5, 20, 1)?.offset).toBeCloseTo(0.2);
-    expect(decodedBufferSchedule(1, 1.4, 0.5, 20, 2)?.when).toBeCloseTo(20.2);
-    expect(decodedBufferSchedule(1, 0.2, 0.5, 20, 1)).toBeNull();
-  });
-});
 
 describe('preview audio gain', () => {
   const target = {

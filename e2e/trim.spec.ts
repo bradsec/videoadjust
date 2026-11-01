@@ -119,102 +119,39 @@ test('a source whose audio the browser cannot play still gets a video preview', 
     .toBe(640);
   await expect(page.locator('.preview-note')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Set start to playhead' })).toBeEnabled();
-  await expect(page.locator('.preview-audio-note')).toBeHidden();
+  // Playwright WebKit on Linux reports E-AC-3 as playable, so only browsers that reject it warn.
+  const rejectsAudio = await page
+    .locator('.preview-video')
+    .evaluate((video: HTMLVideoElement) => video.canPlayType('video/mp4; codecs="ec-3"') === '');
+  await expect(
+    page.getByText('Preview has no sound: this browser cannot play the audio. Export converts it.'),
+  ).toBeVisible({ visible: rejectsAudio });
 });
 
-test('Chromium plays decoded E-AC-3 samples through the preview graph', async ({
+test('Chromium warns when presented video frames are black but filmstrip frames are visible', async ({
   page,
   browserName,
 }) => {
   test.skip(browserName !== 'chromium');
   await page.addInitScript(() => {
-    const original = AudioBufferSourceNode.prototype.start;
-    AudioBufferSourceNode.prototype.start = function (...args) {
-      const samples = this.buffer?.getChannelData(0);
-      if (samples?.some((sample) => Math.abs(sample) > 0.001))
-        (window as typeof window & { decodedPreviewSound?: boolean }).decodedPreviewSound = true;
-      return original.apply(this, args);
-    };
-  });
-  await page.goto('/');
-  await page.setInputFiles('#file', eac3Fixture);
-  const video = page.locator('.preview-video');
-  await expect
-    .poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState))
-    .toBeGreaterThanOrEqual(2);
-  await video.evaluate((v: HTMLVideoElement) => v.play());
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as typeof window & { decodedPreviewSound?: boolean }).decodedPreviewSound,
-      ),
-    )
-    .toBe(true);
-  await expect(page.locator('.preview-audio-note')).toBeHidden();
-});
-
-test('Chromium renders decoded picture when the video draws black', async ({
-  page,
-  browserName,
-}) => {
-  test.skip(browserName !== 'chromium');
-  await page.addInitScript(() => {
-    const original = CanvasRenderingContext2D.prototype.drawImage;
+    const drawImage = CanvasRenderingContext2D.prototype.drawImage;
     CanvasRenderingContext2D.prototype.drawImage = function (
       this: CanvasRenderingContext2D,
-      ...args: Parameters<typeof original>
+      ...args: Parameters<typeof drawImage>
     ) {
       if (args[0] instanceof HTMLVideoElement) {
         this.fillStyle = '#000';
         this.fillRect(0, 0, this.canvas.width, this.canvas.height);
         return;
       }
-      return Reflect.apply(original, this, args);
-    } as typeof original;
+      return Reflect.apply(drawImage, this, args);
+    } as typeof drawImage;
   });
   await page.goto('/');
-  await page.setInputFiles('#file', eac3Fixture);
-  const video = page.locator('.preview-video');
-  await expect
-    .poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState))
-    .toBeGreaterThanOrEqual(2);
-  await video.evaluate((v: HTMLVideoElement) => v.play());
-  await expect
-    .poll(
-      () =>
-        page.locator('.live-preview-decoded').evaluate((canvas: HTMLCanvasElement) => {
-          const pixels = canvas
-            .getContext('2d')
-            ?.getImageData(0, 0, canvas.width, canvas.height).data;
-          return pixels?.some((level, index) => index % 4 !== 3 && level > 16) ?? false;
-        }),
-      { timeout: 15_000 },
-    )
-    .toBe(true);
-  await expect(page.locator('.preview-picture-note')).toBeHidden();
-  await page.locator('.preview-video').evaluate((v: HTMLVideoElement) => v.pause());
-  await page.locator('.scrub-range').fill('1');
-  await expect
-    .poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime))
-    .toBeGreaterThan(0.9);
-  await expect(page.locator('.scrub-time')).toContainText('0:01');
-  await page.getByRole('button', { name: 'Set start to playhead' }).click();
-  await expect(page.getByRole('slider', { name: 'Start' })).toHaveAttribute('aria-valuenow', '1');
-  await page.locator('.colour-adjust > summary').click();
-  await page.getByLabel('Exposure (stops)', { exact: true }).evaluate((input: HTMLInputElement) => {
-    input.value = '1';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  await expect(page.locator('.live-preview-style')).toBeVisible();
-  await page.getByRole('button', { name: 'Crop and rotate' }).click();
-  await page.getByLabel('Crop aspect ratio').selectOption('square');
-  await page
-    .getByRole('region', { name: 'Crop and rotate editor' })
-    .getByRole('button', { name: 'Done' })
-    .click();
-  await expect(page.locator('.live-preview-style')).toBeVisible();
-  await page.locator('.live-preview-style').dispatchEvent('webglcontextlost');
-  await expect(video).toHaveCSS('opacity', '0');
+  await page.setInputFiles('#file', longFixture);
+  await expect(page.locator('.trim-thumbs canvas').first()).toBeVisible();
+  await page.locator('.preview-video').evaluate((video: HTMLVideoElement) => video.play());
+  await expect(page.locator('.preview-picture-note')).toBeVisible({ timeout: 15_000 });
 });
 
 test('preview warns when playback presents no frames', async ({ page }) => {

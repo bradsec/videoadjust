@@ -92,8 +92,7 @@
   height: 100%;
   overflow: hidden;
 }
-.live-preview .preview-video,
-.live-preview-decoded {
+.live-preview .preview-video {
   width: 100%;
   height: 100%;
   max-height: none;
@@ -103,14 +102,12 @@
 }
 .live-preview-frame.is-framed,
 .live-preview-frame.is-framed .preview-video,
-.live-preview-frame.is-framed .live-preview-decoded,
 .live-preview-frame.is-edited .live-preview-style,
 .live-preview-frame.is-edited .live-preview-fit,
 .live-preview-frame.is-edited .live-preview-palette {
   position: absolute;
 }
 .live-preview-frame.is-framed .preview-video,
-.live-preview-frame.is-framed .live-preview-decoded,
 .live-preview-frame.is-edited .live-preview-style,
 .live-preview-frame.is-edited .live-preview-fit,
 .live-preview-frame.is-edited .live-preview-palette {
@@ -118,7 +115,6 @@
   top: 0;
   transform-origin: 0 0;
 }
-.live-preview-decoded,
 .live-preview-style,
 .live-preview-fit,
 .live-preview-palette {

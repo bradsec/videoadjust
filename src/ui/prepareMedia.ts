@@ -1,7 +1,7 @@
 import { CanvasSink } from 'mediabunny';
 import type { AppState } from './controller';
 import { mountLivePreview } from './livePreview';
-import { mountPreviewNotices } from './previewNotices';
+import { thumbnailAt } from './previewNotices';
 
 export const thumbnails = async (
   state: Extract<AppState, { kind: 'prepare' }>,
@@ -42,33 +42,16 @@ export const thumbnails = async (
   return canvases;
 };
 
-/** A small decoded frame near `time`, for checking what the <video> element presents. */
-export const decodedFrameAt = (state: Extract<AppState, { kind: 'prepare' }>) => {
-  let sink: Promise<CanvasSink | null> | undefined;
-  return async (time: number): Promise<CanvasImageSource | null> => {
-    sink ??= state.input
-      .getPrimaryVideoTrack()
-      .then((track) =>
-        track ? new CanvasSink(track, { width: 32, height: 18, fit: 'fill' }) : null,
-      );
-    const frame = await (await sink)?.getCanvas(time);
-    return frame?.canvas ?? null;
+export function previewThumbnails(state: Extract<AppState, { kind: 'prepare' }>) {
+  let frames: HTMLCanvasElement[] = [];
+  return {
+    referenceAt: (time: number) => thumbnailAt(frames, state.source.durationSec, time),
+    thumbnails: async (count: number, width: number, height: number, signal: AbortSignal) => {
+      const next = await thumbnails(state, count, width, height, signal);
+      if (!signal.aborted) frames = next;
+      return next;
+    },
   };
-};
-
-export function mountPreparePreviewNotices(
-  state: Extract<AppState, { kind: 'prepare' }>,
-  video: HTMLVideoElement,
-  preview: () => ReturnType<typeof mountLivePreview> | undefined,
-) {
-  const notices = mountPreviewNotices(video, state.source, decodedFrameAt(state), () => {
-    void preview()
-      ?.useDecodedFrames(state.input, notices.pictureReady)
-      .catch((error: unknown) =>
-        console.warn('Could not start the decoded preview picture.', error),
-      );
-  });
-  return notices;
 }
 
 export const onSpace = (

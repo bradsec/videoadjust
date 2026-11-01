@@ -19,6 +19,7 @@ import { mountMixWaveform } from './mixWaveform';
 import { mountOverlayEditor } from './overlayEditor';
 import { mountOverlayPanel } from './overlayPanel';
 import { mountPreviewAudio } from './previewAudio';
+import { mountPreviewNotices } from './previewNotices';
 import { mountStylePanel, webglStyleReason } from './stylePanel';
 import { toast } from './toast';
 import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
@@ -33,7 +34,7 @@ import {
   theaterToggle,
 } from './viewSummaries';
 import { showPanel, type PreparePanel } from './preparePanel';
-import { mountPreparePreviewNotices, thumbnails, onSpace } from './prepareMedia';
+import { previewThumbnails, onSpace } from './prepareMedia';
 
 type Of<K extends AppState['kind']> = Extract<AppState, { kind: K }>;
 interface Mounted {
@@ -74,7 +75,8 @@ export function renderPrepare(
   video.loop = true;
   video.preload = 'metadata';
   const url = URL.createObjectURL(state.file);
-  const previewNotices = mountPreparePreviewNotices(state, video, () => livePreview);
+  const pictureFrames = previewThumbnails(state);
+  const previewNotices = mountPreviewNotices(video, state.source, pictureFrames.referenceAt);
   const previewNote = previewNotices.fallback;
   const trimHost = el('div');
   const settingsHost = el('aside', 'settings-host inspector');
@@ -162,8 +164,7 @@ export function renderPrepare(
   let shownAdded = state.addedAudio;
   let changeTransform: ((t: NonNullable<Settings['transform']>) => void) | undefined;
   let panel: PreparePanel['panel'] | undefined;
-  const thumbnailsForSource = (count: number, width: number, height: number, signal: AbortSignal) =>
-    thumbnails(state, count, width, height, signal);
+  const thumbnailsForSource = pictureFrames.thumbnails;
   let previewPlayable = canPlaySource(video, state.source);
   let cropEditor: ReturnType<typeof mountCropEditor> | undefined;
   let overlayEditor: ReturnType<typeof mountOverlayEditor> | undefined;
@@ -355,7 +356,6 @@ export function renderPrepare(
         audioPreviewNote.hidden = !message;
       },
       (busy) => waveform.setStatus(busy ? 'Measuring loudness for the preview…' : null),
-      state.source,
     );
     previewAudio.update(previewAudioTarget(state), state.tool === 'gif');
     if (state.source.video)
