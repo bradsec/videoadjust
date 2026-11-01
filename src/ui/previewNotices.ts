@@ -4,12 +4,17 @@ import { el } from './dom';
 
 const SAMPLE_WIDTH = 32;
 const SAMPLE_HEIGHT = 18;
-// 8-bit channel level below which a sample counts as black (a transparent sample reads as 0).
-const BLACK_LEVEL = 16;
+// A video sample this bright shows a picture, so it needs no decoded frame to compare with.
+const PICTURE_LEVEL = 48;
+// The decoded frame's brightest channel must exceed the video sample's by this much (8-bit) to
+// count as a missing picture. A relative margin, not a black level: real Chrome drew the black
+// picture at 17 on one run, and dark footage is as dark in both samples.
+const MISSING_MARGIN = 32;
 // Presented frames must be this far apart in media time to count as separate positions.
 const POSITION_GAP = 0.5;
 const STRIKES = 2;
-const MAX_CHECKS = 6;
+// Ten positions 0.5 s apart cover a dark opening of about 5 s (the reported file fades in).
+const MAX_CHECKS = 10;
 
 /** Brightest RGB channel in RGBA pixels. */
 export function peakLevel(pixels: Uint8ClampedArray): number {
@@ -21,8 +26,9 @@ export function peakLevel(pixels: Uint8ClampedArray): number {
 
 /**
  * Detects a <video> that presents frames but draws them black. Chrome 156 on Linux with NVIDIA
- * does this for 4K 10-bit video while decoding in software. Each presented frame is compared
- * with a frame Mediabunny decodes at the same time, so footage that is black stays unflagged.
+ * does this for 10-bit video while decoding in software. Each dim presented frame is compared
+ * with a frame Mediabunny decodes at the same time, so footage that is dark stays unflagged. One
+ * correct-looking frame does not end the check: the same Chrome draws an occasional frame right.
  */
 export function createPictureCheck(opts: {
   sampleVideo: () => Uint8ClampedArray | null;
@@ -43,19 +49,18 @@ export function createPictureCheck(opts: {
       const video = opts.sampleVideo();
       if (!video) return;
       lastTime = mediaTime;
-      if (peakLevel(video) >= BLACK_LEVEL) {
-        done = true;
-        return;
-      }
-      busy = true;
-      try {
-        const decoded = await opts.sampleDecoded(mediaTime);
-        if (done) return;
-        if (decoded && peakLevel(decoded) >= BLACK_LEVEL) strikes++;
-      } catch (error) {
-        console.warn('Could not decode a frame to check the preview picture', error);
-      } finally {
-        busy = false;
+      const level = peakLevel(video);
+      if (level < PICTURE_LEVEL) {
+        busy = true;
+        try {
+          const decoded = await opts.sampleDecoded(mediaTime);
+          if (done) return;
+          if (decoded && peakLevel(decoded) - level >= MISSING_MARGIN) strikes++;
+        } catch (error) {
+          console.warn('Could not decode a frame to check the preview picture', error);
+        } finally {
+          busy = false;
+        }
       }
       checks++;
       if (strikes >= STRIKES) {

@@ -55,13 +55,52 @@ describe('preview picture check', () => {
     expect(result.done).toBe(true);
   });
 
-  it('stops checking once the video shows a picture', async () => {
+  it('does not decode while the video shows a picture, and never flags it', async () => {
     const { result, onBroken, sampleDecoded } = check(picture, picture);
-    await result.frame(0);
-    await result.frame(1);
+    for (let t = 0; t < 12; t++) await result.frame(t);
     expect(onBroken).not.toHaveBeenCalled();
     expect(sampleDecoded).not.toHaveBeenCalled();
     expect(result.done).toBe(true);
+  });
+
+  it('flags a dim, flat video sample when the decoded frame is much brighter', async () => {
+    // Real Chrome drew the black picture with a channel value of 17 on one run.
+    const { result, onBroken } = check(pixels(17), picture);
+    await result.frame(0);
+    await result.frame(1);
+    expect(onBroken).toHaveBeenCalledTimes(1);
+  });
+
+  it('never flags dark footage that the video draws as dark as the decoded frame', async () => {
+    const { result, onBroken } = check(pixels(30), pixels(40));
+    for (let t = 0; t < 12; t++) await result.frame(t);
+    expect(onBroken).not.toHaveBeenCalled();
+    expect(result.done).toBe(true);
+  });
+
+  it('keeps checking through a dark opening of several seconds', async () => {
+    let call = 0;
+    const onBroken = vi.fn();
+    const result = createPictureCheck({
+      sampleVideo: () => black,
+      sampleDecoded: async () => (call++ < 7 ? black : picture),
+      onBroken,
+    });
+    for (let t = 0; t < 9; t++) await result.frame(t * 0.5);
+    expect(onBroken).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not ended by one frame the video happens to draw correctly', async () => {
+    const videos = [black, picture, black, black];
+    let call = 0;
+    const onBroken = vi.fn();
+    const result = createPictureCheck({
+      sampleVideo: () => videos[call++] ?? black,
+      sampleDecoded: async () => picture,
+      onBroken,
+    });
+    for (let t = 0; t < 4; t++) await result.frame(t);
+    expect(onBroken).toHaveBeenCalledTimes(1);
   });
 
   it('does not flag when the decoded frame is unavailable', async () => {
