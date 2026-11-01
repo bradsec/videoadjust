@@ -1,6 +1,10 @@
 import { CanvasSink, type Input } from 'mediabunny';
 
-/** Draws only the newest requested media time, so slow software decoding skips picture frames. */
+/**
+ * Draws Mediabunny-decoded frames on `canvas`, following the <video> clock. Playback reads frames
+ * in order: getCanvas() per frame restarts decoding at the previous key frame (306 ms a frame for
+ * the reported 4K AV1 file, against 11 ms in order). Frames already late are skipped.
+ */
 export function createDecodedPreview(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
@@ -12,42 +16,48 @@ export function createDecodedPreview(
   let sink: CanvasSink | undefined;
   let active = false;
   let ready = false;
-  let busy = false;
   let version = 0;
-  let frame = 0;
   let destroyed = false;
   let onReady = () => {};
   const context = canvas.getContext('2d');
 
+  function paint(frame: HTMLCanvasElement | OffscreenCanvas): void {
+    if (!context) return;
+    context.drawImage(frame, 0, 0);
+    ready = true;
+    canvas.hidden = false;
+    video.style.opacity = '0';
+    onFrame();
+    onReady();
+  }
+
   async function draw(): Promise<void> {
-    if (!active || busy || !sink || destroyed) return;
-    busy = true;
-    const current = version;
+    if (!active || !sink || destroyed) return;
+    const current = ++version;
+    const live = () => current === version && !destroyed;
     try {
-      const result = await sink.getCanvas(video.currentTime);
-      if (current !== version || destroyed || !result || !context) return;
-      context.drawImage(result.canvas, 0, 0);
-      ready = true;
-      canvas.hidden = false;
-      video.style.opacity = '0';
-      onFrame();
-      onReady();
+      if (video.paused) {
+        const frame = await sink.getCanvas(video.currentTime);
+        if (frame && live()) paint(frame.canvas);
+        return;
+      }
+      // Breaking out of the loop closes the iterator and its decoder.
+      for await (const frame of sink.canvases(video.currentTime)) {
+        if (!live() || video.paused) break;
+        if (frame.timestamp + frame.duration <= video.currentTime) continue;
+        while (frame.timestamp > video.currentTime && live() && !video.paused)
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+        if (!live() || video.paused) break;
+        paint(frame.canvas);
+      }
     } catch (error) {
-      if (current === version) console.warn('Could not render the decoded preview picture.', error);
-    } finally {
-      busy = false;
-      if (active && (!video.paused || current !== version) && !destroyed)
-        frame = requestAnimationFrame(() => void draw());
+      if (live()) console.warn('Could not render the decoded preview picture.', error);
     }
   }
 
-  const seek = () => {
-    version++;
-    void draw();
-  };
-  const play = () => void draw();
-  video.addEventListener('play', play);
-  video.addEventListener('seeked', seek);
+  const redraw = () => void draw();
+  const events = ['play', 'pause', 'seeked'] as const;
+  for (const event of events) video.addEventListener(event, redraw);
   return {
     get active() {
       return active;
@@ -66,7 +76,7 @@ export function createDecodedPreview(
         1,
         Math.min(source.width, 1280, Math.ceil(stage.clientWidth * (devicePixelRatio || 1))),
       );
-      sink = new CanvasSink(track, { width });
+      sink = new CanvasSink(track, { width, poolSize: 1 });
       canvas.width = width;
       canvas.height = Math.max(1, Math.round((width * source.height) / source.width));
       void draw();
@@ -75,9 +85,7 @@ export function createDecodedPreview(
       destroyed = true;
       active = false;
       version++;
-      cancelAnimationFrame(frame);
-      video.removeEventListener('play', play);
-      video.removeEventListener('seeked', seek);
+      for (const event of events) video.removeEventListener(event, redraw);
     },
   };
 }
