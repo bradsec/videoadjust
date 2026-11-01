@@ -34,7 +34,7 @@ import {
   theaterToggle,
 } from './viewSummaries';
 import { showPanel, type PreparePanel } from './preparePanel';
-import { thumbnails, onSpace } from './prepareMedia';
+import { decodedFrameAt, thumbnails, onSpace } from './prepareMedia';
 
 type Of<K extends AppState['kind']> = Extract<AppState, { kind: K }>;
 interface Mounted {
@@ -75,7 +75,7 @@ export function renderPrepare(
   video.loop = true;
   video.preload = 'metadata';
   const url = URL.createObjectURL(state.file);
-  const previewNotices = mountPreviewNotices(video, state.source);
+  const previewNotices = mountPreviewNotices(video, state.source, decodedFrameAt(state));
   const previewNote = previewNotices.fallback;
   const trimHost = el('div');
   const settingsHost = el('aside', 'settings-host inspector');

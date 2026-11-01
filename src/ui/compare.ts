@@ -9,6 +9,11 @@ export function needsResync(masterT: number, slaveT: number): boolean {
   return Math.abs(masterT - slaveT) > DRIFT_SEC;
 }
 
+/** Chromium answers '' for video/quicktime, so QuickTime files are asked about as MP4. */
+export function playbackContainerMime(containerMime: string): string {
+  return containerMime.replace(/^video\/quicktime(?=\s*(?:;|$))/i, 'video/mp4');
+}
+
 /**
  * Checks only the video codec when it is known: Chromium plays the video of a file whose audio
  * codec it lacks (E-AC-3 on desktop Linux), but answers '' for the MIME type that lists both.
@@ -17,7 +22,7 @@ export function canPlaySource(
   video: HTMLVideoElement,
   source: { containerMime: string; video: { codecString?: string | null } | null },
 ): boolean {
-  const mime = source.containerMime.replace(/^video\/quicktime(?=\s*(?:;|$))/i, 'video/mp4');
+  const mime = playbackContainerMime(source.containerMime);
   const videoCodec = source.video?.codecString;
   const playbackMime = videoCodec
     ? `${mime.split(';', 1)[0]!.trim()}; codecs="${videoCodec}"`

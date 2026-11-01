@@ -41,6 +41,20 @@ export const thumbnails = async (
   return canvases;
 };
 
+/** A small decoded frame near `time`, for checking what the <video> element presents. */
+export const decodedFrameAt = (state: Extract<AppState, { kind: 'prepare' }>) => {
+  let sink: Promise<CanvasSink | null> | undefined;
+  return async (time: number): Promise<CanvasImageSource | null> => {
+    sink ??= state.input
+      .getPrimaryVideoTrack()
+      .then((track) =>
+        track ? new CanvasSink(track, { width: 32, height: 18, fit: 'fill' }) : null,
+      );
+    const frame = await (await sink)?.getCanvas(time);
+    return frame?.canvas ?? null;
+  };
+};
+
 export const onSpace = (
   event: KeyboardEvent,
   video: HTMLVideoElement,
