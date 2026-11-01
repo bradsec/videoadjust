@@ -54,6 +54,27 @@ export type ConversionJob = {
 // Quality rejects non-integer bitrates; source bitrates come from packet statistics and can be fractional.
 const quality = (bitrate: number) => new Quality({ bitrate: Math.round(bitrate) });
 
+function exportFrameRate(fps: number, source?: SourceInfo): number | undefined {
+  const sourceRate = source?.video?.fps;
+  if (sourceRate === undefined || fps < sourceRate - 0.01) return fps;
+  const rates = [24, 25, 30, 48, 50, 60].flatMap((rate) => [rate, (rate * 1000) / 1001]);
+  const nominal = rates.reduce((closest, rate) =>
+    Math.abs(rate - sourceRate) < Math.abs(closest - sourceRate) ? rate : closest,
+  );
+  if (Math.abs(nominal - sourceRate) > 0.05) return undefined;
+  // Millisecond timestamps always collide at /1001 rates in Matroska and WebM.
+  const container = source?.containerMime.split(';', 1)[0]?.trim().toLowerCase();
+  if (
+    !Number.isInteger(nominal) &&
+    (container === 'video/x-matroska' || container === 'video/webm')
+  )
+    return undefined;
+  // Mediabunny floors each timestamp into a 1/frameRate slot and keeps the last frame per slot,
+  // so the nudge keeps float edges (0.7 * 30 = 20.999...) in their own slot. The rate still
+  // reaches the encoder, which WebKit needs to honour the target bitrate.
+  return nominal * (1 + 1e-9);
+}
+
 export function cutVideoFrameTiming(
   sourceTime: number,
   duration: number,
@@ -171,7 +192,7 @@ export function shrinkJob(
     !!s.keyFrameInterval ||
     decorated;
   const copiesVideo = !!v && s.passthrough && !reencode;
-  const lowersFrameRate = !!v && !(source?.video && v.fps >= source.video.fps - 0.01);
+  const frameRate = v ? exportFrameRate(v.fps, source) : undefined;
   let canvas: OffscreenCanvas | undefined;
   let fittedCanvas: OffscreenCanvas | undefined;
   let styleCanvas: OffscreenCanvas | undefined;
@@ -193,11 +214,7 @@ export function shrinkJob(
             width: fit?.content.width ?? v.width,
             height: fit?.content.height ?? v.height,
             fit: 'contain',
-            // Mediabunny's frameRate floors each timestamp into a 1/frameRate slot and keeps the
-            // last frame per slot. With millisecond (Matroska) timestamps and a measured rate a
-            // hair under the true one, every third frame is replaced by a repeat, so it is set
-            // only when the export lowers the rate.
-            ...(lowersFrameRate ? { frameRate: v.fps } : {}),
+            ...(frameRate === undefined ? {} : { frameRate }),
             codec: v.codec,
             // A target keeps the default variable bitrate mode: Mediabunny offers the encoder
             // no fallback config for an explicit mode, so an unsupported 'constant' would fail

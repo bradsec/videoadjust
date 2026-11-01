@@ -700,6 +700,7 @@ describe('export flow', () => {
       width: 854,
       height: 480,
       fit: 'contain',
+      frameRate: 30 * (1 + 1e-9),
       codec: 'avc',
       quality: new Quality({ bitrate: 88_327 }),
     });

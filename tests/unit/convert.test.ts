@@ -472,13 +472,20 @@ describe('toConversionOptions', () => {
     expect(toConversionOptions(base).video).toHaveProperty('frameRate', 30);
   });
 
-  // Mediabunny's frameRate option floors each timestamp into a 1/frameRate slot and keeps only the
-  // last frame per slot. Matroska timestamps are whole milliseconds, so at a measured 29.9999 fps
-  // every third frame lands in its neighbour's slot and is replaced by a repeat.
-  it('leaves frameRate unset when the export keeps the source frame rate', () => {
-    const measured = { ...source, video: { ...source.video, fps: 29.99992038245652 } };
-    const keep = { ...base, video: { ...base.video!, fps: measured.video.fps } };
-    expect(toConversionOptions(keep, measured).video).not.toHaveProperty('frameRate');
+  it.each([
+    ['measured 30 fps', 29.99992, 'video/x-matroska', 30 * (1 + 1e-9)],
+    ['29.97 fps MP4', 29.97, 'video/mp4', (30000 / 1001) * (1 + 1e-9)],
+    ['29.97 fps MKV', 29.97, 'video/x-matroska', undefined],
+    ['29.97 fps MKV with codecs', 29.97, 'video/x-matroska; codecs="avc1.640028"', undefined],
+    ['29.97 fps WebM', 29.97, 'video/webm', undefined],
+    ['25 fps', 25, 'video/x-matroska', 25 * (1 + 1e-9)],
+    ['unknown 17.3 fps', 17.3, 'video/mp4', undefined],
+  ])('sets frameRate for %s', (_name, fps, containerMime, expected) => {
+    const measured = { ...source, containerMime, video: { ...source.video, fps } };
+    const keep = { ...base, video: { ...base.video!, fps } };
+    const options = toConversionOptions(keep, measured).video;
+    if (expected === undefined) expect(options).not.toHaveProperty('frameRate');
+    else expect(options).toHaveProperty('frameRate', expected);
   });
 
   it('passes frameRate when the export lowers the source frame rate', () => {
