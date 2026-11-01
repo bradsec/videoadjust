@@ -348,8 +348,8 @@ export function renderPrepare(
         },
       );
     else previewHost.append(video);
-    previewHost.append(previewNotices.sound, previewNotices.picture);
-    previewHost.append(previewProxy.status, previewProxy.actions);
+    previewHost.append(previewNotices.sound, previewNotices.picture, previewProxy.actions);
+    (previewHost.querySelector('.live-preview-stage') ?? previewHost).append(previewProxy.status);
     previewProxy.show(proxyWanted);
     previewAudio = mountPreviewAudio(
       video,

@@ -151,6 +151,21 @@
   white-space: nowrap;
   pointer-events: none;
 }
+.live-preview-stage > .preview-proxy-status {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  max-width: calc(100% - 2 * var(--s-4));
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 60%);
+  color: #fff;
+  text-align: center;
+  pointer-events: none;
+}
 .live-preview-bar {
   display: flex;
   flex-wrap: wrap;

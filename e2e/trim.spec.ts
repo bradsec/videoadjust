@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const fixture = new URL('../tests/fixtures/land-1080p30-aac.mp4', import.meta.url).pathname;
 const longFixture = new URL('../tests/fixtures/long-31s.mp4', import.meta.url).pathname;
+const streamingFixture = new URL('../tests/fixtures/long-eac3.mp4', import.meta.url).pathname;
 const eac3Fixture = new URL('../tests/fixtures/h264-eac3.mp4', import.meta.url).pathname;
 
 test('thumbnail density follows strip geometry and grows in Theater mode', async ({ page }) => {
@@ -159,6 +160,7 @@ test('preview proxy plays, survives export for comparison, and is released on St
   await page.addInitScript(() => {
     const state = window as Window & {
       proxySource?: string;
+      proxyCopy?: string;
       previewWrites?: string[];
       revoked?: string[];
     };
@@ -168,6 +170,8 @@ test('preview proxy plays, survives export for comparison, and is released on St
     URL.createObjectURL = function (object: Blob | MediaSource) {
       const url = create.call(this, object);
       if (object instanceof File) state.proxySource = url;
+      // The first plain video Blob is the finished copy; the export comes later.
+      else if (object instanceof Blob && object.type.startsWith('video/')) state.proxyCopy ??= url;
       return url;
     };
     const revoke = URL.revokeObjectURL;
@@ -194,8 +198,9 @@ test('preview proxy plays, survives export for comparison, and is released on St
   const buildMs = Date.now() - started;
   console.log(`PROXY_FIXTURE_BUILD_MS=${buildMs}`);
   const preview = page.locator('.preview-video');
-  const proxyUrl = await preview.getAttribute('src');
+  const proxyUrl = await page.evaluate(() => (window as Window & { proxyCopy?: string }).proxyCopy);
   expect(proxyUrl).toMatch(/^blob:/);
+  expect(await preview.getAttribute('src')).toMatch(/^blob:/);
   expect(
     await page.evaluate(() => {
       const state = window as Window & { proxySource?: string; previewWrites?: string[] };
@@ -242,6 +247,41 @@ test('preview proxy Cancel and Use original choose separate outcomes', async ({
   await page.getByRole('button', { name: 'Use original' }).click();
   await expect(page.locator('.preview-video')).toHaveAttribute('src', /^blob:/);
   await expect(page.locator('.preview-audio-note')).toBeVisible();
+});
+
+test('streamed preview copy plays before it is done, with centred status and Cancel', async ({
+  page,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== 'chromium',
+    'WebKit plays E-AC-3 natively, so this source needs no preview copy',
+  );
+  test.setTimeout(120_000);
+  await page.goto('/');
+  await page.setInputFiles('#file', streamingFixture);
+  const status = page.locator('.preview-proxy-status');
+  await expect(status).toContainText('Preparing preview');
+  await expect(status).toHaveAttribute('role', 'status');
+  await expect(status).toHaveAttribute('aria-live', 'polite');
+  const stage = (await page.locator('.live-preview-stage').boundingBox())!;
+  const box = (await status.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(stage.x);
+  expect(box.x + box.width).toBeLessThanOrEqual(stage.x + stage.width);
+  expect(Math.abs(box.x + box.width / 2 - (stage.x + stage.width / 2))).toBeLessThan(2);
+  expect(Math.abs(box.y + box.height / 2 - (stage.y + stage.height / 2))).toBeLessThan(2);
+  const preview = page.locator('.preview-video');
+  const cancel = page.getByRole('button', { name: 'Cancel', exact: true });
+  await expect
+    .poll(() => preview.evaluate((video: HTMLVideoElement) => video.currentTime), {
+      timeout: 30_000,
+    })
+    .toBeGreaterThan(0.5);
+  // Cancel and Use original leave once the copy is done, so playback started before that.
+  await expect(cancel).toBeVisible();
+  await cancel.click();
+  await expect(status).toHaveText('Preview preparation canceled.');
+  await expect(preview).not.toHaveAttribute('src', /^blob:/);
 });
 
 test('proxied frame save draws the full-resolution original', async ({ page }) => {
@@ -296,6 +336,12 @@ test('Chromium builds a proxy when presented video frames are black but filmstri
 }) => {
   test.skip(browserName !== 'chromium');
   await page.addInitScript(() => {
+    const create = URL.createObjectURL;
+    URL.createObjectURL = function (object: Blob | MediaSource) {
+      if (object instanceof Blob && !(object instanceof File) && object.type.startsWith('video/'))
+        (window as Window & { copyReady?: boolean }).copyReady = true;
+      return create.call(this, object);
+    };
     const drawImage = CanvasRenderingContext2D.prototype.drawImage;
     CanvasRenderingContext2D.prototype.drawImage = function (
       this: CanvasRenderingContext2D,
@@ -313,10 +359,13 @@ test('Chromium builds a proxy when presented video frames are black but filmstri
   await page.setInputFiles('#file', longFixture);
   await expect(page.locator('.trim-thumbs canvas').first()).toBeVisible();
   await page.locator('.preview-video').evaluate((video: HTMLVideoElement) => video.play());
-  await expect(page.locator('.preview-proxy-status')).toContainText('Preparing preview', {
-    timeout: 15_000,
-  });
-  await expect(page.locator('.preview-proxy-status')).toBeHidden({ timeout: 20_000 });
+  // A copy of this small file can finish within one poll, so the finished copy's URL is checked.
+  await expect
+    .poll(() => page.evaluate(() => (window as Window & { copyReady?: boolean }).copyReady), {
+      timeout: 20_000,
+    })
+    .toBe(true);
+  await expect(page.locator('.preview-proxy-actions')).toBeHidden();
   await expect(page.locator('.preview-picture-note')).toBeHidden();
 });
 
