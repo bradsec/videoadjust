@@ -2,6 +2,16 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## Unreleased
+
+### Added
+
+- Preview sound for Dolby/E-AC-3 audio through the app's decoder.
+
+### Fixed
+
+- 10-bit video previews that draw black on some Linux/NVIDIA Chrome setups now render through the app's decoder.
+
 ## [0.28.1] - 2026-11-01
 
 ### Fixed

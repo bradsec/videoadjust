@@ -1,4 +1,6 @@
-import type { Input } from 'mediabunny';
+import { AudioBufferSink, type Input } from 'mediabunny';
+import type { SourceInfo } from '../core/types';
+import { playbackContainerMime } from './compare';
 import {
   createJoinFade,
   keptDuration,
@@ -93,6 +95,25 @@ const ANALYSIS_DELAY_MS = 400;
 const DRIFT_CHECK_MS = 1000;
 const MAX_DRIFT_SEC = 0.25;
 
+export function needsDecodedAudio(
+  audio: Pick<NonNullable<SourceInfo['audio']>, 'codec' | 'decodable'> | null,
+  elementCanPlay: boolean,
+): boolean {
+  return !!audio?.decodable && !elementCanPlay;
+}
+
+export function decodedBufferSchedule(
+  mediaTime: number,
+  timestamp: number,
+  duration: number,
+  contextTime: number,
+  rate: number,
+): { when: number; offset: number } | null {
+  const offset = Math.max(0, mediaTime - timestamp);
+  if (offset >= duration) return null;
+  return { when: contextTime + Math.max(0, timestamp - mediaTime) / rate, offset };
+}
+
 /**
  * When and where the added buffer should start, in video seconds from `time`: `delay` until
  * it becomes active and `offset` into the buffer. Null when it never plays before trim end.
@@ -120,6 +141,7 @@ export function mountPreviewAudio(
   onNormalization: (db: number) => void = () => {},
   onUnavailable: (message: string) => void = () => {},
   onAnalysing: (busy: boolean) => void = () => {},
+  source?: SourceInfo,
 ) {
   let context: AudioContext | undefined;
   let originalGain: GainNode | undefined;
@@ -130,6 +152,14 @@ export function mountPreviewAudio(
   let addedFile: File | undefined;
   let addedBuffer: AudioBuffer | undefined;
   let addedNode: AudioBufferSourceNode | undefined;
+  const decoded = needsDecodedAudio(
+    source?.audio ?? null,
+    !source || video.canPlayType(playbackContainerMime(source.containerMime)) !== '',
+  );
+  let decodedGain: GainNode | undefined;
+  let decodedIterator: AsyncGenerator<import('mediabunny').WrappedAudioBuffer> | undefined;
+  const decodedNodes = new Set<AudioBufferSourceNode>();
+  let decodedToken = 0;
   // Video and context times when the buffer was scheduled, to detect drift and stalls.
   let anchor: { video: number; context: number; rate: number } | undefined;
   let lastDriftCheck = 0;
@@ -154,7 +184,7 @@ export function mountPreviewAudio(
     }
     const tracks = previewTrackGains(target);
     originalGain.gain.setTargetAtTime(
-      tracks.original * (target ? previewCutLevel(target, video.currentTime) : 1),
+      (decoded ? 0 : tracks.original) * (target ? previewCutLevel(target, video.currentTime) : 1),
       context.currentTime,
       0.01,
     );
@@ -162,6 +192,13 @@ export function mountPreviewAudio(
     const player = video.muted ? 0 : video.volume;
     addedGain.gain.setTargetAtTime(
       target?.added ? tracks.added * player : 0,
+      context.currentTime,
+      0.01,
+    );
+    decodedGain?.gain.setTargetAtTime(
+      decoded && !video.muted
+        ? tracks.original * video.volume * (target ? previewCutLevel(target, video.currentTime) : 1)
+        : 0,
       context.currentTime,
       0.01,
     );
@@ -194,6 +231,69 @@ export function mountPreviewAudio(
     decodeToken++;
     addedFile = undefined;
     addedBuffer = undefined;
+  }
+
+  function stopDecoded(): void {
+    decodedToken++;
+    if (decodedIterator)
+      void decodedIterator
+        .return(undefined)
+        .catch((error: unknown) => console.warn('Could not stop decoded preview audio.', error));
+    decodedIterator = undefined;
+    for (const node of decodedNodes) {
+      node.onended = null;
+      try {
+        node.stop();
+      } catch {
+        /* Already stopped. */
+      }
+      node.disconnect();
+    }
+    decodedNodes.clear();
+  }
+
+  async function startDecoded(): Promise<void> {
+    stopDecoded();
+    if (!decoded || !context || !decodedGain || video.paused || video.seeking) return;
+    const token = decodedToken;
+    try {
+      const track = await input.getPrimaryAudioTrack();
+      if (!track || token !== decodedToken) return;
+      const sink = new AudioBufferSink(track);
+      const iterator = sink.buffers(Math.max(0, video.currentTime - 0.1));
+      decodedIterator = iterator;
+      for await (const item of iterator) {
+        if (token !== decodedToken || video.paused) break;
+        while (item.timestamp > video.currentTime + 0.5 && token === decodedToken && !video.paused)
+          await new Promise((resolve) => setTimeout(resolve, 40));
+        if (token !== decodedToken || video.paused) break;
+        const plan = decodedBufferSchedule(
+          video.currentTime,
+          item.timestamp,
+          item.duration,
+          context.currentTime,
+          video.playbackRate || 1,
+        );
+        if (!plan) continue;
+        const node = context.createBufferSource();
+        node.buffer = item.buffer;
+        node.playbackRate.value = video.playbackRate || 1;
+        node.connect(decodedGain);
+        decodedNodes.add(node);
+        node.onended = () => {
+          decodedNodes.delete(node);
+          node.disconnect();
+        };
+        node.start(plan.when, plan.offset);
+      }
+    } catch (error) {
+      if (token === decodedToken) {
+        console.warn('Could not decode the source audio for preview.', error);
+        onUnavailable(
+          'Preview has no sound: this browser cannot decode the audio. Export may still work.',
+        );
+      }
+    }
   }
 
   function startAdded(): void {
@@ -264,15 +364,20 @@ export function mountPreviewAudio(
   }
 
   function connect(): void {
-    if (!context && target && (hasAudioProcessing(target.processing) || hasAudioMix(target.mix))) {
+    if (
+      !context &&
+      (decoded || (target && (hasAudioProcessing(target.processing) || hasAudioMix(target.mix))))
+    ) {
       try {
         context = new AudioContext();
         originalGain = context.createGain();
         addedGain = context.createGain();
+        decodedGain = decoded ? context.createGain() : undefined;
         masterGain = context.createGain();
         masterGain.channelCountMode = 'explicit';
         context.createMediaElementSource(video).connect(originalGain).connect(masterGain);
         addedGain.connect(masterGain);
+        decodedGain?.connect(masterGain);
         ceiling = context.createWaveShaper();
         ceiling.oversample = 'none';
         masterGain.connect(ceiling).connect(context.destination);
@@ -282,6 +387,7 @@ export function mountPreviewAudio(
         context = undefined;
         originalGain = undefined;
         addedGain = undefined;
+        decodedGain = undefined;
         masterGain = undefined;
         ceiling = undefined;
       }
@@ -293,23 +399,27 @@ export function mountPreviewAudio(
     connect();
     void context?.resume();
     startAdded();
+    void startDecoded();
     cancelAnimationFrame(frame);
     tick();
   }
 
   function onPause(): void {
     stopNode();
+    stopDecoded();
     cancelAnimationFrame(frame);
     frame = 0;
   }
 
   function onSeeking(): void {
     stopNode();
+    stopDecoded();
   }
 
   function onResync(): void {
     apply();
     startAdded();
+    void startDecoded();
   }
 
   function syncVolume(): void {
@@ -420,6 +530,7 @@ export function mountPreviewAudio(
       clearTimeout(analysisTimer);
       analysis?.abort();
       stopAdded();
+      stopDecoded();
       void context?.close();
     },
   };

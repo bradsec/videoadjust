@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createPictureCheck, peakLevel } from '../../src/ui/previewNotices';
+import {
+  createPictureCheck,
+  peakLevel,
+  previewSoundUnavailable,
+} from '../../src/ui/previewNotices';
+import type { SourceInfo } from '../../src/core/types';
 
 const pixels = (level: number, alpha = 255) =>
   new Uint8ClampedArray([level, level, level, alpha, level, level, level, alpha]);
@@ -81,4 +86,15 @@ describe('preview picture check', () => {
     await result.frame(2);
     expect(onBroken).toHaveBeenCalledTimes(1);
   });
+});
+
+it('warns only when neither the element nor Mediabunny can play source audio', () => {
+  const video = { canPlayType: () => '' } as unknown as HTMLVideoElement;
+  const source = {
+    containerMime: 'video/mp4',
+    audio: { codec: 'dts', decodable: false },
+  } as SourceInfo;
+  expect(previewSoundUnavailable(video, source)).toBe(true);
+  source.audio!.decodable = true;
+  expect(previewSoundUnavailable(video, source)).toBe(false);
 });

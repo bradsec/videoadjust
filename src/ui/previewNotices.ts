@@ -86,7 +86,8 @@ function samplePixels(source: CanvasImageSource): Uint8ClampedArray | null {
 /** True when the preview has no sound because the browser cannot play the audio codec. */
 export function previewSoundUnavailable(video: HTMLVideoElement, source: SourceInfo): boolean {
   return (
-    !!source.audio?.decodable &&
+    !!source.audio &&
+    !source.audio.decodable &&
     video.canPlayType(playbackContainerMime(source.containerMime)) === ''
   );
 }
@@ -95,6 +96,7 @@ export function mountPreviewNotices(
   video: HTMLVideoElement,
   source: SourceInfo,
   decodedFrameAt: (time: number) => Promise<CanvasImageSource | null>,
+  onBroken: () => void,
 ) {
   const fallback = el(
     'p',
@@ -127,6 +129,7 @@ export function mountPreviewNotices(
     onBroken: () => {
       black = true;
       showPicture();
+      onBroken();
     },
   });
   const supported = typeof video.requestVideoFrameCallback === 'function';
@@ -155,6 +158,9 @@ export function mountPreviewNotices(
     fallback,
     sound,
     picture,
+    pictureReady() {
+      picture.hidden = true;
+    },
     destroy() {
       clearTimeout(timer);
       blackCheck.stop();

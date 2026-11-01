@@ -1,6 +1,7 @@
 import { CanvasSink } from 'mediabunny';
 import type { AppState } from './controller';
 import { mountLivePreview } from './livePreview';
+import { mountPreviewNotices } from './previewNotices';
 
 export const thumbnails = async (
   state: Extract<AppState, { kind: 'prepare' }>,
@@ -54,6 +55,21 @@ export const decodedFrameAt = (state: Extract<AppState, { kind: 'prepare' }>) =>
     return frame?.canvas ?? null;
   };
 };
+
+export function mountPreparePreviewNotices(
+  state: Extract<AppState, { kind: 'prepare' }>,
+  video: HTMLVideoElement,
+  preview: () => ReturnType<typeof mountLivePreview> | undefined,
+) {
+  const notices = mountPreviewNotices(video, state.source, decodedFrameAt(state), () => {
+    void preview()
+      ?.useDecodedFrames(state.input, notices.pictureReady)
+      .catch((error: unknown) =>
+        console.warn('Could not start the decoded preview picture.', error),
+      );
+  });
+  return notices;
+}
 
 export const onSpace = (
   event: KeyboardEvent,
