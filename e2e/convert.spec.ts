@@ -152,6 +152,25 @@ test.describe('video conversion', () => {
     expect(done.reportedBytes).toBe(done.outputBytes);
   });
 
+  test('keeps every source frame once at an unchanged frame rate', async ({ page }) => {
+    await page.setInputFiles('#file', fixture('counter-30fps-ms.mkv'));
+    const read = await page.evaluate(() => window.vrHarness.readSource());
+    if (!read.ok || !read.info.video) throw new Error('counter fixture did not read');
+    // The app exports at the measured packet rate, which sits just under 30 for this fixture.
+    const fps = read.info.video.fps;
+    const r = await page.evaluate(([s, bits]) => window.vrHarness.convertFrameCounters(s, bits), [
+      {
+        ...hd,
+        trim: { start: 0, end: read.info.durationSec },
+        video: { codec: 'avc', width: 640, height: 360, fps, bitrate: 1_000_000 },
+        audio: null,
+      },
+      10,
+    ] as const);
+    if (!r.ok) throw new Error(`${r.error.name}: ${r.error.message}`);
+    expect(r.counters).toEqual(Array.from({ length: 120 }, (_, i) => i));
+  });
+
   test('rejects with ConversionInvalidError when no track is left to convert', async ({ page }) => {
     await page.setInputFiles('#file', fixture('noaudio.mp4'));
     const r = await convert(page, { ...hd, video: null, audio: null });

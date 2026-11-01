@@ -655,7 +655,7 @@ describe('export flow', () => {
     expect(t.ctl.getState()).toMatchObject({ kind: 'working' });
   });
 
-  it('passes 30 fps and the lowest quality after re-encode, 854 size, quality, and 64 kbps audio', async () => {
+  it('keeps the source frame rate and the lowest quality after re-encode, 854 size, quality, and 64 kbps audio', async () => {
     const src = source({
       name: 'land-1080p30-aac.mp4',
       sizeBytes: 185_500,
@@ -690,7 +690,6 @@ describe('export flow', () => {
       codec: 'avc',
       width: 854,
       height: 480,
-      frameRate: 30,
       quality: new Quality({ bitrate: 88_327 }),
     });
     expect(args.job.options.audio).toMatchObject({
@@ -701,7 +700,6 @@ describe('export flow', () => {
       width: 854,
       height: 480,
       fit: 'contain',
-      frameRate: 30,
       codec: 'avc',
       quality: new Quality({ bitrate: 88_327 }),
     });

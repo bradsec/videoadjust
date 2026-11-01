@@ -471,6 +471,21 @@ describe('toConversionOptions', () => {
   it('passes frameRate to the encoder for an unchanged source rate', () => {
     expect(toConversionOptions(base).video).toHaveProperty('frameRate', 30);
   });
+
+  // Mediabunny's frameRate option floors each timestamp into a 1/frameRate slot and keeps only the
+  // last frame per slot. Matroska timestamps are whole milliseconds, so at a measured 29.9999 fps
+  // every third frame lands in its neighbour's slot and is replaced by a repeat.
+  it('leaves frameRate unset when the export keeps the source frame rate', () => {
+    const measured = { ...source, video: { ...source.video, fps: 29.99992038245652 } };
+    const keep = { ...base, video: { ...base.video!, fps: measured.video.fps } };
+    expect(toConversionOptions(keep, measured).video).not.toHaveProperty('frameRate');
+  });
+
+  it('passes frameRate when the export lowers the source frame rate', () => {
+    const fast = { ...source, video: { ...source.video, fps: 59.94 } };
+    const half = { ...base, video: { ...base.video!, fps: 29.97 } };
+    expect(toConversionOptions(half, fast).video).toHaveProperty('frameRate', 29.97);
+  });
 });
 
 describe('discardedPrimaryTracks', () => {
