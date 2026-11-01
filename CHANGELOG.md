@@ -2,7 +2,7 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
-## Unreleased
+## [0.29.0] - 2026-11-01
 
 ### Added
 
@@ -14,6 +14,8 @@ Newest releases appear first. Version numbers match `package.json`.
 
 - The preview warns when the browser shows a black picture, seen with 10-bit video in Chrome on some Linux/NVIDIA setups.
 - The sound notice now explains when preview sound is unavailable because the browser cannot play the source audio.
+- Exports no longer drop frames and show the next frame twice, which made converted videos stutter. Matroska (MKV) sources with millisecond timestamps lost about one frame in three.
+- Exports in Safari now respect the target size when keeping a standard source frame rate.
 
 ## [0.28.1] - 2026-11-01
 
