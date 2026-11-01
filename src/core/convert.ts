@@ -171,6 +171,7 @@ export function shrinkJob(
     !!s.keyFrameInterval ||
     decorated;
   const copiesVideo = !!v && s.passthrough && !reencode;
+  const lowersFrameRate = !!v && !(source?.video && v.fps >= source.video.fps - 0.01);
   let canvas: OffscreenCanvas | undefined;
   let fittedCanvas: OffscreenCanvas | undefined;
   let styleCanvas: OffscreenCanvas | undefined;
@@ -192,7 +193,11 @@ export function shrinkJob(
             width: fit?.content.width ?? v.width,
             height: fit?.content.height ?? v.height,
             fit: 'contain',
-            frameRate: v.fps,
+            // Mediabunny's frameRate floors each timestamp into a 1/frameRate slot and keeps the
+            // last frame per slot. With millisecond (Matroska) timestamps and a measured rate a
+            // hair under the true one, every third frame is replaced by a repeat, so it is set
+            // only when the export lowers the rate.
+            ...(lowersFrameRate ? { frameRate: v.fps } : {}),
             codec: v.codec,
             // A target keeps the default variable bitrate mode: Mediabunny offers the encoder
             // no fallback config for an explicit mode, so an unsupported 'constant' would fail

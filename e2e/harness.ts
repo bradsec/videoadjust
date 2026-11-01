@@ -428,6 +428,55 @@ const harness = {
       return { ...failure(err), closeCalls, abortCalls };
     }
   },
+
+  // Converts the selected file, then decodes every output frame and reads the frame counter
+  // that the fixture paints: `bits` black or white columns across the top half, lowest bit left.
+  async convertFrameCounters(
+    settings: Settings,
+    bits: number,
+  ): Promise<{ ok: true; counters: number[] } | ReturnType<typeof failure>> {
+    try {
+      const { input, info: source } = await readSource(selectedFile());
+      await ensureAudioEncoder(settings);
+      const sink = await openSink({ kind: 'memory', warn: false }, 'out', 'video/mp4');
+      await startConversion({
+        input,
+        job: shrinkJob(settings, source),
+        format: createOutputFormat(settings.container, 'memory'),
+        target: sink.target,
+        onProgress() {},
+      }).done;
+      const blob = await sink.finish();
+      if (!blob) throw new Error('Memory sink returned no blob');
+      const output = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+      try {
+        const track = await output.getPrimaryVideoTrack();
+        if (!track) throw new Error('Exported video has no video track');
+        const counters: number[] = [];
+        const frames = new CanvasSink(track, {
+          width: bits * 8,
+          height: 8,
+          fit: 'fill',
+          poolSize: 1,
+        });
+        for await (const { canvas } of frames.canvases()) {
+          const context = canvas.getContext('2d') as
+            CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+          if (!context) throw new Error('Canvas 2D context is unavailable');
+          const row = context.getImageData(0, 2, canvas.width, 1).data;
+          let counter = 0;
+          for (let bit = 0; bit < bits; bit++)
+            if (row[(bit * 8 + 4) * 4] > 128) counter += 2 ** bit;
+          counters.push(counter);
+        }
+        return { ok: true, counters };
+      } finally {
+        output.dispose();
+      }
+    } catch (err) {
+      return failure(err);
+    }
+  },
 };
 
 declare global {

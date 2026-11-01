@@ -63,3 +63,9 @@ ff -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:samp
 ff -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 \
   -t 1 -c:v libx264 -preset veryfast -b:v 200k -pix_fmt yuv420p -c:a dca -strict -2 -ac 2 \
   "$out/h264-dts.mkv"
+
+# 120 frames at 30 fps, each painting its index as 10 black or white columns (lowest bit left)
+# across the top half. Matroska stores whole-millisecond timestamps (0, 33, 67, 100 ms).
+ff -f lavfi -i "color=black:s=640x360:r=30:d=4,format=gray" \
+  -vf "geq=lum='255*mod(floor(N/pow(2\,floor(X*10/W)))\,2)*lt(Y\,H/2)+128*gte(Y\,H/2)',format=yuv420p" \
+  -an -c:v libx264 -preset veryfast -crf 18 -g 30 "$out/counter-30fps-ms.mkv"
