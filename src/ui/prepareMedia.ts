@@ -1,4 +1,8 @@
-import { CanvasSink } from 'mediabunny';
+import { CanvasSink, type Input } from 'mediabunny';
+import { exportCurrentFrame } from '../core/frameExport';
+import { gifDimensions } from '../core/gifExport';
+import type { OverlayAssets } from '../core/overlays';
+import type { SourceInfo } from '../core/types';
 import type { AppState } from './controller';
 import { mountLivePreview } from './livePreview';
 import { thumbnailAt } from './previewNotices';
@@ -52,6 +56,36 @@ export function previewThumbnails(state: Extract<AppState, { kind: 'prepare' }>)
       return next;
     },
   };
+}
+
+export function frameOutput(state: Extract<AppState, { kind: 'prepare' }>) {
+  return state.tool === 'gif' && state.gifSettings
+    ? gifDimensions(state.gifSettings, state.source, state.settings.transform, state.settings.fit)
+    : state.settings.video;
+}
+
+export async function exportOriginalFrame(
+  input: Input,
+  source: NonNullable<SourceInfo['video']>,
+  settings: Parameters<typeof exportCurrentFrame>[2],
+  assets: OverlayAssets,
+  mime: 'image/png' | 'image/jpeg',
+): Promise<Blob> {
+  const track = await input.getPrimaryVideoTrack();
+  if (!track) throw new Error('The source has no video track.');
+  const frame = await new CanvasSink(track, {
+    width: source.displayWidth,
+    height: source.displayHeight,
+    fit: 'contain',
+  }).getCanvas(settings.timestamp);
+  if (!frame) throw new Error('No source frame is available at this time.');
+  return exportCurrentFrame(
+    frame.canvas,
+    { width: source.displayWidth, height: source.displayHeight },
+    settings,
+    assets,
+    mime,
+  );
 }
 
 export const onSpace = (

@@ -1,13 +1,13 @@
 import { audioChangeCount } from '../core/audioMix';
 import { cutSettings, keptDuration } from '../core/cuts';
 import { exportCurrentFrame } from '../core/frameExport';
-import { gifDimensions } from '../core/gifExport';
 import { openImageSink, type GifSink } from '../core/sink';
+import { needsPreviewProxy } from '../core/previewProxy';
 import { hasStyleEffects, normalizeStyle } from '../core/style';
 import type { Settings } from '../core/types';
 import { mountAudioProcessing } from './audioProcessingControls';
 import { mountAudioTracks } from './audioTracksControls';
-import { canPlaySource } from './compare';
+import { canPlaySource, playbackContainerMime } from './compare';
 import { mountCropEditor } from './cropEditor';
 import { mountEditControls } from './editControls';
 import { mountFitPanel } from './fitPanel';
@@ -19,7 +19,7 @@ import { mountMixWaveform } from './mixWaveform';
 import { mountOverlayEditor } from './overlayEditor';
 import { mountOverlayPanel } from './overlayPanel';
 import { mountPreviewAudio } from './previewAudio';
-import { mountPreviewNotices } from './previewNotices';
+import { mountPreviewProxy } from './previewProxy';
 import { mountStylePanel, webglStyleReason } from './stylePanel';
 import { toast } from './toast';
 import { mountToolTabs, TOOL_PANEL_ID, toolTabId } from './toolTabs';
@@ -34,7 +34,7 @@ import {
   theaterToggle,
 } from './viewSummaries';
 import { showPanel, type PreparePanel } from './preparePanel';
-import { previewThumbnails, onSpace } from './prepareMedia';
+import { previewThumbnails, onSpace, frameOutput, exportOriginalFrame } from './prepareMedia';
 
 type Of<K extends AppState['kind']> = Extract<AppState, { kind: K }>;
 interface Mounted {
@@ -75,8 +75,12 @@ export function renderPrepare(
   video.loop = true;
   video.preload = 'metadata';
   const url = URL.createObjectURL(state.file);
+  const proxyWanted = needsPreviewProxy(state.source, (mime) =>
+    video.canPlayType(playbackContainerMime(mime)),
+  );
   const pictureFrames = previewThumbnails(state);
-  const previewNotices = mountPreviewNotices(video, state.source, pictureFrames.referenceAt);
+  const previewProxy = mountPreviewProxy(video, state, dispatch, url, pictureFrames.referenceAt);
+  const previewNotices = previewProxy.notices;
   const previewNote = previewNotices.fallback;
   const trimHost = el('div');
   const settingsHost = el('aside', 'settings-host inspector');
@@ -165,7 +169,7 @@ export function renderPrepare(
   let changeTransform: ((t: NonNullable<Settings['transform']>) => void) | undefined;
   let panel: PreparePanel['panel'] | undefined;
   const thumbnailsForSource = pictureFrames.thumbnails;
-  let previewPlayable = canPlaySource(video, state.source);
+  let previewPlayable = proxyWanted || canPlaySource(video, state.source);
   let cropEditor: ReturnType<typeof mountCropEditor> | undefined;
   let overlayEditor: ReturnType<typeof mountOverlayEditor> | undefined;
   let livePreview: ReturnType<typeof mountLivePreview> | undefined;
@@ -249,22 +253,15 @@ export function renderPrepare(
     video.addEventListener(event, updateFrameButton);
   async function saveCurrentFrame(jpeg: boolean): Promise<void> {
     const source = current.source.video;
-    const output =
-      current.tool === 'gif' && current.gifSettings
-        ? gifDimensions(
-            current.gifSettings,
-            current.source,
-            current.settings.transform,
-            current.settings.fit,
-          )
-        : current.settings.video;
+    const output = frameOutput(current);
     if (!source || !output || savingFrame || frameButtons[0]!.disabled) return;
     savingFrame = true;
     updateFrameButton();
     frameStatus.textContent = 'Saving frame…';
     const mime = jpeg ? 'image/jpeg' : 'image/png';
     const base = current.file.name.replace(/\.[^.]+$/, '');
-    const name = `${base}-frame-${video.currentTime.toFixed(3)}.${jpeg ? 'jpg' : 'png'}`;
+    const timestamp = video.currentTime;
+    const name = `${base}-frame-${timestamp.toFixed(3)}.${jpeg ? 'jpg' : 'png'}`;
     // Open the picker inside the click gesture, and capture pixels before its promise settles.
     const pendingSink = openImageSink(
       current.caps.fileStreamSave ? { kind: 'file-stream' } : { kind: 'memory', warn: false },
@@ -272,15 +269,24 @@ export function renderPrepare(
       mime,
     );
     try {
+      const frameSettings = { ...current.settings, output, timestamp };
       const [sink, blob] = await Promise.all([
         pendingSink,
-        exportCurrentFrame(
-          video,
-          { width: source.displayWidth, height: source.displayHeight },
-          { ...current.settings, output, timestamp: video.currentTime },
-          current.overlayAssets,
-          mime,
-        ),
+        current.previewProxyUrl
+          ? exportOriginalFrame(
+              current.input,
+              source,
+              frameSettings,
+              current.overlayAssets ?? {},
+              mime,
+            )
+          : exportCurrentFrame(
+              video,
+              { width: source.displayWidth, height: source.displayHeight },
+              frameSettings,
+              current.overlayAssets,
+              mime,
+            ),
       ]);
       frameSink = sink;
       if (destroyed) {
@@ -343,7 +349,8 @@ export function renderPrepare(
       );
     else previewHost.append(video);
     previewHost.append(previewNotices.sound, previewNotices.picture);
-    video.src = url;
+    previewHost.append(previewProxy.status, previewProxy.actions);
+    previewProxy.show(proxyWanted);
     previewAudio = mountPreviewAudio(
       video,
       state.input,
@@ -420,15 +427,7 @@ export function renderPrepare(
     editSection.hidden = value.tool === 'audio' || !previewPlayable || !value.source.video;
     previewAudio?.update(previewAudioTarget(value), value.tool === 'gif');
     updateWaveform();
-    const previewOutput =
-      value.tool === 'gif' && value.gifSettings
-        ? gifDimensions(
-            value.gifSettings,
-            value.source,
-            value.settings.transform,
-            value.settings.fit,
-          )
-        : value.settings.video;
+    const previewOutput = frameOutput(value);
     if (value.source.video)
       livePreview?.update({
         transform: value.settings.transform,
@@ -503,6 +502,7 @@ export function renderPrepare(
       livePreview?.destroy();
       previewAudio?.destroy();
       previewNotices.destroy();
+      previewProxy.destroy();
       video.removeEventListener('error', showPreviewUnplayable);
       video.pause();
       video.removeAttribute('src');

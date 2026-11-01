@@ -80,6 +80,46 @@ function setup(probe: AppDeps['probeCapabilities'] = () => Promise.resolve(caps)
 const flush = () => new Promise((r) => setTimeout(r, 0));
 const big = () => fakeFile('big.mp4', LARGE_FILE_BYTES + 1);
 
+describe('preview proxy ownership', () => {
+  it('keeps the proxy through prepare transitions and releases it on reset', () => {
+    const { ctl } = setup();
+    const source = info('clip.mp4');
+    ctl.dispatch({
+      type: 'loaded',
+      file: fakeFile('clip.mp4'),
+      source,
+      input: fakeInput(),
+      auto: autoSettings(source, caps),
+      caps,
+    });
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    ctl.dispatch({ type: 'previewProxyReady', url: 'blob:preview' });
+    ctl.dispatch({ type: 'setTool', tool: 'gif' });
+    expect(ctl.getState()).toMatchObject({ kind: 'prepare', previewProxyUrl: 'blob:preview' });
+    ctl.dispatch({ type: 'reset' });
+    expect(revoke).toHaveBeenCalledWith('blob:preview');
+    revoke.mockRestore();
+  });
+
+  it('releases the proxy when another file is picked', () => {
+    const { ctl } = setup();
+    const source = info('clip.mp4');
+    ctl.dispatch({
+      type: 'loaded',
+      file: fakeFile('clip.mp4'),
+      source,
+      input: fakeInput(),
+      auto: autoSettings(source, caps),
+      caps,
+    });
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    ctl.dispatch({ type: 'previewProxyReady', url: 'blob:preview' });
+    ctl.dispatch({ type: 'pick', file: fakeFile('next.mp4') });
+    expect(revoke).toHaveBeenCalledWith('blob:preview');
+    revoke.mockRestore();
+  });
+});
+
 describe('stale source loads', () => {
   it('a later large-file warning is not overridden by an earlier read finishing', async () => {
     const { ctl, pending } = setup();

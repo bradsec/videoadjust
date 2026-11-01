@@ -274,7 +274,7 @@ export function renderResult(
     canvas.append(preview);
   } else if (output.url && output.info.video && source.video) {
     const host = el('div', 'compare');
-    originalUrl = URL.createObjectURL(state.file);
+    originalUrl = state.previewProxyUrl ?? URL.createObjectURL(state.file);
     compare = mountCompare(host, {
       original: originalUrl,
       output: output.url,
@@ -378,7 +378,7 @@ export function renderResult(
       document.body.classList.remove('is-theater');
       peaksAbort.abort();
       compare?.destroy();
-      if (originalUrl) URL.revokeObjectURL(originalUrl);
+      if (originalUrl && originalUrl !== state.previewProxyUrl) URL.revokeObjectURL(originalUrl);
     },
   };
 }

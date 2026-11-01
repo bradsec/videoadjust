@@ -76,6 +76,9 @@ export function createController(
     const prevUrl = prev.kind === 'result' ? prev.output.url : null;
     if (prevUrl && !(next.kind === 'result' && next.output.url === prevUrl))
       URL.revokeObjectURL(prevUrl);
+    const previousProxy = prev.kind === 'drop' ? undefined : prev.previewProxyUrl;
+    if (previousProxy && (next.kind === 'drop' || next.previewProxyUrl !== previousProxy))
+      URL.revokeObjectURL(previousProxy);
     onChange(state);
   }
 
@@ -108,6 +111,7 @@ export function createController(
       gifSettings,
       overlayAssets: from.overlayAssets,
       addedAudio: from.addedAudio,
+      previewProxyUrl: from.previewProxyUrl,
       ...(from.addingAudio ? { addingAudio: true } : {}),
       notice,
     });
@@ -119,6 +123,10 @@ export function createController(
 
   function dispatch(action: AppAction): void {
     switch (action.type) {
+      case 'previewProxyReady':
+        if (state.kind === 'prepare') setState({ ...state, previewProxyUrl: action.url });
+        else URL.revokeObjectURL(action.url);
+        return;
       case 'addAudio':
         if (state.kind === 'prepare' && !state.exporting) void loadAddedAudio(action.file);
         return;

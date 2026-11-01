@@ -94,6 +94,7 @@ export function mountPreviewNotices(
   video: HTMLVideoElement,
   source: SourceInfo,
   referenceAt: (time: number) => CanvasImageSource | null,
+  onBroken?: () => void,
 ) {
   const fallback = el(
     'p',
@@ -126,6 +127,7 @@ export function mountPreviewNotices(
     onBroken: () => {
       black = true;
       showPicture();
+      onBroken?.();
     },
   });
   const supported = typeof video.requestVideoFrameCallback === 'function';
@@ -154,6 +156,13 @@ export function mountPreviewNotices(
     fallback,
     sound,
     picture,
+    proxyPlaying() {
+      clearTimeout(timer);
+      blackCheck.stop();
+      if (frame !== undefined) video.cancelVideoFrameCallback(frame);
+      sound.hidden = true;
+      picture.hidden = true;
+    },
     destroy() {
       clearTimeout(timer);
       blackCheck.stop();

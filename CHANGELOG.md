@@ -4,6 +4,10 @@ Newest releases appear first. Version numbers match `package.json`.
 
 ## Unreleased
 
+### Added
+
+- Local preview copy for HDR, 10-bit and Dolby-audio files.
+
 ### Fixed
 
 - The preview warns when the browser shows a black picture, seen with 10-bit video in Chrome on some Linux/NVIDIA setups.

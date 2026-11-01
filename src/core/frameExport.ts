@@ -56,7 +56,7 @@ export function drawPreparedFrame(
 }
 
 export async function exportCurrentFrame(
-  input: HTMLVideoElement,
+  input: CanvasImageSource,
   source: Size,
   settings: {
     output: Size;

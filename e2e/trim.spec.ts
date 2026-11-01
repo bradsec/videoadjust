@@ -97,7 +97,10 @@ test('unplayable preview keeps trim handles and disables playhead buttons', asyn
     };
   });
   await page.goto('/');
-  await page.setInputFiles('#file', fixture);
+  await page.setInputFiles(
+    '#file',
+    new URL('../tests/fixtures/noaudio.mp4', import.meta.url).pathname,
+  );
   await expect(page.locator('.preview-note')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Set start to playhead' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Set end to playhead' })).toBeDisabled();
@@ -107,9 +110,18 @@ test('unplayable preview keeps trim handles and disables playhead buttons', asyn
   await expect(page.locator('.trim-thumbs canvas').first()).toBeVisible();
 });
 
-test('a source whose audio the browser cannot play still gets a video preview', async ({
+test('a source whose audio the browser cannot play gets a video preview with sound', async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    const create = URL.createObjectURL;
+    URL.createObjectURL = function (object: Blob | MediaSource) {
+      const url = create.call(this, object);
+      if (object instanceof File)
+        (window as Window & { originalPreviewUrl?: string }).originalPreviewUrl = url;
+      return url;
+    };
+  });
   await page.goto('/');
   await page.setInputFiles('#file', eac3Fixture);
   await expect
@@ -125,10 +137,148 @@ test('a source whose audio the browser cannot play still gets a video preview', 
     .evaluate((video: HTMLVideoElement) => video.canPlayType('video/mp4; codecs="ec-3"') === '');
   await expect(
     page.getByText('Preview has no sound: this browser cannot play the audio. Export converts it.'),
-  ).toBeVisible({ visible: rejectsAudio });
+  ).toBeHidden();
+  if (rejectsAudio) {
+    expect(await page.locator('.preview-video').getAttribute('src')).not.toBe(
+      await page.evaluate(
+        () => (window as Window & { originalPreviewUrl?: string }).originalPreviewUrl,
+      ),
+    );
+  }
 });
 
-test('Chromium warns when presented video frames are black but filmstrip frames are visible', async ({
+test('preview proxy plays, survives export for comparison, and is released on Start over', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(() => {
+    const state = window as Window & {
+      proxySource?: string;
+      previewWrites?: string[];
+      revoked?: string[];
+    };
+    state.previewWrites = [];
+    state.revoked = [];
+    const create = URL.createObjectURL;
+    URL.createObjectURL = function (object: Blob | MediaSource) {
+      const url = create.call(this, object);
+      if (object instanceof File) state.proxySource = url;
+      return url;
+    };
+    const revoke = URL.revokeObjectURL;
+    URL.revokeObjectURL = function (url: string) {
+      state.revoked!.push(url);
+      return revoke.call(this, url);
+    };
+    const src = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src')!;
+    Object.defineProperty(HTMLMediaElement.prototype, 'src', {
+      ...src,
+      set(this: HTMLMediaElement, value: string) {
+        if (this.classList.contains('preview-video')) state.previewWrites!.push(value);
+        src.set!.call(this, value);
+      },
+    });
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
+    delete (Window.prototype as unknown as Record<string, unknown>).showSaveFilePicker;
+  });
+  await page.goto('/');
+  const started = Date.now();
+  await page.setInputFiles('#file', eac3Fixture);
+  await expect(page.locator('.preview-proxy-status')).toContainText('Preparing preview');
+  await expect(page.locator('.preview-proxy-status')).toBeHidden({ timeout: 30_000 });
+  const buildMs = Date.now() - started;
+  console.log(`PROXY_FIXTURE_BUILD_MS=${buildMs}`);
+  const preview = page.locator('.preview-video');
+  const proxyUrl = await preview.getAttribute('src');
+  expect(proxyUrl).toMatch(/^blob:/);
+  expect(
+    await page.evaluate(() => {
+      const state = window as Window & { proxySource?: string; previewWrites?: string[] };
+      return state.previewWrites?.includes(state.proxySource ?? '');
+    }),
+  ).toBe(false);
+  await preview.evaluate((video: HTMLVideoElement) => video.play());
+  await expect
+    .poll(() => preview.evaluate((video: HTMLVideoElement) => video.currentTime))
+    .toBeGreaterThan(0.2);
+  await page
+    .getByRole('region', { name: 'Export summary' })
+    .getByRole('button', { name: /^Export/ })
+    .click();
+  await expect(page.getByRole('button', { name: 'Start over' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('.compare-video').first()).toHaveAttribute('src', proxyUrl!);
+  await page.getByRole('button', { name: 'Start over' }).click();
+  expect(
+    await page.evaluate(
+      (url) => (window as Window & { revoked?: string[] }).revoked?.includes(url),
+      proxyUrl!,
+    ),
+  ).toBe(true);
+});
+
+test('preview proxy Cancel and Use original choose separate outcomes', async ({ page }) => {
+  await page.goto('/');
+  await page.setInputFiles('#file', eac3Fixture);
+  await expect(page.locator('.preview-proxy-status')).toContainText('Preparing preview');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.locator('.preview-proxy-status')).toHaveText('Preview preparation canceled.');
+  await expect(page.locator('.preview-audio-note')).toBeVisible();
+  await expect(page.locator('.preview-video')).not.toHaveAttribute('src', /^blob:/);
+  await page.getByRole('button', { name: 'Choose another video' }).click();
+  await page.setInputFiles('#file', eac3Fixture);
+  await expect(page.locator('.preview-proxy-status')).toContainText('Preparing preview');
+  await page.getByRole('button', { name: 'Use original' }).click();
+  await expect(page.locator('.preview-video')).toHaveAttribute('src', /^blob:/);
+  await expect(page.locator('.preview-audio-note')).toBeVisible();
+});
+
+test('proxied frame save draws the full-resolution original', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(() => {
+    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
+    delete (Window.prototype as unknown as Record<string, unknown>).showSaveFilePicker;
+    const canPlayType = HTMLMediaElement.prototype.canPlayType;
+    HTMLMediaElement.prototype.canPlayType = function (mime) {
+      if (mime.includes('mp4a.40.2')) return '';
+      return canPlayType.call(this, mime);
+    };
+    const draw = OffscreenCanvasRenderingContext2D.prototype.drawImage;
+    OffscreenCanvasRenderingContext2D.prototype.drawImage = function (
+      this: OffscreenCanvasRenderingContext2D,
+      ...args
+    ) {
+      const source = args[0];
+      const state = window as Window & {
+        captureFrame?: boolean;
+        savedFrameSource?: [number, number];
+      };
+      if (
+        state.captureFrame &&
+        (source instanceof HTMLCanvasElement || source instanceof OffscreenCanvas)
+      )
+        state.savedFrameSource = [source.width, source.height];
+      return Reflect.apply(draw, this, args);
+    } as typeof draw;
+  });
+  await page.goto('/');
+  await page.setInputFiles('#file', fixture);
+  await expect(page.locator('.preview-proxy-status')).toBeHidden({ timeout: 30_000 });
+  await expect
+    .poll(() =>
+      page.locator('.preview-video').evaluate((video: HTMLVideoElement) => video.videoWidth),
+    )
+    .toBe(1280);
+  await page.evaluate(() => ((window as Window & { captureFrame?: boolean }).captureFrame = true));
+  await page.getByRole('button', { name: 'Save frame as PNG' }).click();
+  await expect(page.getByRole('link', { name: 'Download frame' })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as Window & { savedFrameSource?: [number, number] }).savedFrameSource,
+    ),
+  ).toEqual([1920, 1080]);
+});
+
+test('Chromium builds a proxy when presented video frames are black but filmstrip frames are visible', async ({
   page,
   browserName,
 }) => {
@@ -151,7 +301,11 @@ test('Chromium warns when presented video frames are black but filmstrip frames 
   await page.setInputFiles('#file', longFixture);
   await expect(page.locator('.trim-thumbs canvas').first()).toBeVisible();
   await page.locator('.preview-video').evaluate((video: HTMLVideoElement) => video.play());
-  await expect(page.locator('.preview-picture-note')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.preview-proxy-status')).toContainText('Preparing preview', {
+    timeout: 15_000,
+  });
+  await expect(page.locator('.preview-proxy-status')).toBeHidden({ timeout: 20_000 });
+  await expect(page.locator('.preview-picture-note')).toBeHidden();
 });
 
 test('preview warns when playback presents no frames', async ({ page }) => {

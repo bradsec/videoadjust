@@ -32,6 +32,7 @@ export type Tool = 'shrink' | 'audio' | 'gif';
 
 /** The loaded source and its derived limits, carried from prepare through result. */
 export interface Loaded {
+  previewProxyUrl?: string;
   addedAudio?: AddedAudio;
   overlayAssets?: OverlayAssets;
   file: File;
@@ -108,6 +109,7 @@ export type AppAction =
   | { type: 'smaller' }
   | { type: 'failed'; notice: Notice }
   | { type: 'resetAll' }
+  | { type: 'previewProxyReady'; url: string }
   | { type: 'reset' };
 
 export interface AppDeps {
