@@ -69,6 +69,12 @@ describe('autoSettings', () => {
     expect(r.alreadyOptimal).toBe(false);
   });
 
+  it('defaults a 4K 5.1 source to 1080p stereo', () => {
+    const r = autoSettings(fakeSource({ fps: 30, channels: 6, aCodec: 'eac3' }), allCaps());
+    expect(r.settings.video).toMatchObject({ width: 1920, height: 1080 });
+    expect(r.settings.audio).toMatchObject({ channels: 2, copy: false });
+  });
+
   it('does not upscale', () => {
     const r = autoSettings(fakeSource({ w: 1280, h: 720, fps: 30 }), allCaps());
     expect(r.settings.video).toMatchObject({ width: 1280, height: 720, fps: 30 });
