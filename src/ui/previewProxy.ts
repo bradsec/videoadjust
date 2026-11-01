@@ -116,17 +116,23 @@ export function mountPreviewProxy(
       notices.proxyPlaying();
     });
 
-  const stop = (original: boolean) => {
+  const stop = async (original: boolean) => {
     bypassed = true;
-    void job?.cancel().catch((error: unknown) => console.warn('Could not cancel preview', error));
+    // Decoding next to a <video> holding the original crashes some Chrome builds
+    // (docs/buglifecycle/09), so the original loads only after the conversion stops.
+    const stopped = job
+      ?.cancel()
+      .catch((error: unknown) => console.warn('Could not cancel preview', error));
     endStream(!original);
     actions.hidden = true;
     say(original ? null : 'Preview preparation canceled.');
     notices.sound.hidden = !previewSoundUnavailable(video, state.source);
-    if (original) video.src = originalUrl;
+    if (!original) return;
+    await stopped;
+    video.src = originalUrl;
   };
-  cancel.addEventListener('click', () => stop(false));
-  useOriginal.addEventListener('click', () => stop(true));
+  cancel.addEventListener('click', () => void stop(false));
+  useOriginal.addEventListener('click', () => void stop(true));
 
   const failed = (error: unknown) => {
     if (destroyed || bypassed) return;
