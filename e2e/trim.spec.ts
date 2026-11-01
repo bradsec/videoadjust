@@ -149,7 +149,12 @@ test('a source whose audio the browser cannot play gets a video preview with sou
 
 test('preview proxy plays, survives export for comparison, and is released on Start over', async ({
   page,
+  browserName,
 }) => {
+  test.skip(
+    browserName !== 'chromium',
+    'WebKit plays E-AC-3 natively, so this source needs no preview copy',
+  );
   test.setTimeout(120_000);
   await page.addInitScript(() => {
     const state = window as Window & {
@@ -216,7 +221,14 @@ test('preview proxy plays, survives export for comparison, and is released on St
   ).toBe(true);
 });
 
-test('preview proxy Cancel and Use original choose separate outcomes', async ({ page }) => {
+test('preview proxy Cancel and Use original choose separate outcomes', async ({
+  page,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== 'chromium',
+    'WebKit plays E-AC-3 natively, so this source needs no preview copy',
+  );
   await page.goto('/');
   await page.setInputFiles('#file', eac3Fixture);
   await expect(page.locator('.preview-proxy-status')).toContainText('Preparing preview');
