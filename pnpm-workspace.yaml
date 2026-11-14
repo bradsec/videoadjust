@@ -1,0 +1,2 @@
+patchedDependencies:
+  mediabunny@1.66.0: patches/mediabunny@1.66.0.patch

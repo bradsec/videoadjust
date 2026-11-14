@@ -1,0 +1,18 @@
+diff --git a/dist/modules/src/media-sink.js b/dist/modules/src/media-sink.js
+index c2d3986fac316413f0e028da30b7de3bf20cea78..8aead73af3444407573b7d6c3dd6bf16c0a4fd76 100644
+--- a/dist/modules/src/media-sink.js
++++ b/dist/modules/src/media-sink.js
+@@ -1941,7 +1941,12 @@ class AudioDecoderWrapper extends DecoderWrapper {
+         else {
+             assert(this.decoder);
+             this.expectedFirstTimestamp ??= packet.timestamp;
+-            this.decoder.decode(packet.toEncodedAudioChunk());
++            // WebKit's GStreamer AudioDecoder returns wrong output timestamps when a chunk timestamp is negative
++            // (the AAC priming packet). The sample handler rebases output onto expectedFirstTimestamp, so
++            // shifting the input timestamps to start at zero does not change the samples' timestamps.
++            const shift = Math.max(0, -this.expectedFirstTimestamp);
++            const shifted = shift ? packet.clone({ timestamp: packet.timestamp + shift }) : packet;
++            this.decoder.decode(shifted.toEncodedAudioChunk());
+         }
+     }
+     async flush() {

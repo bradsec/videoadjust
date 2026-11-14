@@ -112,3 +112,11 @@ fromNegative inputs  [-21333, 0, 21334, 42667, 64000, 85334, 106667, 128000]
 The final negative-start output steps backward. In Mediabunny, `AudioDecoderWrapper` resyncs to that timestamp, so the last sample is assigned 2.944 s after a 2.965333 s sample. The native encoder retains the backward order, and the MP4 muxer rejects the packet. The 1.63.0 release's audio decoder pre-roll change makes the negative packet reachable; see [v1.63.0 release notes](https://github.com/Vanilagy/mediabunny/releases/tag/v1.63.0), accessed 2026-11-01. This points to a WebKit decoder defect. Mediabunny could consider keeping its native decode input timestamps non-negative or avoiding backward resyncs.
 
 Real Safari on macOS and iOS has not been tested. The standalone script could not run on Playwright Chromium because it lacks native AAC encoding.
+
+## Update 2026-11-14: root cause and local patch
+
+The defect is in WebKit's decoder, not in Mediabunny. The GStreamer-backed `AudioDecoder` in Playwright WebKit on Linux returns wrong output timestamps when an input chunk has a negative timestamp. Mediabunny 1.63 decodes the AAC priming packet at -21333 us, which exposes the bug. Chromium decodes the same input correctly. WebKit's output is also correct when the input starts at 0, as the `fromZero` run above shows.
+
+Mediabunny 1.66.0 keeps the 1.63 behaviour, so the app carries `patches/mediabunny@1.66.0.patch`, applied through `patchedDependencies` in `pnpm-workspace.yaml`. In `AudioDecoderWrapper.decode` (`dist/modules/src/media-sink.js`), when `expectedFirstTimestamp` is negative, the patch shifts input packet timestamps by `-expectedFirstTimestamp`. Output sample timestamps do not change, because the wrapper already rebases output onto `expectedFirstTimestamp`. Remake the patch on every Mediabunny upgrade. Real Safari is still untested.
+
+Filed upstream on 2026-11-14 as https://github.com/Vanilagy/mediabunny/issues/653, with the patch as a suggested guard and an AI disclosure.

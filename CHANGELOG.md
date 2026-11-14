@@ -2,6 +2,13 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.29.1] - 2026-11-14
+
+### Changed
+
+- Mediabunny and its AAC, MP3 and AC-3 extension packages are upgraded from 1.62.1 to 1.66.0, with many upstream fixes.
+- Mediabunny carries a small patch so WebKit browsers keep exporting AAC audio.
+
 ## [0.29.0] - 2026-11-01
 
 ### Added

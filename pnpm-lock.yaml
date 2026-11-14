@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  mediabunny@1.66.0:
+    hash: b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2
+    path: patches/mediabunny@1.66.0.patch
+
 importers:
 
   .:
@@ -24,20 +29,20 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       '@mediabunny/aac-encoder':
-        specifier: 1.62.1
-        version: 1.62.1(mediabunny@1.62.1)
+        specifier: 1.66.0
+        version: 1.66.0(mediabunny@1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2))
       '@mediabunny/ac3':
-        specifier: 1.62.1
-        version: 1.62.1(mediabunny@1.62.1)
+        specifier: 1.66.0
+        version: 1.66.0(mediabunny@1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2))
       '@mediabunny/mp3-encoder':
-        specifier: 1.62.1
-        version: 1.62.1(mediabunny@1.62.1)
+        specifier: 1.66.0
+        version: 1.66.0(mediabunny@1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2))
       gifenc:
         specifier: 1.0.3
         version: 1.0.3
       mediabunny:
-        specifier: 1.62.1
-        version: 1.62.1
+        specifier: 1.66.0
+        version: 1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2)
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.14.0
@@ -165,18 +170,18 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@mediabunny/aac-encoder@1.62.1':
-    resolution: {integrity: sha512-3fiZYAX95d+TDp2vu0sXMYputLm2+W21fZQMUWTf9awKhsRC/wko9OXj4GLLmGKMRryvI9Ocv9HzhhHVRYWopQ==}
+  '@mediabunny/aac-encoder@1.66.0':
+    resolution: {integrity: sha512-46RM06RQGIqC+HQI30e2HR2JTgk6dzyD/ybD23E6zuc7R22/x1XIQHghJDkfKnHF72ztJBZxNbt/NncH7SrvYQ==}
     peerDependencies:
       mediabunny: ^1.0.0
 
-  '@mediabunny/ac3@1.62.1':
-    resolution: {integrity: sha512-UCSfIyR57epO6xPsCuKaTTUwb9lv9EeI2MjHrXoRcgH3u13qq+IifnKkrA/xAoB+JnhtF8jcgalH4w+QTuN3ZQ==}
+  '@mediabunny/ac3@1.66.0':
+    resolution: {integrity: sha512-Van5Qp1Nip9+iGI2DVje1dNmRdFJ2+Y/lcD31G3+e6iYr6Nl45MvPRcKCtbbEIiIZwA0+9CNFE/rHh3iTajjSw==}
     peerDependencies:
       mediabunny: ^1.0.0
 
-  '@mediabunny/mp3-encoder@1.62.1':
-    resolution: {integrity: sha512-v5L8Z9T298IcSWGvWPlGGNhoM2YzY+fOVAtdkwc6Leh8c1HXl5ivJVBKCcRZeCbp4LDJOSuwdu2SE/V67SZo7w==}
+  '@mediabunny/mp3-encoder@1.66.0':
+    resolution: {integrity: sha512-Co1ChvNYWdjCAVCbbWRVu1PdpY8A7M85wVypc2rpKV3IFWzc/Y2C211BeAgMrk6rTi9DvluI0KuwxIEfAtFSlg==}
     peerDependencies:
       mediabunny: ^1.0.0
 
@@ -662,8 +667,8 @@ packages:
   magic-string@1.4.3:
     resolution: {integrity: sha512-z12OxmaPGE0F4xlpGdjuAUckipLpQlTAuAmyGhNoD7ODpYUzvDfvtxUbjM/jwznyP178oju/KDdyi220wNJ0RQ==}
 
-  mediabunny@1.62.1:
-    resolution: {integrity: sha512-lYzeerDwo9QLhBCipqQDXOSV7InvaIFplllZQviPO5rPwH+IUr8M1uvumk1olIUgMRGkPiInRriv25WFErUgMw==}
+  mediabunny@1.66.0:
+    resolution: {integrity: sha512-0Zff/qLkY1ZRyjBEt2vQjLeMigmU/dFKwJLpiPyCiskIel2f2R2kqMxaLYbeHN+rmyz4PVwwLSnU9anjUHHeJQ==}
 
   minimatch@10.2.6:
     resolution: {integrity: sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==}
@@ -981,17 +986,17 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@mediabunny/aac-encoder@1.62.1(mediabunny@1.62.1)':
+  '@mediabunny/aac-encoder@1.66.0(mediabunny@1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2))':
     dependencies:
-      mediabunny: 1.62.1
+      mediabunny: 1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2)
 
-  '@mediabunny/ac3@1.62.1(mediabunny@1.62.1)':
+  '@mediabunny/ac3@1.66.0(mediabunny@1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2))':
     dependencies:
-      mediabunny: 1.62.1
+      mediabunny: 1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2)
 
-  '@mediabunny/mp3-encoder@1.62.1(mediabunny@1.62.1)':
+  '@mediabunny/mp3-encoder@1.66.0(mediabunny@1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2))':
     dependencies:
-      mediabunny: 1.62.1
+      mediabunny: 1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2)
 
   '@oxc-project/types@0.155.0': {}
 
@@ -1407,7 +1412,7 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  mediabunny@1.62.1:
+  mediabunny@1.66.0(patch_hash=b246eeb3d2f9dbcb298a982e49ad61868a65d518fb170a2d8b129bb7520fb4c2):
     dependencies:
       '@types/dom-mediacapture-transform': 0.1.12
       '@types/dom-webcodecs': 0.1.13
