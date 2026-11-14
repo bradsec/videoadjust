@@ -25,7 +25,7 @@ export const ALLOWED = new Set([
 // but embeds LAME 3.100 (LGPL-2.0-or-later, decoder disabled), also loaded only through
 // a dynamic import(). @mediabunny/ac3 declares MPL-2.0 but embeds FFmpeg's AC-3 and E-AC-3
 // coders (libavcodec + libavutil, LGPL-2.1-or-later); the app imports only its decoder, through
-// a dynamic import(). See README "Licences".
+// a dynamic import(). See docs/third-party.md for the licence audits.
 export const LGPL_WASM_EXCEPTIONS = new Set([
   '@mediabunny/aac-encoder',
   '@mediabunny/ac3',

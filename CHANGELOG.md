@@ -2,6 +2,13 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.29.2] - 2026-11-14
+
+### Changed
+
+- The README is shorter and aimed at users. Development, deployment and browser details moved to `docs/development.md`, and credits and licence audits moved to `docs/third-party.md`.
+- The README screenshot shows the current home screen.
+
 ## [0.29.1] - 2026-11-14
 
 ### Changed

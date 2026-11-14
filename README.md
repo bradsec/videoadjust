@@ -13,169 +13,29 @@ A private video editor that runs in your browser. Trim, crop, resize and rotate,
 
 ## Features
 
-- Pick a video, trim it, choose a tool and its settings, then export. Video output defaults to MP4 with H.264 video and AAC audio; WebM (VP9, AV1, Opus) is also available. Frames are never upscaled and the frame rate is never raised. No ffmpeg.wasm.
-- HDR, 10-bit and browser-incompatible audio files get a local preview copy, capped at 1280 pixels on the long edge, with stereo sound. Where the browser supports Media Source Extensions, the copy starts playing after about 2 seconds while the rest converts. Progress and buffering show in the middle of the preview, with Cancel and Use original below it. The copy stays in memory until you start over or choose another file; export and saved frames use the original. A black-picture check can also trigger a preview copy. For sources above 1080p, or that needed a preview copy, the result shows the new video alone; Compare with original turns the comparison on.
-- On the prepare screen, choose Shrink video, Extract audio or GIF from the workspace tabs. The file name and details come first, then the preview, an Edit section (Crop and rotate, and Position overlay once an overlay is set) and Trim. The video and trim controls form the canvas; the summary, action, Reset all and the settings sections form the inspector. Settings sit in collapsible sections (Output, Audio, Colour correction, Style, Overlay) that open one at a time, each header showing its change count. The preview reflects the output resolution and frame rate, so a lower resolution looks softer and a lower frame rate steps. GIF preview also shows the selected colour limit. Short confirmations, such as a saved frame or a reset, appear as toast notifications that float over the page without moving it; errors stay until dismissed. On desktop they sit side by side, with a sticky inspector that scrolls long settings independently. Theater mode is available from 1100px except on touch devices with no hover and a coarse pointer; it widens the canvas across the window while keeping the inspector at a fixed width, on Prepare and on the result comparison. The setting is saved in this browser. Scroll back up within the inspector to reach Export. On narrower screens they stack; on phones, the preview stays pinned through Trim and the settings, with the summary and action fixed at the bottom. On tablets, the summary and action stay sticky within the inspector.
-- Extract audio is unavailable until the source or an added file has usable audio. GIF is unavailable when the source has no decodable video.
-- AC-3 and E-AC-3 (Dolby Digital and Dolby Digital Plus) audio, including 5.1, decodes in every browser through a bundled decoder, so it can be re-encoded, mixed and extracted like any other audio. Surround audio is mixed down to stereo. When a browser cannot decode a source's audio in another codec (for example DTS), the Audio tracks section shows Original audio as unavailable and Shrink exports the video without audio.
-- Hover a setting or edit control for a short explanation of what it does.
-- All three tools use the same trim. The timeline ruler marks time above the filmstrip. The filmstrip adds thumbnails as it widens, up to 40, and limits them on short clips. Drag the trim handles or use arrow keys to adjust by 0.1 seconds. Hold Shift with an arrow key for 1-second steps. Edit the Start or End time using seconds, m:ss, or h:mm:ss, with optional tenths. Use the adjacent Set button to place that boundary at the preview playhead. The previous and next frame buttons flank the playhead time and pause and step the preview by one source frame. Press comma or period for the same steps when focus is outside a text field. The kept duration appears in the Trim header and updates with the summary as you trim. Reset trim appears when a boundary changes and restores the full source duration in all three tools.
-- Under Trim, Cut sections removes up to 20 ranges inside the trim. Add cut starts a one-second cut at the playhead. Each row accepts Start and End timecodes or a Set button to use the playhead; setting Start past End, or End before Start, moves the cut and keeps its length. Remove deletes the row. Cuts appear on the filmstrip and audio lanes, and playback skips them. Export joins the kept ranges for Shrink, Extract audio and GIF. Cuts force exact video and audio encoding, so Fast copy and already-small copies are unavailable. The estimate and Target size use the joined duration. Master fades run at the joined output's start and end; original audio gets a short fade at each join to prevent clicks. Transition sets Hard cut (the default) or Fade through black, with Fade duration 0.25, 0.5, 0.75 or 1 s: half fades out before each join and half fades in after it, so the joined duration does not change. The fade dims the picture and the original audio; overlays, captions and added audio stay as they are. Each fade is shortened so it never takes more than half of a kept part. Preview and export both show the fade. Added-audio offset and Loop follow output time, so added audio continues through joins. Cuts outside the trim are kept and return when the trim widens. Reset all clears cuts.
-- Drag the white playhead or click the ruler or filmstrip to seek. With the playhead focused, Left and Right move 1 second, Shift with Left or Right moves 5 seconds, Page Up and Page Down move 10 seconds, and Home and End jump to the trim boundaries.
-- Press Space to play or pause the preview when focus is outside a control or editor.
-- The source summary shows whether sampled frames have a variable frame rate and whether the video is HDR, when Mediabunny can determine those properties.
-- If the browser cannot play the preview, the handles and thumbnails still work. The trim Set and frame step buttons are disabled because they need a playhead.
-- The preview warns when the browser cannot show the video's picture: playback or seeking presents no frame within five seconds, or the presented frames are black where the filmstrip shows a picture. Some audio codecs cannot play in the browser even when export can convert them; the preview then warns that it has no sound.
-- Reset all in any tool's summary resets every tool for the loaded file. Click Reset all, then Confirm reset; Cancel or Escape keeps the settings. It restores load-time automatic export settings, full trim, Fast trim precision, no crop/rotation/mirror, Fit Off, Style None with neutral colour correction, overlays off, neutral Master processing, and original audio included at 0 dB. It removes the added audio track and uploaded watermark image. The source file, selected tool tab, theater mode, browser preferences and uploaded custom fonts stay. Reset is disabled when all settings are automatic or an export is starting.
-- Shrink's summary card shows the estimated output range against the original size. Open Adjust to change format, codec, resolution, frame rate, quality, or audio. Each setting has a reset button.
-- Shrink’s Target size offers Off, 8, 10, 16, 25, 50, or 100 MB, plus Custom (0.05–4096 MB). MB means 1,000,000 bytes. The budget follows the kept duration, reserves container overhead and 8% headroom, and replaces the Quality slider. Tight targets lower audio to 96 or 64 kbps and step down resolution; a warning suggests a shorter trim when the smallest size is still tight. Compatible trimmed copies already under the target keep the copy path when there are no cuts. Encoders can overshoot; the result shows actual versus target and offers Try again smaller with a reduced bitrate for another export.
-- Choose Crop and rotate in the Edit section under the preview to edit the current frame. The canvas editor shows rotation and mirroring on a still frame; Done returns to live playback with your edits. Shrink and GIF preview rotation, mirroring, crop and overlays while playing or scrubbing, without encoding. Show original temporarily hides those edits and appears only when edits exist. Choose Free, Original, 1:1, 4:5, 9:16, or 16:9. Original locks to the rotated frame's ratio; its full-frame guide leaves the video uncropped. Each locked ratio starts with the largest centred crop and stays locked while you resize it. Drag inside the guide to move it, or drag an edge or corner to resize. The move and size buttons offer a click alternative. Focus the guide and use arrow keys to move, Shift with arrows for larger steps, or Alt with arrows to resize. Rotation, mirroring and crop are set only in this editor; Adjust has no separate controls for them. Rotation and mirroring happen before cropping and resizing. A smaller crop, rotation, or mirroring re-encodes the video and keeps audio copy when available.
-- Set an optional output title under Metadata. Strip source metadata is on by default and removes source descriptive tags (such as location, device and dates), while retaining any title you entered; turn it off to keep them. Extract audio always strips source tags. Metadata changes can be applied to a trimmed copy without re-encoding the video.
-- Seekability offers the default keyframe interval or 1-second and 2-second intervals. Shorter intervals improve seeking but increase file size. Choosing either interval re-encodes the video; the size estimate does not account for extra keyframes.
-- Shrink's Trim precision defaults to Fast (keyframe), which copies compatible video. A copied MP4 can retain encoded footage before the chosen start, hidden during normal playback by its edit list. Choose Exact (re-encode) to remove that footage: it re-encodes video at frame boundaries, takes longer and can change quality or size. Audio copy remains available. GIF always renders the selected frames.
-- Unavailable codecs show why they cannot be selected. WebM uses Opus audio. The quality control and audio bitrates stay within the source limits. Quality keeps the same percentage when you change codec, resolution, or frame rate. Reset Quality returns to 100% for the current video settings.
-- If the source is already small, Export makes a trimmed copy that keeps the source video and audio tracks. Select Re-encode anyway to use the adjustment controls.
-- Extract audio defaults to MP3. Open Adjust to choose MP3, M4A (AAC), or WAV, plus bitrate and mono or stereo where available. M4A copies the source audio without re-encoding when the source is AAC at or below the target bitrate; otherwise it encodes AAC at the target. MP3 and WAV are always encoded. WAV is 16-bit PCM with no bitrate control, so files are large. The audio summary shows the estimated size and kept duration.
-- Shrink and Extract audio share one Audio tracks section above the tool settings. Original audio has an include switch and a volume slider (-20 to +20 dB, in 0.5 dB steps, matching Master gain so 0 dB sits in the middle). Turn it off to remove the source audio. Reset original audio appears when inclusion or volume changes and restores inclusion at 0 dB, leaving the added track unchanged. This replaces the old Remove audio codec option. Add music or audio picks one local audio or video file with a decodable primary audio track; its name and duration appear beside volume, start offset, Loop, and Remove controls. Offset starts on the output timeline: a positive offset starts the added audio after the trim start, and a negative offset starts it partway into the file, so a track longer than the clip can play from any point. Loop repeats shorter audio; added audio always ends at the kept range end. Silent videos can gain audio, and disabling Original audio keeps only the added track. Both export tools use the same tracks and Master settings. GIF has no audio.
-- Under Trim, Original and Added waveform lanes follow the same full-source timeline and playhead. Added audio appears at its offset and repeats when Loop is on. Drag the Added lane left or right, or focus it and use the arrow keys (Shift for 1-second steps, Home and End for the limits), to slide the track and choose which part plays. Removed audio is dimmed. Track volumes, Master gain, fades and measured normalization update the lanes immediately, without decoding peaks again. Orange marks possible peaks above -1 dBFS: cached peak bins cannot preserve phase, so warnings are conservative estimates rather than an exact mixed waveform.
-- Master controls apply to the summed tracks: gain (-20 to +20 dB in 0.5 dB steps), fade in and fade out (0 to 10 s, or the kept duration if shorter, in 0.1 s steps), and normalization Off, -14 LUFS (streaming), -16 LUFS (podcast), or -23 LUFS (EBU R128). Fades are linear and sample-accurate within the kept trim; overlapping fade lengths are scaled to fit. Reset audio processing restores neutral Master settings. Track volumes apply before summing, then Master normalization, gain and fades apply, followed by a -1 dBFS sample ceiling. Neutral original-only audio retains its existing copy behavior; changing track volumes, adding audio or applying Master processing re-encodes audio while preserving video copy eligibility.
-  Normalization first measures the kept mixed output using [ITU-R BS.1770-4](https://www.itu.int/rec/R-REC-BS.1770-4-201510-S/en): K-weighting, 400 ms blocks with 75% overlap, absolute and relative gates, and channel weighting. Measurement follows output channel remix and track volumes, before Master gain and fades. Analysis shows progress and supports Cancel. Silence and clips shorter than one 400 ms block skip normalization. Normalization gain is capped so the measured mixed sample peak stays at or below -1 dBFS; peaky audio can finish quieter than the target. Positive Master gain can still distort against the hard ceiling. The ceiling limits **sample peak**, not true peak; lossy encoding can introduce new peaks.
-  Mixed exports stream both decoders in bounded chunks, remix to mono or stereo, and resample to 48 kHz with linear interpolation. Mono added audio duplicates into stereo. Mono, stereo, quad and 5.1 use speaker downmix rules; other layouts retain only the first output channels because the existing fallback has no speaker mapping for them. Looping decodes each repeat instead of retaining the whole file. Linear resampling can alias when downsampling high-frequency content. WAV estimates include the mixed output rate, and video target-size budgets include added-only audio.
-  Preview playback auditions track volumes, removal, offsets, loops, Master gain, fades and the same mixed loudness analysis. The added file is decoded once into Web Audio and scheduled on the audio clock from the video position. It is rescheduled only on play, seek, rate change, a video stall, or drift over 0.25 seconds, so it does not stutter from repeated re-seeking. Decoding holds the whole file in memory while in Prepare, and browser decoding supports fewer formats than Mediabunny export; an added file can export successfully even if the browser cannot audition it. A post-Master WaveShaper approximates the export sample ceiling; neutral original-only playback bypasses it. Blob URLs and audio resources are released when leaving Prepare.
-- GIF exports the kept video frames as an animated image without audio. Its preview stays silent and restores the previous player mute state when you switch tools. The output name uses the source name with `-animated.gif`, such as `clip-animated.gif`. Open Adjust to choose size, frame rate, colours, file size and whether the animation loops. Loop can play forward forever, play once, or use Boomerang to play forward then backward forever without repeating the first and last frames at each turn. Size sets the long edge (320, 480 or 640 pixels), so portrait and landscape clips of the same size have the same pixel count. The default is 320 pixels at 10 fps with 128 colours. File size Balanced (the default) and Smallest file store only the pixels that changed since the previous frame, which keeps static scenes very small; Smallest file reuses more and can leave faint trails in fast motion. Best quality writes every frame in full. GIF uses the same rotation, mirroring, crop and Fit as Shrink. The summary shows the finished GIF's frame count, duration and dimensions. The 30-second, frame and pixel limits include the Boomerang return trip, so a long or large GIF may need a shorter trim, lower frame rate or smaller size.
-- Style Filter applies one of fifteen looks to Shrink and GIF: Cinematic grade, Film grain, VHS, Bloom, Chromatic aberration, Vignette, Black and white, Duotone, Glitch, Soft diffusion, Super 8 film, MiniDV camcorder, Film halation, Pastel matte, or CRT screen. Choose None to disable the creative style, adjust intensity, and use the extra controls shown for the chosen style. Intensity and the style's extra slider start in the centre, which renders each look at its tuned strength. Duotone lets you pick both colours. Glitch uses brief, restrained bursts; Soft diffusion spreads bright highlights while keeping unlit blacks dark. Super 8 adds gate weave, a faded warm stock, irregular dust, hairs and scratches (Wear sets how many). MiniDV sharpens edges and averages colour over 4-pixel runs like a DV camcorder. Film halation rims bright highlights in red-orange. Pastel matte mutes colour and lifts blacks. CRT screen curves the picture and adds scanlines and an aperture grille; Curvature sets the bulge. Live preview and export use the same WebGL2 shaders, with time-based effects tied to the video's timestamp. Preview renders at display resolution to keep playback responsive; export renders at the selected output resolution. Style is applied after rotation, mirroring, crop and resize, before Fit and text and image overlays. Selecting a style re-encodes video; None with neutral colour correction leaves the copy path available. If WebGL2 is unavailable or lost, the app disables styles and continues playback and export without them.
-  Film grain's Grain size changes the noise from fine speckles to coarse clumps, scaled to output resolution. If the export renderer fails, the result screen shows one warning that the selected style or colour correction was dropped.
-- Colour correction in Style Filter works independently of the creative style, including None: Exposure (-3 to +3 stops), Contrast (0–2), Saturation (0–2), and Temperature (-1 cool to +1 warm). Reset colour correction restores neutral settings without changing the creative style. Corrections apply before the creative style in preview, video and GIF export, and before overlays. Neutral correction does not change pixels or force video re-encoding. Corrections require WebGL2.
-- Fit to aspect adds 9:16, 1:1, 4:5, or 16:9 output around the cropped and rotated frame, without stretching it. Off keeps the cropped frame's own ratio. Blur uses a scaled, blurred copy of the frame behind it by default; Black and Solid colour are also available. Fit applies after colour correction and style, before overlays, in Shrink, GIF, live preview, and frame saves. Resolution and GIF size refer to the fitted output; the foreground frame is never upscaled. Fit forces video re-encoding.
-- The PNG and JPG frame buttons in Prepare's Edit section save the current frame as PNG, or JPEG at 92% quality, at the active tool's output resolution. It captures the current preview playhead with rotation, mirroring, crop, colour correction, style, Fit, then overlays, matching export order. It saves directly where a save picker is available; elsewhere it downloads and leaves a Download frame link. The preview must have a decoded frame; saving does not change export settings.
-- On larger screens, the live preview shows the selected style name, or Original while showing the source; this label never appears on phones or in exports.
-- Overlay adds one text and one image to Shrink and GIF exports. Open Overlay below the tool settings to set the text, font, size, colour, opacity, alignment, wrapping width and a text effect: outline (the default), shadow, a box behind the text, or no effect. Drag the percentage sliders for live preview updates, or type an exact value in the linked number fields. Auto fit shrinks long text to fit its box. Fonts are bundled with the site under the SIL Open Font License: Inter, Anton (an Impact-style meme font), Merriweather, JetBrains Mono and Caveat. Add your own TTF, OTF, WOFF or WOFF2 font (up to 10 MB) from the same panel: the browser checks it is a usable font, then keeps it in this browser's IndexedDB for later visits. It is never uploaded, and Remove this font deletes it. Where the browser blocks storage, such as some private windows, the font lasts until the page closes. Use only fonts you have the right to use. Images can be PNG, JPEG, WebP or SVG; they stay in memory and are never uploaded. Place overlays with nine anchor presets and a margin, or choose Position overlay in the Edit section under the preview to drag them (it appears once an overlay has text or an image), tap an overlay then tap the preview to place it, or nudge it with the arrow keys (Shift for larger steps). Positions and text size are relative to the final fitted output frame, so they look the same at every export size. Overlays force a re-encode.
-- Captions burns timed text into Shrink and GIF exports, live preview and saved frames. Open Captions to import an SRT or WebVTT file (up to 2 MB and 2,000 cues; styling tags are removed) or choose Add caption for a two-second caption at the playhead. Each caption has Start and End times and its text; clear the text or choose Remove to delete it. Imported times keep their milliseconds until you edit a time field. Size (Small, Medium, Large, scaled to the output's short edge), Position (Bottom or Top) and Background (Outline or Box) apply to every caption. Times follow the source video, so captions inside a cut section do not appear. Captions draw after overlays and force re-encoding. Clear or Reset all removes them.
-- Export saves straight to a file you pick where the browser supports a save picker (Chromium), and the progress card counts bytes as they are written. After saving, the result screen reads the saved file back from disk to show the same comparison, player or GIF preview as an in-memory export; there is no Download button because the file is already saved. Elsewhere an MP4 or M4A is assembled in memory and written when it finishes, so the card shows Calculating until then. Elsewhere the new file stays in memory until you download or share it; a large estimated video or audio export asks before it starts. GIF instead limits frames and total pixels.
-- The progress screen shows percent, elapsed and remaining time, plus bytes written for video and audio. Cancel returns to the prepare screen with your settings, and says when a partial file may remain at the chosen location.
-- The result screen compares original and new in a table and, for in-memory video exports, with a wipe view (drag the divider or use the arrow keys on it; Frame mode steps one frame at a time). GIF results show an image preview.
-- If a new video or audio file is not smaller, the result says so and Make it smaller moves to the next smaller size, or lowers quality one step when no smaller size is left.
-- Privacy: No video is uploaded and nothing is sent anywhere. The page is static, has no analytics, web fonts or CDN assets, and makes no requests to other origins. Its CSP only allows `'self'`, `blob:` and workers. `scripts/check-no-remote.mjs` (`pnpm check:remote`, part of `pnpm build`) fails the build if any built file contains a URL outside a short, commented allowlist (spec links in bundled comments). It does not need `SharedArrayBuffer` or COOP/COEP headers.
-- Look: The app is dark only, with the same cool greys as rastertrace (`#111419` background, `#20252c` raised surfaces, `#e9ecef` text) and videoadjust's chartreuse accent (`#c6ef3a`). It uses system sans-serif fonts with tabular figures for times and sizes. Checkboxes draw as sliding switches. The logo is a lowercase va monogram in a chartreuse-framed rounded square, drawn as Inter Bold outlines, beside the lowercase name videoadjust, matching rastertrace's rt mark. Theater mode is saved in `localStorage`; overlay fonts you add are kept in IndexedDB.
-- Phones: The capped preview stays visible above Trim while scrolling. Quick taps never trigger double-tap zoom, and every text field and menu uses at least 16px text so iOS does not zoom the page when one takes focus. Pinch zoom still works.
-- Help and About: The Help button at the top right of the header opens a guide to tools, trim controls, shortcuts, settings and exporting. The info button beside it opens the About dialog with the version, what the app does, offline use, credits, the libraries, a link to the third-party licences and a Ko-fi support link. The GitHub icon, app name and version in the footer link to the repo.
-- Size guidance: There is no hard size limit; the source is read from disk in chunks. Above 2 GB the app warns and lets you continue. Desktop Chrome and Edge save the output straight to disk while encoding, so they handle the largest files. Where there is no save picker (iOS Safari, Firefox) the output stays in memory until you download or share it, and a large estimate asks before it starts.
-- Offline: A service worker (`public/sw.js`, registered only in production builds) precaches every built file, including the lazy AAC and MP3 encoder chunks. Navigations are network-first, revalidated with the server (so the host's max-age cannot serve an old page), with the precached page used when offline or after 4 s; network responses never overwrite that page, keeping its HTML and assets from the same build. Hashed assets are cache-first. The previous version's cache is kept until the next update so an open tab can still load the AAC chunk. The build fills in the file list and a cache version at build time.
+- Shrink video, extract MP3, M4A or WAV audio, and make GIFs.
+- Trim and cut clips; crop, rotate, resize and correct colour.
+- Add styles, captions, text, images and music. Save still frames.
+- Preview changes before export. The live app works offline after its first load.
 
-## Structure
+## Privacy
 
-```
-index.html          app shell and page metadata
-src/main.ts         app entry point
-src/core/           source probing, capability checks, estimates, conversion and style shaders
-src/ui/             workspace, trim, crop editor, settings and result controls
-src/styles/         design tokens and application styles
-public/             service worker, icons and site metadata
-scripts/            build checks and asset generation
-tests/              Vitest unit tests and video fixtures
-e2e/                Playwright browser and device tests
-```
-
-## Develop
-
-Requires Node 22 and pnpm 10.
-
-Release history: [CHANGELOG.md](CHANGELOG.md).
-
-```sh
-pnpm install
-pnpm dev            # dev server
-pnpm build          # licence check, type check, production build into dist/, remote-URL check
-pnpm typecheck      # TypeScript check
-pnpm lint           # ESLint
-pnpm format:check   # Prettier check
-pnpm format         # format supported files
-pnpm check:size     # fail if any dist/ file exceeds 25 MiB
-pnpm check:remote   # alone: scan dist/ for remote request targets
-node scripts/render-og.mjs   # regenerate public/og-image.png from scripts/og-image.html (needs Playwright chromium)
-scripts/make-icons.sh   # regenerate public/ icons from scripts/icons/*.svg (needs inkscape, ImageMagick)
-pnpm test           # unit tests (vitest)
-pnpm test:e2e       # Playwright (chromium, webkit; iPhone 15 and iPad Pro 11 run tests tagged @mobile)
-scripts/make-fixtures.sh   # regenerate tests/fixtures (needs ffmpeg)
-```
-
-First e2e run needs browsers: `pnpm exec playwright install chromium webkit`.
-
-### SEO and assets
-
-`index.html` carries the canonical link, `color-scheme`, Open Graph and Twitter card tags, and a
-`WebApplication` JSON-LD block. `public/robots.txt` allows all crawlers and names
-`public/sitemap.xml`, which lists the single page. The share image is `public/og-image.png`
-(1200x630). It is rendered from `scripts/og-image.html`, which reads colours and fonts from
-`src/styles/tokens.css` and uses no remote fonts: run `node scripts/render-og.mjs` after a brand
-change, and re-run it on the machine whose system fonts you want in the image. Icons and the
-manifest live in `public/` (`scripts/make-icons.sh` regenerates the icons).
-
-The page's own `https://videoadjust.com/` URLs are allowed by `check:remote` only in canonical,
-`og:*` and `twitter:*` tags and the JSON-LD block of the HTML, plus `robots.txt` and `sitemap.xml`.
-The service worker does not precache `robots.txt`, `sitemap.xml` or `og-image.png`: only crawlers
-and link-preview bots fetch them, so offline use gains nothing. The JSON-LD block is inert data and
-does not violate the `script-src 'self'` CSP.
-
-### Manual device check
-
-Playwright cannot drive real touch dragging or the iOS share sheet, so the owner checks these on
-real hardware before a release. Record each result; leave a line empty until it has been run.
-
-Steps: open the live site, drop a recent phone video (portrait, rotation metadata), drag the trim
-handles by touch, export, compare, then share or download. Turn on airplane mode after the first
-load and confirm the page still opens. Then switch to Extract audio, extract MP3 and M4A, and
-confirm the result plays and can be shared or downloaded, also in airplane mode for MP3.
-
-- iPhone (model, iOS version, date):
-  - Result:
-  - Extract audio (MP3, M4A, WAV):
-- iPad (model, iPadOS version, date):
-  - Result:
-  - Extract audio (MP3, M4A, WAV):
-
-## Deploy
-
-Cloudflare Pages, using its Git integration on this repo. Build settings:
-
-- Build command: `pnpm build`
-- Build output directory: `dist`
-- Environment variable: `NODE_VERSION=22`
-- Production branch: `main`
-- Custom domain: `videoadjust.com`
-
-`public/_headers` supplies the security headers (CSP and others). The output uses a relative base,
-so it also runs under a subpath. No asset may exceed 25 MiB (Cloudflare Pages limit);
-`pnpm check:size` verifies every built file.
-
-`.github/workflows/tests.yml` runs on pushes to `main`, pull requests and manual dispatches. Checks,
-unit tests and the production build run in parallel with browser tests, which split into three
-shards of two workers each inside the Playwright container image, whose tag must match the pinned
-`@playwright/test` version. The `build` step covers the licence check and type check. When any
-shard fails, an `e2e-report` job merges the shards' blob reports into one HTML report artifact. A
-newer run cancels an older run on the same ref. Cloudflare
-deploys on every push to `main` independently of the Tests workflow, so a red Tests run does not block
-a deploy.
+Your videos are processed on your device and never uploaded. The static app has no analytics or remote assets. See [detailed features and privacy](docs/development.md#detailed-features).
 
 ## Browser support
 
-Support is probed at runtime from what the browser reports (WebCodecs encoders per codec, native or
-fallback AAC, save picker, file sharing). The app disables what a browser cannot do and says why;
-this README does not claim any specific browser version works. What the e2e suite saw in this
-repository (Playwright's bundled Chromium and WebKit engines, 1280x720 probe):
+The app checks browser capabilities at runtime and explains unavailable options. See [browser support and tested engines](docs/development.md#browser-support).
 
-| Engine              | H.264 | HEVC | AV1 | VP9 | AAC                         | Opus | Save picker |
-| ------------------- | ----- | ---- | --- | --- | --------------------------- | ---- | ----------- |
-| Chromium (headless) | yes   | no   | yes | yes | yes, via the fallback chunk | yes  | yes         |
-| WebKit              | yes   | yes  | yes | yes | yes, native                 | yes  | no          |
+## Run locally
 
-Firefox and Chrome on Linux have no native WebCodecs AAC encoder, so the app lazy-loads the
-`@mediabunny/aac-encoder` chunk (about 1 MB) the first time it needs AAC. The service worker caches
-that chunk too, so export still works offline there. Playwright's Chromium, and Chrome and Brave
-on Linux, decode no AC-3 or E-AC-3 through WebCodecs, so the app lazy-loads the `@mediabunny/ac3`
-decoder chunk (about 1.1 MB) the first time a source or added file has such a track that the
-browser cannot decode; the service worker caches it too. Firefox, Safari on real iPhone and iPad
-hardware, and other browsers are not covered by the automated tests; see "Manual device check".
+Requires Node 22 and pnpm 10.
+
+```sh
+pnpm install
+pnpm dev
+```
+
+See [development and deployment](docs/development.md) for checks, build and release details.
 
 ## Support
 
@@ -183,120 +43,8 @@ If videoadjust is useful to you, please consider starring the repository to help
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/C8G129FZKM)
 
-## Acknowledgements and credits
+## Credits and license
 
-Shipped libraries, icons and related type packages:
-
-| Package                           | Licence                                                                 | Source                                                                                          |
-| --------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| mediabunny                        | MPL-2.0 (modified, see `patches/mediabunny@1.66.0.patch`)               | https://github.com/Vanilagy/mediabunny                                                          |
-| @mediabunny/aac-encoder           | MPL-2.0 (unmodified), embeds FFmpeg AAC encoder under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder                           |
-| @mediabunny/mp3-encoder           | MPL-2.0 (unmodified), embeds LAME 3.100 under LGPL-2.0-or-later         | https://github.com/Vanilagy/mediabunny/tree/main/packages/mp3-encoder                           |
-| @mediabunny/ac3                   | MPL-2.0 (unmodified), embeds FFmpeg AC-3/E-AC-3 under LGPL-2.1-or-later | https://github.com/Vanilagy/mediabunny/tree/main/packages/ac3                                   |
-| gifenc                            | MIT                                                                     | https://github.com/mattdesl/gifenc                                                              |
-| Lucide Icons 1.61.0               | ISC; some icons derive from Feather under MIT                           | https://lucide.dev/                                                                             |
-| @types/dom-webcodecs              | MIT (type declarations only, not shipped)                               | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs              |
-| @types/dom-mediacapture-transform | MIT (type declarations only, not shipped)                               | https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform |
-
-### Mediabunny patch
-
-`mediabunny` is MPL-2.0 and this repository modifies it with `patches/mediabunny@1.66.0.patch`,
-applied through `patchedDependencies` in `pnpm-workspace.yaml`. The patch changes
-`AudioDecoderWrapper.decode` in `dist/modules/src/media-sink.js`: when the first packet has a
-negative timestamp (the AAC priming packet that Mediabunny 1.63 and later decodes), it shifts the
-input timestamps to start at zero. Output sample timestamps do not change. WebKit's GStreamer
-AudioDecoder returns wrong output timestamps for negative input timestamps, which made the MP4
-muxer fail on AAC audio. See `docs/buglifecycle/06-upstream-mediabunny-issue.md`. The patch file
-is the source of the modified file. It is tied to one Mediabunny version, so remake it on every
-Mediabunny upgrade, or drop it if upstream or WebKit fixes the cause.
-
-### AAC fallback encoder
-
-Browsers without a native WebCodecs AAC encoder get `@mediabunny/aac-encoder`, registered with
-its documented `registerAacEncoder()` call. The app loads it with a dynamic `import()` only after
-`canEncodeAudio('aac')` returns false, so it ships as a separate same-origin chunk, registered
-once per page. The WASM is embedded in that JavaScript chunk, as the upstream package ships it.
-`THIRD-PARTY-LICENSES.txt` explains how to rebuild with your own FFmpeg build.
-
-Licence audit (version 1.66.0, 2026-11-14):
-
-- The npm package declares MPL-2.0 and its `LICENSE` is the MPL-2.0 text. Its WASM is FFmpeg
-  (libavcodec and libavutil) linked with an MPL-2.0 bridge (`src/bridge.c`).
-- The package README now records provenance: FFmpeg commit
-  `60a2818f76dcd1fee3155b1791304af104a0fc1b` (`n9.1-dev-2902-g60a2818f76d`), unmodified, built
-  with Emscripten 4.0.21, plus the SHA-256 of the inlined WASM.
-- The FFmpeg build flags in the package README, identical in the upstream repository, are
-  `--disable-everything --disable-autodetect --enable-avcodec --enable-encoder=aac`. No
-  `--enable-gpl`, `--enable-nonfree` or `--enable-libfdk-aac`. That selects only FFmpeg's native
-  AAC encoder, which is LGPL-2.1-or-later (header of `libavcodec/aacenc.c`). FFmpeg's
-  `LICENSE.md` states that GPL parts are off unless `--enable-gpl` is passed.
-- No fdk-aac and no GPL code, so the package passes the allowlist rule "LGPL-2.1+ only for
-  separately loaded, unmodified WASM chunks with source link". The chunk is the unmodified npm
-  release, bundled and re-minified by Vite.
-
-The npm metadata reports MPL-2.0, so the embedded LGPL code is not visible to `pnpm licenses`.
-`scripts/check-licenses.mjs` keeps explicit per-package exceptions (`LGPL_WASM_EXCEPTIONS`):
-LGPL is accepted for `@mediabunny/aac-encoder`, `@mediabunny/ac3` and `@mediabunny/mp3-encoder`
-only. All three are pinned to the audited version; re-run the audit before upgrading any of them.
-
-### MP3 fallback encoder
-
-MP3 always uses the bundled LAME encoder, `@mediabunny/mp3-encoder`, registered with its
-documented `registerMp3Encoder()` call, even where WebCodecs reports native MP3 support. The
-native encoder is not trusted: in Playwright WebKit it ignored the requested bitrate and cut off
-the end of the audio. The app loads the encoder with a dynamic `import()` on the first MP3 export,
-so it ships as a separate same-origin chunk that the capability probe never loads. The WASM and the encode worker
-(a `blob:` worker, allowed by the CSP) are embedded in that chunk.
-
-Licence audit (version 1.66.0, 2026-11-14):
-
-- The npm package declares MPL-2.0. Its WASM is LAME 3.100 (the package README records
-  `lame-3.100.tar.gz`, unmodified), whose source headers grant the GNU Library General Public
-  License version 2 or any later version (LGPL-2.0-or-later).
-- The build uses `--disable-decoder --disable-frontend`, so LAME's GPL mpglib decoder is absent.
-- `scripts/check-licenses.mjs` lists `@mediabunny/mp3-encoder` in `LGPL_WASM_EXCEPTIONS`, so
-  LGPL is accepted for it, `@mediabunny/aac-encoder` and `@mediabunny/ac3` only. Re-run the audit
-  before upgrading.
-- LAME asks for acknowledgement and a link to https://lame.sourceforge.io/, given here and in
-  `THIRD-PARTY-LICENSES.txt`.
-
-### AC-3 and E-AC-3 decoder
-
-Chromium's default build configuration enables its AC-3 and E-AC-3 decoders only for Cast devices
-and tvOS (`enable_platform_ac3_eac3_audio` in `media/media_options.gni`), and Chrome on Linux
-reports neither as supported. The app registers the decoder from `@mediabunny/ac3` with its
-documented `registerAc3Decoder()` call, and never registers its encoder. It loads the package with
-a dynamic `import()` only when a source or added file has AC-3 or E-AC-3 audio and the track's
-`canDecode()` returns false, so it ships as a separate same-origin chunk that other files never
-fetch. The WASM and the decode worker (a `blob:` worker, allowed by the CSP) are embedded in that
-chunk. The browser still cannot play such audio in the preview's `<video>` element, so the preview
-plays the video without sound.
-
-Licence audit (version 1.66.0, 2026-11-14):
-
-- The npm package declares MPL-2.0 and its `LICENSE` is the MPL-2.0 text. Its WASM is FFmpeg
-  (libavcodec and libavutil) linked with an MPL-2.0 bridge (`src/bridge.c`).
-- The FFmpeg build flags in the package README are `--disable-everything --disable-autodetect
---enable-avcodec --enable-decoder=ac3 --enable-decoder=eac3 --enable-encoder=ac3
---enable-encoder=eac3`. No `--enable-gpl`, `--enable-version3` or `--enable-nonfree`, so the
-  build is LGPL-2.1-or-later. The 1.66.0 package does apply an FFmpeg patch: its README builds
-  FFmpeg commit 60a2818f76dcd1fee3155b1791304af104a0fc1b with
-  `patches/ffmpeg-ac3-encoder-audio-frame-queue.patch`, a two-line `configure` fix that adds
-  `audio_frame_queue` to the AC-3 encoder dependencies. The app never registers the encoder. The
-  README records the build commit and Emscripten 4.0.21.
-- `scripts/check-licenses.mjs` lists `@mediabunny/ac3` in `LGPL_WASM_EXCEPTIONS`. Re-run the audit
-  before upgrading: the FFmpeg patch above is new in this version.
-- AC-3 and E-AC-3 are Dolby codecs. This audit covers the software licences only, not patent
-  rights in the codecs.
-- The FFmpeg log text embedded in the WASM contains `https://streams.videolan.org/upload/`;
-  `scripts/check-no-remote.mjs` allowlists it because nothing loads it.
-
-## License
+Credits: mediabunny (modified MPL-2.0); @mediabunny/aac-encoder and @mediabunny/ac3 (MPL-2.0, with LGPL-2.1-or-later FFmpeg WASM); @mediabunny/mp3-encoder (MPL-2.0, with LGPL-2.0-or-later LAME WASM); gifenc (MIT); Lucide Icons (ISC and MIT); @types/dom-webcodecs and @types/dom-mediacapture-transform (MIT, development only). See the [complete credits and licence audits](docs/third-party.md) and [full third-party notices](THIRD-PARTY-LICENSES.txt).
 
 videoadjust is licensed under [MIT](LICENSE).
-
-Full notices, including the MPL-2.0, LGPL-2.1 and LGPL-2.0 texts, are in `THIRD-PARTY-LICENSES.txt`. The build
-copies it to `dist/THIRD-PARTY-LICENSES.txt` and the About dialog links to it. `pnpm check:licenses` reads
-`pnpm licenses list --prod --json`, fails on any licence outside the allowlist (MIT, BSD-2/3-Clause,
-ISC, Apache-2.0, 0BSD, MPL-2.0, plus the per-package LGPL exception above) and fails if a production package has no entry in
-`THIRD-PARTY-LICENSES.txt`. It runs in `pnpm build` and in the Tests workflow.
