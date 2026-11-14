@@ -2,6 +2,12 @@
 
 Newest releases appear first. Version numbers match `package.json`.
 
+## [0.29.3] - 2026-11-14
+
+### Changed
+
+- The README credits link to each project's source repository.
+
 ## [0.29.2] - 2026-11-14
 
 ### Changed

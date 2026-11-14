@@ -45,6 +45,15 @@ If videoadjust is useful to you, please consider starring the repository to help
 
 ## Credits and license
 
-Credits: mediabunny (modified MPL-2.0); @mediabunny/aac-encoder and @mediabunny/ac3 (MPL-2.0, with LGPL-2.1-or-later FFmpeg WASM); @mediabunny/mp3-encoder (MPL-2.0, with LGPL-2.0-or-later LAME WASM); gifenc (MIT); Lucide Icons (ISC and MIT); @types/dom-webcodecs and @types/dom-mediacapture-transform (MIT, development only). See the [complete credits and licence audits](docs/third-party.md) and [full third-party notices](THIRD-PARTY-LICENSES.txt).
+Built with:
+
+- [mediabunny](https://github.com/Vanilagy/mediabunny) (MPL-2.0, modified)
+- [@mediabunny/aac-encoder](https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder) and [@mediabunny/ac3](https://github.com/Vanilagy/mediabunny/tree/main/packages/ac3) (MPL-2.0, with LGPL-2.1-or-later FFmpeg WASM)
+- [@mediabunny/mp3-encoder](https://github.com/Vanilagy/mediabunny/tree/main/packages/mp3-encoder) (MPL-2.0, with LGPL-2.0-or-later LAME WASM)
+- [gifenc](https://github.com/mattdesl/gifenc) (MIT)
+- [Lucide Icons](https://github.com/lucide-icons/lucide) (ISC and MIT)
+- [@types/dom-webcodecs](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs) and [@types/dom-mediacapture-transform](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform) (MIT, development only)
+
+See the [complete credits and licence audits](docs/third-party.md) and [full third-party notices](THIRD-PARTY-LICENSES.txt).
 
 videoadjust is licensed under [MIT](LICENSE).
